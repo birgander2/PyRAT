@@ -1,0 +1,14 @@
+## .gitignore
+
+ignore
+
+graffle
+
+*.hd5
+*.rat
+*.pyc
+*/*.pyc
+*/*/*.pyc
+
+## that's it for now, can include more later.
+
