@@ -12,7 +12,6 @@ class Gdal(PyRat.ImportWorker):
         ds = gdal.Open(self.filename)
         array = []
         xxx = ds.GetMetadata()
-        pdb.set_trace()
         for band in range(ds.RasterCount):
             array.append(np.array(ds.GetRasterBand(band+1).ReadAsArray()))
         ds = None

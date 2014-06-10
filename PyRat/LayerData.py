@@ -1,14 +1,11 @@
-import h5py, os, logging, pdb
+from __future__ import print_function
+import h5py, os, logging, tempfile
 import numpy as np
 import itertools
-#import line_profiler
 
-class LayerData(h5py.File):
-    def __init__(self, filename, *args):
-        read_flag = False
-        if os.path.exists(filename):
-            read_flag = True
-        super(LayerData, self).__init__(filename, 'a', *args)
+class LayerData():
+    def __init__(self, dir, *args):
+        self.tmpdir = dir
         self.laynam = 1                           # actual (unique) internal layer name
         self.layers = {}                          # internal group / layer names
         self.active = []                          # list of active layers
@@ -17,135 +14,74 @@ class LayerData(h5py.File):
         self.lshape = None                        # layer shape, e.g. (4,4) or (3,)
         self.dshape = None                        # 2D data set shape, e.g. (2000,3000)
         self.ndim   = None                        # of dimensions, 2=image, 3=vector data, 4= matrix data
-
-    def registerLayer(self, layer, name=None):
-        if name == None:
-            name = '/L'+str(self.laynam)
-            self.laynam += 1
-        self.layers[name] = layer
-        logging.info('Registering layer '+name)
-        return name
-
-    def addLayer(self, array=None, shape=None, dtype='float32', replace=False, memory=False):
+    
+    def addLayer(self, array=None, shape=None, dtype='float32', memory=False, block='D'):
         """
         Adds a new layer to the existing PyRat Data object. One can
-        add one or multiple existing ndarrays (as list), or specify the
+        add one or multiple existing ndarrays (as list), or specify the 
         shape / dtype of a (single) new layer to be later filled with data.
-
+        
         :author: Andreas Reigber
         :returns: list of layer names as strings
         """
         if isinstance(array,np.ndarray) or array == None:
-            array = (array,)
-
-        if replace == True:
-            layers = self.active
-            if not isinstance(layers,tuple):
-                layers = (layers,)
-            for arr, layer in zip(array, layers):
-                if arr != None:
-                    shape = arr.shape
-                    dtype = arr.dtype
-                lshape, dshape = deshape(shape)
-                nchannels = np.prod(lshape)
-                if arr != None:
-                    arr = arr.reshape((nchannels,)+dshape)
-                ds = layer
-                logging.debug('Updating content of layer '+ds)
-                if arr != None:
-                    self.setData(arr, layer=str(ds))
-            return self.active
-
+            array = [array]
+        if isinstance(array,tuple):
+            array = list(array)
+       
         addedgroups = []
         for arr in array:                                               # Loop over all arrays in list
-            if arr != None:
-                shape = arr.shape
+            if arr != None: 
+                shape = np.squeeze(arr).shape 
                 dtype = arr.dtype
             group = '/L'+str(self.laynam)
             if memory == False:
-                logging.info('Creating disc layer '+group+' = '+str(dtype)+' '+str(shape))
-                grp   = self.create_group(group)
-                self.layers[group] = DiscLayer(grp, shape, dtype)
+                logging.debug('Creating disc layer '+group+' = '+str(dtype)+' '+str(shape))
+                filename = tempfile.mktemp(suffix = '.hd5', prefix='pyrat_', dir = self.tmpdir)
+                self.layers[group] = DiscLayer(filename, group, shape, dtype, block=block)
             else:
-                logging.info('Creating memory layer '+group+' = '+str(dtype)+' '+str(shape))
-                self.layers[group] = MemoryLayer(group, shape, dtype)
+                logging.debug('Creating memory layer '+group+' = '+str(dtype)+' '+str(shape))
+                self.layers[group] = MemoryLayer(group, shape, dtype, block=block)
             if arr != None:
                 lshape, dshape = deshape(shape)
                 nchannels = np.prod(lshape)
                 arr = arr.reshape((nchannels,)+dshape)
                 self.layers[group].setData(arr)                               # write data
-            addedgroups.append(group)
+            addedgroups.append(group)            
             self.laynam += 1
-        addedgroups = tuple(addedgroups)
-        if len(addedgroups) == 1:
+        
+        if len(addedgroups) == 1: 
             return addedgroups[0]
         else:
             return addedgroups
 
-    def setData(self, array, layer=None, block=None):
-        """
-        Fills a data layer with data. Gets called by addLayer method.
-        """
-        if layer == None:
-            layer = self.active
-        if block == None:
-            block = [0,0,0,0]
-        if isinstance(layer,str):
-            layers = (layer,)
-            blocks = (block,)
-            array  = (array,)
-        else:
-            layers = layer
-            if isinstance(block,list):
-                blocks = tuple([block]*len(layer))
-            else:
-                blocks = block
-
-        for arr, layer, bl in zip(array, layers, blocks):
-            group = '/'+layer.split('/')[1]
-            if group not in self.layers:
-                logging.error('Layer '+group+' not existing')
-                pdb.set_trace()
-            dshape = tuple(self.layers[group].attrs["_dshape"])
-
-            block = list(bl)
-            self.layers[group].setData(arr, block=block, layer=layer)
-
     def activateLayer(self, layers):
         """
-        Activates a given layer or a list of layers or datasets.
+        Activates a given layer or a list of layers or datasets. 
         """
-
-        if isinstance(layers,tuple):
-            if not all(['/'+layer.split('/')[1] in self.layers for layer in layers]):
-                logging.error("At least one layer is not existing!")
-                pdb.set_trace()
-            #if len(layers) == 1:
-                #layers = layers[0]
-        else:
-            if not '/'+layers.split('/')[1] in self.layers:
-                logging.error("Layer is not existing!")
-                pdb.set_trace()
-
-        self.active = layers
-        logging.info('Activating '+str(layers))
-
-        if not isinstance(layers,tuple):
-            layers = (layers,)
+        valid = self.existLayer(layers)
+        if not isinstance(layers,list):
+            layers = [layers,]
+            valid  = [valid,]
+        self.active = [layer for (layer, val) in zip(layers, valid) if val]
+                            
+        logging.info('Activating '+str(self.active))
 
         dtype  = []
         ndim   = []
         dshape = []
         lshape = []
         shape  = []
+        offset = []
         for layer in layers:
             group = '/'+layer.split('/')[1]
             s_dtype  = self.layers[group].attrs["_dtype"]
             s_lshape = self.layers[group].attrs["_lshape"]
             s_dshape = self.layers[group].attrs["_dshape"]
             s_shape  = self.layers[group].attrs["_shape"]
+            s_offset = self.layers[group].attrs["_offset"]
             if 'D' in layer:
-                s_lshape = (1,0)
+                s_lshape = (1,0)   
                 s_shape  = s_dshape
             s_ndim = 3
             if s_lshape[0] == 1:
@@ -157,235 +93,495 @@ class LayerData(h5py.File):
             dshape.append(s_dshape)
             lshape.append(s_lshape)
             shape.append(s_shape)
-
+            offset.append(s_offset)
+        
         if len(layers) == 1:
             self.dtype  = dtype[0]
             self.dshape = dshape[0]
             self.lshape = lshape[0]
             self.shape  = shape[0]
             self.ndim   = ndim[0]
+            self.offset = offset[0]
         else:
-            self.dtype  = tuple(dtype)
-            self.dshape = tuple(dshape)
-            self.lshape = tuple(lshape)
-            self.shape  = tuple(shape)
-            self.ndim   = tuple(ndim)
-
-
-    def getData(self, block=None, layer=None):
+            self.dtype  = dtype
+            self.dshape = dshape
+            self.lshape = lshape
+            self.shape  = shape
+            self.ndim   = ndim
+            self.offset = offset
+               
+    def setData(self, array, layer=None, block=(0,0,0,0)):
+        """
+        Fills a data layer with data. Gets called by addLayer method.
+        """
         if layer == None:
             layer = self.active
-        if block == None:
-            block = [0,0,0,0]
         if isinstance(layer,str):
-            layers = (layer,)
-            blocks = (block,)
+            layers = [layer,]
+            blocks = [block,]
+            array  = [array,]
         else:
             layers = layer
-            if isinstance(block,list):
-                blocks = tuple([block]*len(layer))
+            if isinstance(block,tuple):
+                blocks = [block]*len(layer)
             else:
                 blocks = block
-
+            if isinstance(array,np.ndarray):
+                array = [array,]
+                
+        for arr, layer, bl in zip(array, layers, blocks):   
+            valid = self.existLayer(layer)
+            if valid == True:
+                group = '/'+layer.split('/')[1]
+                dshape = tuple(self.layers[group].attrs["_dshape"])
+                dtype  = self.layers[group].attrs['_dtype']
+                if dtype != arr.dtype:
+                    logging.error('dtype not compatible for layer '+layer)
+                    return
+                if block[1] == 0: block = (block[0],self.layers[group].attrs['_dshape'][0],block[2],block[3])
+                if block[3] == 0: block = (block[0],block[1],block[2],self.layers[group].attrs['_dshape'][1])
+                bshape = (block[1]-block[0], block[3]-block[2], )
+                if bshape != arr.shape[-2:]:
+                    logging.error('array dimensions not compatible for layer '+layer)
+                    return    
+                self.layers[group].setData(arr, block=block, layer=layer)
+            
+    def getData(self, block=(0,0,0,0), layer=None):
+        if layer == None:
+            layer = self.active
+        if isinstance(layer,str):
+            layers = [layer]
+            blocks = [block]
+        else:
+            layers = layer
+            if isinstance(block,tuple):
+                blocks = [block]*len(layer)
+            else:
+                blocks = block
         array = []
         for layer, bl in zip(layers, blocks):
-            logging.debug('Reading layer '+layer)
-            group = '/'+layer.split('/')[1]
-            dshape = tuple(self.layers[group].attrs["_dshape"])
-            block = list(bl)
-            array.append(self.layers[group].getData(block, layer=layer))
-
-        if len(array) == 1:
+            valid = self.existLayer(layer)
+            if valid == True:
+                logging.debug('Reading layer '+layer)
+                group = '/'+layer.split('/')[1]
+                dshape = tuple(self.layers[group].attrs["_dshape"])
+                block = list(bl)
+                array.append(self.layers[group].getData(block, layer=layer))
+            else:
+                array.append(np.zeros((0,0)))
+        if len(array) == 1: 
             return array[0]
         else:
-            return tuple(array)
-
-    def delLayer(self, layers):
-        """
-        Deletes an entire layer from the object. Note that the memory (i.e. disc space) is not freed
-        automatically. A call to PyRat.cleanup() is necessary to do so, but this requires copying around
-        all the data of the object.
-        """
-        if not isinstance(layers,tuple):
-            layers = (layers,)
-        for layer in layers:
-            if layer in self.layers:
-                logging.info('Deletinging layer '+layer)
-                del self.layers[layer]
-            else:
-                logging.error('Layer '+str(layer)+' not existing')
-                pdb.set_trace()
-
-    def setAnnotation(self, annotation, layers=False):
+            return array
+    
+    def setAnnotation(self, annotation, layer=None):
         """
         Sets annotations (dict) to a layer or dataset.
         """
-        if layers == False:
-            layers = self.active
-        if not isinstance(layers,tuple):
-            layers = (layers,)
-        if not isinstance(annotation, tuple):
-            annotation = tuple([annotation]*len(layers))
+        if layer == None: 
+            layer = self.active
+        if not isinstance(layer,list):
+            layers = [layer]
+        else:
+            layers = layer
+        if not isinstance(annotation, list):
+            annotation = [annotation]*len(layers)
         for layer, anno in zip(layers, annotation):
-            if layer in self.layers:
-                self.layers[layer].setMeta(anno)
-            else:
-                logging.error('Layer '+str(layer)+' not existing')
-                pdb.set_trace()
-
-    def getAnnotation(self, layers=False, key=False):
+            valid = self.existLayer(layer)
+            if valid == True:
+                group = '/'+layer.split('/')[1]
+                self.layers[group].setMeta(anno, layer=layer)
+            
+    def getAnnotation(self, layer=None, key=False):
         """
-        Returns all annotations of a layer or data set.
+        Returns all annotations of a layer or data set. 
         """
-        if layers == False:
-            layers = self.active
-        if not isinstance(layers,tuple):
-            layers = (layers,)
+        if layer == None: 
+            layer = self.active
+        layers = [layer] if not isinstance(layer,list) else layer
         annotation = []
         for layer in layers:
-            if layer in self.layers:
-                anno = self.layers[layer].getMeta()
-                #pdb.set_trace()
+            valid = self.existLayer(layer)
+            if valid == True:
+                group = '/'+layer.split('/')[1]
+                anno  = self.layers[group].getMeta(layer=layer)
                 if key != False:
                     anno = anno[key]
                 annotation.append(anno)
-            else:
-                logging.error('Layer '+str(layer)+' not existing')
-                pdb.set_trace()
-                annotation.append({})
-        if len(annotation) == 1:
+            #else:
+                #annotation.append({})
+        if len(annotation) == 1: 
             return annotation[0]
         else:
-            return tuple(annotation)
+            return annotation
+    
+    def calcBlock(self,block, layer=None):
+        if layer == None:
+            layer = self.active
+        if isinstance(layer,list):
+            layer = layer[0]
+        group = '/'+layer.split('/')[1] 
+        offset = self.layers[group].attrs['_offset']
+        dshape = self.layers[group].attrs['_dshape']
+        block  = list(block)
+        block[0] += offset[0]
+        block[2] += offset[1]
+        if block[1] == 0: 
+            block[1] =  dshape[0]+offset[0]
+        else:
+            block[1] += offset[0]
+        if block[3] == 0: 
+            block[3] =  dshape[1]+offset[1]
+        else:
+            block[3] += offset[1]
+        return tuple(block)
+        
+    def resetCrop(self, layer=None):
+        self.setCrop(reset=True, layers=layer)
+    
+    def setCrop(self, block=(0,0,0,0), reset=False, layer=None):
+        if layer == None:
+            layer = self.active
+        if isinstance(layer,str):
+            layers = [layer,]
+            blocks = [block,]
+        else:
+            layers = layer
+            if isinstance(block,tuple):
+                blocks = [block]*len(layer)
+            else:
+                blocks = block
+                
+        for layer, bl in zip(layers, blocks):
+            valid = self.existLayer(layer)
+            if valid == True:
+                logging.info('Set crop to layer '+layer)
+                group = '/'+layer.split('/')[1]
+                dshape = self.layers[group].attrs["_shape"][-2:]
+                if block[0] < 0: block = (0,block[1],block[2],block[3])
+                if block[1] > dshape[0]: block = (block[0],0,block[2],block[3])
+                if block[2] < 0: block = (block[0],block[1],0,block[3])
+                if block[3] > dshape[1]: block = (block[0],block[1],block[2],0)
+                self.layers[group].setCrop(block,reset=reset)
+        dshape = []
+        for layer in self.active:                                # BUGGY LINES BELOW
+            dshape.append(self.layers[group].attrs["_dshape"])
+            self.dshape = dshape[0]
+        if len(layers) == 1:
+            self.dshape = tuple(dshape)
+        else:
+            self.dshape = tuple(dshape)
+    
+    def getLayerNames(self):
+        return self.layers.keys()
+    
+    def getDataLayerNames(self, layer=None):
+        if layer == None:
+            layer = self.active
+        layers = layer if isinstance(layer, list) else [layer]
+        
+        names = []
+        for layer in layers:
+            valid = self.existLayer(layer)
+            if valid == True:
+                group = '/'+layer.split('/')[1]
+                nchannel = np.prod(self.layers[group].attrs['_lshape'])
+                names.append([group+'/D'+str(channel) for channel in range(nchannel)])
+        if len(names) == 1:
+            names = names[0]
+        return names
+    
+    def existLayer(self, layer):
+        """
+        Checks if layers are existing in data object. Returns boolean result.
+        """
+        layers = [layer] if not isinstance(layer,list) else layer
+            
+        valid = []
+        for layer in layers:
+            val = True
+            try:
+                foo = layer.split('/')
+                group = '/'+foo[1]
+                if group not in self.layers:
+                    val = False
+                else:
+                    if 'D' in layer:
+                        channel = int(foo[2][1:])
+                        nchannel = np.prod(self.layers[group].attrs['_lshape'])
+                        if channel < 0 or channel >= nchannel:
+                            val = False
+            except:
+                val = False
+            if val == False:
+                logging.warning("Layer "+layer+" not existing!")
+            valid.append(val)
+        if len(valid) == 1: 
+            return valid[0]
+        else:
+            return valid
 
-    def setBlock(self, block=[0,0,0,0]):
-        if isinstance(self.dshape, tuple):
-            logging.error('Multiple layers selected!')
-            self.block = block
-
-        if block[0] < 0: block[0] = 0
-        if block[0] >= self.dshape[0]: block[0] = self.dshape[0]-1
-        if block[1] < 0: block[1] = 0
-        if block[1] > self.dshape[0]: block[1] = self.dshape[0]
-        if block[2] < 0: block[2] = 0
-        if block[2] >= self.dshape[1]: block[2] = self.dshape[1]-1
-        if block[3] < 0: block[3] = 0
-        if block[3] > self.dshape[1]: block[3] = self.dshape[1]
-        logging.info('Data block selected: y='+str(block[0])+'->'+str(block[1])+', x='+str(block[2])+'->'+str(block[3]))
-        self.block = block
-
-
-    def setTrack(self, track, layer=False):
-        #logging.debug('setTrack not implemented')
-        pass
-
-    def getTrack(self, layer=False):
-        return None
-        #logging.debug('getTrack not implemented')
-
-    def info(self):
-        def printname(name):
-            print name
-        self.visit(printname)
-        print self.layers
-
+    def list(self):
+        for group in ['/L'+str(l) for l in sorted([int(k[2:]) for k in self.layers.keys()])]:
+            active = ' *' if group in self.active else ''
+            print((self.layers[group].name+active).ljust(9), self.layers[group].attrs['_type'].ljust(15), self.layers[group].attrs['_block'], self.layers[group].attrs['_dtype'].ljust(10), self.layers[group].attrs['_shape'])
+    
+    info = list
+   
+    def delLayer(self, layer):
+        """
+        Deletes an entire layer from the object. Note that the memory (i.e. disc space) is not freed
+        automatically for disc layers. A call to PyRat.Data.repack() is necessary, but it requires 
+        copying around the data of all disc layers...
+        """
+        layers = layer if isinstance(layer, list) else [layer]
+        for layer in layers:
+            valid = self.existLayer(layer)
+            if valid == True:
+                if 'D' in layer:
+                    logging.info('Cannot delete parts of layers')
+                else:
+                    logging.info('Deletinging layer '+layer)
+                    if self.layers[layer].attrs['_type'] == 'Disc':
+                        self.layers[layer].group.close()
+                        del self.layers[layer].group
+                        os.remove(self.layers[layer].fn)
+                    del self.layers[layer]
+    
+    #def repack(self):
+        #logging.info('Repacking data container - this might take a while!')
+        #self.close()
+        #os.system("h5repack "+self.fn+" "+self.fn+".temp")
+        #os.system("mv "+self.fn+".temp "+self.fn)
+        #super(LayerData, self).__init__(self.fn, 'a')
+        #for group in self:
+            #self.layers['/'+group].group = self[group]
+        
+    def __show(self):
+        import STEtools as STE
+        import PyRat
+        arr = PyRat.Data.getData()
+        if isinstance(arr, list): arr = arr[0]
+        if arr.ndim == 3: arr = arr[0,...]
+        if arr.ndim == 4: arr = arr[0,0,...]
+        STE.tva(arr)
+    
 class DiscLayer():
-    def __init__(self, hdfgroup, shape, dtype, *args, **kwargs):
-        self.group = hdfgroup
-        self.name  = hdfgroup.name
+    def __init__(self, filename, group, shape, dtype, block='D', *args, **kwargs):        
+        self.fn = filename
+        self.name = group
+        self.group = h5py.File(self.fn, 'a')
         self.attrs = {}
-        self.attrs['_type']   = 'HDF5'
+        self.attrs['_type']   = 'Disc'
         lshape, dshape = deshape(shape)
         self.attrs['_shape']  = shape
         self.attrs['_lshape'] = lshape
         self.attrs['_dshape'] = dshape
+        self.attrs['_offset'] = (0,0)
         self.attrs['_dtype']  = str(dtype)
+        self.attrs['_block']  = block
         self.group.create_group("P")                                          # Preview subgroup * not yet there
         self.group.create_dataset("D", (np.prod(lshape),)+dshape, dtype=dtype)      # create 2D Data layer
-        self.group.create_dataset("T",(dshape[0], 4 ), dtype='float64')       # track data
-
-    def setMeta(self, meta):
+    
+    def setCrop(self, block, reset=False):
+        block = list(block)
+        if block[1] == 0: block[1] =  self.attrs['_shape'][-2]
+        if block[3] == 0: block[3] =  self.attrs['_shape'][-1]
+        if reset == True:
+            self.attrs['_offset'] = (0,0)
+            self.attrs['_dshape'] = self.attrs['_shape'][-2:]
+        else:
+            self.attrs['_offset'] = (block[0],block[2])
+            self.attrs['_dshape'] = (block[1]-block[0],block[3]-block[2])
+        self.setMeta({'offset':self.attrs['_offset']})
+            
+    def setMeta(self, meta, layer=None):
+        if meta != None:
+            for k,v in meta.items():
+                if layer != None and 'D' in layer and 'CH_' in k:
+                    channel = int(layer.split('/')[2][1:])
+                    if k not in self.group.attrs:
+                        self.group.attrs[k] = [0]*np.prod(self.attrs['_lshape'])
+                    ch_meta = list(self.group.attrs[k])
+                    ch_meta[channel] = v
+                    self.group.attrs[k] = ch_meta
+                else:
+                    self.group.attrs[k] = v
+    
+    def getMeta(self, key=False, layer=None):
+        meta = dict(self.group.attrs)                
         for k,v in meta.items():
-            self.group.attrs[k] = v
-
-    def getMeta(self, key=False):
-        meta = dict(self.group.attrs)
-        for k,v in meta.items():
-            if isinstance(v,np.ndarray) and v.dtype == '|S2': meta[k] = list(v)
+            if isinstance(v,np.ndarray) and (v.dtype == '|S2' or v.dtype == '|S1'): meta[k] = list(v)
+        if layer != None and 'D' in layer:
+            channel = int(layer.split('/')[2][1:])
+            ch_meta = [k for k in meta.keys() if 'CH_' in k]
+            for key in ch_meta:
+                meta[key] = meta[key][channel]
         for k in meta.keys():
             if k[0] == '_':
                 del meta[k]
         return meta
+    
+    def setData(self, array, block=(0,0,0,0), layer=None):
+        offset = self.attrs['_offset']
+        block  = list(block)
+        block[0] += offset[0]
+        block[2] += offset[1]
+        if block[1] == 0: 
+            block[1] =  self.attrs['_dshape'][0]+offset[0]
+        else:
+            block[1] += offset[0]
+        if block[3] == 0: 
+            block[3] =  self.attrs['_dshape'][1]+offset[1]
+        else:
+            block[3] += offset[1]
 
-    def setData(self, array, block=[0,0,0,0], layer=None):
-        if block[1] == 0: block[1] =  self.attrs['_dshape'][0]
-        if block[3] == 0: block[3] =  self.attrs['_dshape'][1]
-        if layer == None or layer == self.name:
+        if layer == None or layer == self.name: 
             nchannels = np.prod(self.attrs["_lshape"])
-            self.group[self.name+"/D"][...,block[0]:block[1],block[2]:block[3]] = array.reshape((nchannels,)+array.shape[-2:])
+            if self.attrs['_block'] == 'D':
+                self.group["/D"][...,block[0]:block[1],block[2]:block[3]] = array.reshape((nchannels,)+array.shape[-2:])
+            elif self.attrs['_block'] == 'T':
+                self.group["/D"][...,block[0]:block[1],:] = array.reshape((nchannels,)+array.shape[-2:])
+            elif self.attrs['_block'] == 'O':
+                self.group["/D"][...] = array.reshape((nchannels,)+array.shape[-2:])
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
-            self.group[self.name+"/D"][channel,block[0]:block[1],block[2]:block[3]]
+            if self.attrs['_block'] == 'D':
+                self.group["/D"][channel,block[0]:block[1],block[2]:block[3]] = array
+            elif self.attrs['_block'] == 'T':
+                self.group["/D"][channel,block[0]:block[1],:] = array
+            elif self.attrs['_block'] == 'O':
+                self.group["/D"][channel,...] = array
         else:
             logging.error('Layer name unknown')
-            pdb.set_trace()
-
-    def getData(self, block=[0,0,0,0], layer=None):
-        if block[1] == 0: block[1] =  self.attrs['_dshape'][0]
-        if block[3] == 0: block[3] =  self.attrs['_dshape'][1]
-        if layer == None or layer == self.name:
-            bshape = (block[1]-block[0],block[3]-block[2])
+            stop()
+    
+    def getData(self, block=(0,0,0,0), layer=None):
+        offset = self.attrs['_offset']
+        block  = list(block)
+        block[0] += offset[0]
+        block[2] += offset[1]
+        if block[1] == 0: 
+            block[1] =  self.attrs['_dshape'][0]+offset[0]
+        else:
+            block[1] += offset[0]
+        if block[3] == 0: 
+            block[3] =  self.attrs['_dshape'][1]+offset[1]
+        else:
+            block[3] += offset[1]
+        
+        if layer == None or layer == self.name: 
             lshape = tuple(self.attrs["_lshape"])
-            return np.squeeze(np.reshape(self.group[self.name+"/D"][...,block[0]:block[1],block[2]:block[3]],lshape+bshape))
+            dshape = tuple(self.attrs["_dshape"])
+            if self.attrs['_block'] == 'D':
+                bshape = (block[1]-block[0],block[3]-block[2])
+                #print(block,lshape+bshape)
+                return np.squeeze(np.reshape(self.group["/D"][...,block[0]:block[1],block[2]:block[3]],lshape+bshape))
+            elif self.attrs['_block'] == 'T':
+                bshape = (block[1]-block[0],dshape[-1])
+                return np.squeeze(np.reshape(self.group["/D"][...,block[0]:block[1],:],lshape+bshape))
+            elif self.attrs['_block'] == 'O':
+                bshape = tuple(self.attrs["_dshape"])
+                return np.squeeze(np.reshape(self.group["/D"][...],lshape+bshape))
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
-            return np.squeeze(self.group[self.name+"/D"][channel,block[0]:block[1],block[2]:block[3]])
+            if self.attrs['_block'] == 'D':
+                return np.squeeze(self.group["/D"][channel,block[0]:block[1],block[2]:block[3]])
+            elif self.attrs['_block'] == 'T':
+                return np.squeeze(self.group["/D"][channel,block[0]:block[1],:])
+            elif self.attrs['_block'] == 'O':
+                return np.squeeze(self.group["/D"][channel,...])
         else:
             logging.error('Layer name unknown')
-            pdb.set_trace()
+            stop()
 
 class MemoryLayer():
-
     def __init__(self, name, shape, dtype, *args, **kwargs):
         self.name  = name
         self.attrs = {}
-        self.attrs['_type']   = 'Numpy'
+        self.attrs['_type']   = 'Memory'
         lshape, dshape = deshape(shape)
         self.attrs['_shape']  = shape
         self.attrs['_lshape'] = lshape
         self.attrs['_dshape'] = dshape
+        self.attrs['_offset'] = (0,0)
         self.attrs['_dtype']  = str(dtype)
+        self.attrs['_block']  = kwargs['block']
         nchannels = np.prod(lshape)
         self.data = np.empty((nchannels,)+dshape, dtype=dtype)
-
-    def setMeta(self, meta):
-        for k,v in meta.items():
-            self.attrs[k] = v
-
-    def getMeta(self, key=False):
+       
+    def setCrop(self, block, reset=False):
+        if block[1] == 0: block[1] =  self.attrs['_shape'][-2]
+        if block[3] == 0: block[3] =  self.attrs['_shape'][-1]
+        if reset == True:
+            self.attrs['_offset'] = (0,0)
+            self.attrs['_dshape'] = self.attrs['_shape'][-2:]
+        else:
+            self.attrs['_offset'] = (block[0],block[2])
+            self.attrs['_dshape'] = (block[1]-block[0],block[3]-block[2])
+    
+    def setMeta(self, meta, layer=None):
+        for k,v in meta.items():             
+            if layer != None and 'D' in layer and 'CH_' in k:
+                channel = int(layer.split('/')[2][1:])
+                if k not in self.attrs:
+                    self.attrs[k] = [0]*np.prod(self.attrs['_lshape'])
+                self.attrs[k][channel] = v
+            else:
+                self.attrs[k] = v
+    
+    def getMeta(self, key=False, layer=None):
         meta = self.attrs.copy()
+        if 'D' in layer:
+            channel = int(layer.split('/')[2][1:])
+            ch_meta = [k for k in meta.keys() if 'CH_' in k]
+            for key in ch_meta:
+                meta[key] = meta[key][channel]
         for k in meta.keys():
             if k[0] == '_':
                 del meta[k]
         return meta
+    
+    def setData(self, array, block=(0,0,0,0), layer=None):
+        if self.attrs['_block'] == False: block = (0,0,0,0)
+        offset = self.attrs['_offset']
+        block  = list(block)
+        block[0] += offset[0]
+        block[2] += offset[1]
+        if block[1] == 0: 
+            block[1] =  self.attrs['_dshape'][0]+offset[0]
+        else:
+            block[1] += offset[0]
+        if block[3] == 0: 
+            block[3] =  self.attrs['_dshape'][1]+offset[1]
+        else:
+            block[3] += offset[1]
 
-    def setData(self, array, block=[0,0,0,0], layer=None):
-        if block[1] == 0: block[1] =  self.attrs['_dshape'][0]
-        if block[3] == 0: block[3] =  self.attrs['_dshape'][1]
-        if layer == None or layer == self.name:
+        if layer == None or layer == self.name: 
             nchannels = np.prod(self.attrs["_lshape"])
             self.data[...,block[0]:block[1],block[2]:block[3]] = array.reshape((nchannels,)+array.shape[-2:])
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
             self.data[channel,block[0]:block[1],block[2]:block[3]]
         else:
-            logging.error('Layer name unknown')
-            pdb.set_trace()
-
-    def getData(self, block=[0,0,0,0], layer=None):
-        if block[1] == 0: block[1] =  self.attrs['_dshape'][0]
-        if block[3] == 0: block[3] =  self.attrs['_dshape'][1]
-        if layer == None or layer == self.name:
+            logging.error('Layer name unknown') 
+    
+    def getData(self, block=(0,0,0,0), layer=None):
+        if self.attrs['_block'] == False: block = (0,0,0,0)
+        offset = self.attrs['_offset']
+        block  = list(block)
+        block[0] += offset[0]
+        block[2] += offset[1]
+        if block[1] == 0: 
+            block[1] =  self.attrs['_dshape'][0]+offset[0]
+        else:
+            block[1] += offset[0]
+        if block[3] == 0: 
+            block[3] =  self.attrs['_dshape'][1]+offset[1]
+        else:
+            block[3] += offset[1]
+        
+        if layer == None or layer == self.name: 
             bshape = (block[1]-block[0],block[3]-block[2])
             lshape = tuple(self.attrs["_lshape"])
             return np.squeeze(np.reshape(self.data[...,block[0]:block[1],block[2]:block[3]],lshape+bshape))
@@ -393,8 +589,7 @@ class MemoryLayer():
             channel = int(layer.split('/')[2][1:])
             return np.squeeze(self.data[channel,block[0]:block[1],block[2]:block[3]])
         else:
-            logging.error('Layer name unknown')
-            pdb.set_trace()
+            logging.error('Layer name unknown') 
 
 def deshape(shape):
     """
@@ -417,4 +612,4 @@ def deshape(shape):
         dshape = False
     return lshape, dshape
 
-
+        

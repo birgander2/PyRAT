@@ -13,11 +13,13 @@ class Lex2Pauli(PyRat.FilterWorker):
         self.allowed_ndim  = [3]
         self.require_para  = ['CH_pol']  
         self.blockprocess  = True
+        #self.nthreads      = 1
         
     def filter(self, array, *args, **kwargs):
         meta  = kwargs['meta']
         pol   = meta['CH_pol']
         oarray = np.empty_like(array)
+        self.x = 1.7
         if array.shape[0] == 3:
             idx_hh = pol.index('HH')
             idx_vv = pol.index('VV')
@@ -38,5 +40,4 @@ class Lex2Pauli(PyRat.FilterWorker):
             oarray[3,...] = array[idx_vh,...] - array[idx_hv,...]
             oarray /= np.sqrt(2)
             meta['CH_pol'] = ['P1','P2','P3','P4']
-            
         return oarray

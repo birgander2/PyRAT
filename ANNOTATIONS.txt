@@ -1,0 +1,9 @@
+Key             Type            Description, Examples
+
+sensor          string          name of the sensor
+prf             float           pulse repetition frequency [Hz]
+rs              float           range sampling [Hz]
+rd              float           range delay [s]
+c0              float           speed of light [m/s]
+
+CH_pol          string          HH, VV, VH, HV, XX (symmetrised cross)

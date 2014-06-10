@@ -1,13 +1,6 @@
-# Import __init__
+# Transform __init__
 
-
-from Rat import *
-from ESAR_dcslc import *
-from ESAR_track import *
-from FSAR_slc import *
-from Radarsat2 import *
-from RolfFormat import *
-from Gdal import *
+from Rotate import *
 
 def list():
     import sys

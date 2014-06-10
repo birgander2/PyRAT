@@ -1,5 +1,7 @@
 import PyRat
-import logging, pdb
+import logging
+import numpy as np
+import pdb
 from yapsy.IPlugin import IPlugin
 from PyQt4 import QtGui, QtCore
 
@@ -8,15 +10,22 @@ class ImportWorker(IPlugin):
         for (k, v) in kwargs.items():           # copy keywords to self
             setattr(self, k, v)
         self.name = 'UNKNOWN'
+        self.block = 'D'
         
     def run(self, *args, **kwargs):
-        logging.info(self.name + '  '+str(dict((k, v) for k,v in self.__dict__.items() if k not in ['name','blockprocessing'])))
-        track = None
-        annotation = {}
-        newlayer = PyRat.Data.addLayer(self.reader(track=track, attrs=annotation, *args, **kwargs))
-        PyRat.Data.setAnnotation(annotation, layers=newlayer)
-        PyRat.Data.activateLayer(newlayer)
-        return newlayer
+        logging.info(self.name + '  '+str(dict((k, v) for k,v in self.__dict__.items() if k not in ['name','block'])))
+        data, meta = self.reader(*args, **kwargs)
+        
+        if data == None and meta == None:
+            logging.warning("Nothing imported!!!!!!!!!!")
+            return None
+        else:
+            if data == None: logging.warning("No image data imported")
+            if meta == None: logging.warning("No meta data imported")
+            newlayer = PyRat.Data.addLayer(data, block=self.block, *args, **kwargs)
+            PyRat.Data.setAnnotation(meta, layer=newlayer)
+            PyRat.Data.activateLayer(newlayer)
+            return newlayer
         
     def reader(self, filename, *args, **kwargs):
         return False

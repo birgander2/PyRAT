@@ -1,13 +1,7 @@
-# Import __init__
+# InSAR __init__
 
-
-from Rat import *
-from ESAR_dcslc import *
-from ESAR_track import *
-from FSAR_slc import *
-from Radarsat2 import *
-from RolfFormat import *
-from Gdal import *
+from Phase import *
+from Coherence import *
 
 def list():
     import sys

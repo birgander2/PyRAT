@@ -3,6 +3,7 @@ import PyRat
 import numpy as np
 from osgeo import gdal
 from osgeo.gdalconst import *
+from osgeo import gdal_array
 import pdb
 
 class TSX(PyRat.LayerWorker):
@@ -11,6 +12,7 @@ class TSX(PyRat.LayerWorker):
         if self.ds is None:
             logging.error('Could not open file : '+filename)
             return
+        logging.info("TSX/TDX Layer: "+filename)
         super(TSX, self).__init__(*args, **kwargs)    
         nx = self.ds.RasterXSize
         ny = self.ds.RasterYSize
@@ -21,8 +23,8 @@ class TSX(PyRat.LayerWorker):
         self.attrs['_shape']  = (nb, ny, nx)
         self.attrs['_lshape'] = (nb,)
         self.attrs['_dshape'] = (ny, nx)
-        self.attrs['_dtype']  = None
-                
+        self.attrs['_dtype']  = str(np.dtype(gdal_array.GDALTypeCodeToNumericTypeCode(self.ds.GetRasterBand(1).DataType)))
+       
     def getMeta(self, key=False):
         meta = self.ds.GetMetadata()
         return meta

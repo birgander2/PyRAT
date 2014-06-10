@@ -9,34 +9,42 @@ import Layer
 import Filter
 import Import
 import Export
+import Transform
 import Viewer
-import os, logging
+import InSAR
+
+import os, logging, atexit, tempfile, sys, signal
 import multiprocessing
-import sys
+global Data, MP_Pool
 
-#logging.basicConfig(format='  %(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
-logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.INFO)
-
-def init(filename = 'PyRat.hd5'):
+def init(tmpdir = False, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
     global Data, MP_Pool
-    os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    if os.path.exists(filename):
-        os.remove(filename)
-    Data = LayerData(filename)
-    MP_Pool = multiprocessing.Pool(processes=8)
+    if debug == True:
+        logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)       
+    else:
+        logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.INFO)
+    logging.info('Welcome to PyRAT V0.1')
+    if tmpdir == False:
+        configfile = os.path.expanduser('~')+'/.pyratrc'
+        if os.path.isfile(configfile):
+            lun = open(configfile,'rb')
+            tmpdir = lun.read().rstrip()
+            lun.close
+        else:
+            tmpdir = "/tmp"
+    Data = LayerData(tmpdir)
+    MP_Pool = multiprocessing.Pool(nthreads)
+    logging.info("Pool with "+str(nthreads)+" workers initialised")
+    logging.info("Temporary directory: "+tmpdir)
 
-
-def exit(filename = 'PyRat.hd5'):
-    global MP_Pool
-    if os.path.exists(filename):
-        os.remove(filename)
+@atexit.register
+def __exit(*args):
+    global Data, MP_Pool
     MP_Pool.close()
-
-def cleanup():
-    global Data
-    Data.close()
-    del Data
-    os.system("h5repack PyRAT.hd5 PyRAT.hd5.temp")
-    os.system("mv PyRAT.hd5.temp PyRAT.hd5")
-    Data = LayerData('PyRAT.hd5')
+    for layer in Data.layers.values():
+        if layer.attrs['_type'] == 'Disc':
+            if os.path.exists(layer.fn):
+                layer.group.close()
+                os.remove(layer.fn)
+            logging.info('Deleting temporary file: '+layer.fn)
 

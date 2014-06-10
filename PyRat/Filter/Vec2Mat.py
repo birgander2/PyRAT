@@ -19,7 +19,7 @@ class Vec2Mat(PyRat.FilterWorker):
         out = array[np.newaxis,:,:,:] * array[:,np.newaxis,:,:].conjugate()
         
         attrs = kwargs['meta']
-        attrs['CH_pol'] = [p1+p2+'*' for p1 in attrs['CH_pol'] for p2 in attrs['CH_pol']]
-        
+        if 'CH_pol' in attrs:
+            attrs['CH_pol'] = [p1+p2+'*' for p1 in attrs['CH_pol'] for p2 in attrs['CH_pol']]
         return out
 

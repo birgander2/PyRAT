@@ -25,5 +25,4 @@ class Entalpani(PyRat.FilterWorker):
         sew = array[0][1,...]+array[0][2,...]
         anisotropy = (array[0][1,...]-array[0][2,...])/(sew+(sew==0))
         np.seterr(divide='warn',invalid='warn')
-        
         return entropy, alphamax, alphamean, anisotropy

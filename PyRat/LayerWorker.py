@@ -6,10 +6,12 @@ class LayerWorker(object):
     def __init__(self, shape=None, dtype=None, track=None, meta=None):
         
         self.attrs = {}
+        self.attrs['_type']   = 'unknown'
         self.attrs['_shape']  = (0,0)
         self.attrs['_lshape'] = (0,)
         self.attrs['_dshape'] = (0,0)
-        self.attrs['_dtype']  = None
+        self.attrs['_dtype']  = 'unknown'
+        self.attrs['_offset'] = (0,0)
         self.data  = None
         self.track = None
         self.prev  = None
@@ -21,6 +23,16 @@ class LayerWorker(object):
         PyRat.Data.activateLayer(self.name)
         return self.name
         
+    def setCrop(self, block, reset=False):
+        if block[1] == 0: block[1] =  self.attrs['_shape'][-2]
+        if block[3] == 0: block[3] =  self.attrs['_shape'][-1]
+        if reset == True:
+            self.attrs['_offset'] = (0,0)
+            self.attrs['_dshape'] = self.attrs['_shape'][-2:]
+        else:
+            self.attrs['_offset'] = (block[0],block[2])
+            self.attrs['_dshape'] = (block[1]-block[0],block[3]-block[2])
+    
     def deshape(self, shape):
         """
         Extracts layer shape and data shape from a numpy ndarray shape
@@ -43,22 +55,22 @@ class LayerWorker(object):
         return lshape, dshape
     
     def setData(self):
-        logging.debug('Layer does not allow writing data')
-        logging.error('Layer name unknown') 
+        logging.error('Layer does not allow writing data')
+    
     def getData(self):
-        logging.debug('Layer does not allow reading data')
+        logging.error('Layer does not allow reading data')
     
     def setMeta(self):
-        logging.debug('Layer does not allow writing meta information')
+        logging.error('Layer does not allow writing meta information')
     
     def getMeta(self):
-        logging.debug('Layer does not allow reading meta information')
+        logging.error('Layer does not allow reading meta information')
     
     def setTrack(self):
-        logging.debug('Layer does not allow writing track data')
+        logging.error('Layer does not allow writing track data')
     
     def getTrack(self):
-        logging.debug('Layer does not allow reading track data')
+        logging.error('Layer does not allow reading track data')
     
     def info(self):
         print self.attrs
