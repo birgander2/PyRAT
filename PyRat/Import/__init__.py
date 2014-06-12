@@ -4,7 +4,7 @@
 from Rat import *
 from ESAR_dcslc import *
 from ESAR_track import *
-from FSAR_slc import *
+# from FSAR_slc import *
 from Radarsat2 import *
 from RolfFormat import *
 from Gdal import *
@@ -14,9 +14,9 @@ def list():
     from inspect import getmembers, isclass
     current_module = sys.modules[__name__]
     modules = getmembers(current_module, isclass)
-    print 
+    print
     print "Content of module "+__name__+":"
-    print 
+    print
     for mod in modules:
         if 'PyRat' in mod[1].__module__:
             doc = str(mod[1].__doc__)

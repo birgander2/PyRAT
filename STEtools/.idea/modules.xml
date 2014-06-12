@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../IDL/.idea/IDL.iml" filepath="$PROJECT_DIR$/../IDL/.idea/IDL.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/STEtools.iml" filepath="$PROJECT_DIR$/.idea/STEtools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../PyRAT/trunk/.idea/trunk.iml" filepath="$PROJECT_DIR$/../../../PyRAT/trunk/.idea/trunk.iml" />
+    </modules>
+  </component>
+</project>
+
