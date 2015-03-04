@@ -2,8 +2,9 @@ Key             Type            Description, Examples
 
 sensor          string          name of the sensor
 prf             float           pulse repetition frequency [Hz]
-rs              float           range sampling [Hz]
+rsf             float           range sampling frequency [Hz]
 rd              float           range delay [s]
 c0              float           speed of light [m/s]
+antdir          int             antenna look direction (-1 right, +1 left)
 
 CH_pol          string          HH, VV, VH, HV, XX (symmetrised cross)
