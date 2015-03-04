@@ -1,0 +1,36 @@
+TODO IMPLEMENT:
+
+- Better check dim / parameter / dtype (especially is list of layers is required)
+- Abort routine on "detected error" without crashing
+- Guter Import für TSX/TDX
+- Fritz Filter
+- PolSAR Methoden
+- Import / Export nach HDF5
+
+TODO DATALAYER:
+
+- Neues Layer mit anderer Groesse -> Blockverarbeitung
+- Doku schreiben 8-/
+
+TODO CLI:
+-
+
+TODO GUI:
+- Preview handling -> HDF5 -> auto?
+- Undo
+- Bessere Layerauswahl in GUI
+- RGB Selection in GUI
+- Palettenauswahl
+- Pyramide mit weniger Hauptspeicher???
+[- Metadateneditor...]
+
+BUGS:
+- ?
+
+Batchmode:
+- ?
+
+ALLGEMEINES / LANGZEIT:
+- Besserer Viewer
+- Importroutinen
+- Blockverarbeitung mit sich ändernden Größen
