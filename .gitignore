@@ -4,11 +4,15 @@ ignore
 
 graffle
 
+build
+
 *.hd5
 *.rat
 *.pyc
 */*.pyc
 */*/*.pyc
+*/*/*.o
+*/*/*.so
+*/*/*.c
 
 ## that's it for now, can include more later.
-

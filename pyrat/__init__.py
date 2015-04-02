@@ -48,7 +48,7 @@ def pyrat_init(tmpdir=False, debug=False, nthreads=min(multiprocessing.cpu_count
         else:
             tmpdir = tempfile.gettempdir()
             logging.info('No config file found!')
-    tmpdir = tmpdir.decode()
+    #tmpdir = tmpdir.decode()
     logging.info("Temporary directory: " + str(tmpdir))
     data = LayerData(tmpdir)
     pool = multiprocessing.Pool(nthreads)
