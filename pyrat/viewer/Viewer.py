@@ -71,8 +71,8 @@ class MainWindow(QtGui.QMainWindow):
         self.toolbar2.addAction(self.zoomInAct)
 
         #self.toolbar3 = self.addToolBar("Layer")
-        #self.toolbar3.addAction(self.zoominTB)       
-        #self.toolbar3.addAction(self.zoomresetTB)       
+        #self.toolbar3.addAction(self.zoominTB)
+        #self.toolbar3.addAction(self.zoomresetTB)
 
     # -------------------------------- STATUS BAR
     def makeStatusBar(self):
@@ -338,7 +338,7 @@ class MainWindow(QtGui.QMainWindow):
             img = self.data[scale][cut_box[2]:cut_box[3], cut_box[0]:cut_box[1], ...]
         elif self.type == 'P':
             img = np.uint8(
-                np.clip(self.data[scale][cut_box[2]:cut_box[3], cut_box[0]:cut_box[1], ...] / pi * 128 + 127, 0.0, 255.0))
+                np.clip(self.data[scale][cut_box[2]:cut_box[3], cut_box[0]:cut_box[1], ...] / np.pi * 128 + 127, 0.0, 255.0))
             self.viewPhaAct.setChecked(True)
         elif self.type == 'C':
             img = np.uint8(np.clip(self.data[scale][cut_box[2]:cut_box[3], cut_box[0]:cut_box[1], ...] * 255.0, 0.0, 255.0))
