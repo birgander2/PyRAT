@@ -16,13 +16,46 @@ from . import viewer
 
 import os, logging, atexit, tempfile, sys
 import multiprocessing
+import json
 
 data = False
 pool = False
 version = 0.2
 
 
-def pyrat_init(tmpdir=False, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
+def read_config_file(config_file=None, verbose=True, config_type='json'):
+    """Read config file into a json-type dict structure."""
+    if config_file is None:
+        if sys.platform.startswith('win'):
+            config_file = os.path.join(os.path.expanduser('~'), 'pyrat.ini')
+        else:
+            config_file = os.path.join(os.path.expanduser('~'), '.pyratrc')
+
+    if not os.path.isfile(config_file):
+        if verbose:
+            logging.info('No config file found!')
+        return {}
+
+    if verbose:
+        logging.debug('Found config file : ' + config_file)
+
+    if config_type == 'json':   # load json config file
+        with open(config_file) as fid:
+            try:
+                cfg = json.load(fid)
+            except ValueError:  # probably old-time plain ascii file
+                cfg = read_config_file(config_file, config_type='plain')
+
+    elif config_type == 'plain': # load initial single line config file
+        lun = open(config_file, 'rb')
+        tmpdir = lun.read().rstrip().decode()
+        lun.close()
+        cfg = {"tmpdir": tmpdir}
+
+    return cfg
+
+
+def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
     global data, pool
     if debug is True:
         logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
@@ -35,20 +68,15 @@ def pyrat_init(tmpdir=False, debug=False, nthreads=min(multiprocessing.cpu_count
 
     logging.info('\n  Welcome to PyRAT (v%s)' % (version))
     logging.info('OS detected : ' + sys.platform)
-    if tmpdir is False:
-        if sys.platform.startswith('win'):
-            configfile = os.path.join(os.path.expanduser('~'), 'pyrat.ini')
-        else:
-            configfile = os.path.join(os.path.expanduser('~'), '.pyratrc')
-        if os.path.isfile(configfile):
-            logging.debug('Found config file : ' + configfile)
-            lun = open(configfile, 'rb')
-            tmpdir = lun.read().rstrip()
-            lun.close()
+
+    cfg = read_config_file()
+
+    if tmpdir is None:
+        if "tmpdir" in cfg:
+            tmpdir = cfg["tmpdir"]
         else:
             tmpdir = tempfile.gettempdir()
-            logging.info('No config file found!')
-    #tmpdir = tmpdir.decode()
+
     logging.info("Temporary directory: " + str(tmpdir))
     data = LayerData(tmpdir)
     pool = multiprocessing.Pool(nthreads)

@@ -8,8 +8,9 @@ def import_plugins(plugin_paths = None, verbose=False):
         import pyrat
         pyrat_path = pyrat.__path__[0]
         plugin_paths = ["plugins",                    # local directory
+                        #os.getcwd() + "/plugins",    # local directory
                         pyrat_path + "/plugins",      # pyrat src directory
-                        pyrat_path + "/../plugins"]   # pyrat root directory
+                        os.path.dirname(pyrat_path) + "/plugins"]   # pyrat root directory
 
     for directory in plugin_paths:   # <---- here the absolute path of a plugin-dir should be!
 
