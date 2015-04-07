@@ -36,6 +36,7 @@ class ImportWorker(pyrat.Worker):
         else:                                 # blockwise import
             newlayer = self.layer_fromfunc(self.block_reader, size=size, silent=False)
             meta = self.getmeta(*args, **kwargs)
+            self.close(*args, **kwargs)
             if meta is not False:
                 pyrat.data.setAnnotation(meta, layer=newlayer)
             else:
@@ -55,4 +56,10 @@ class ImportWorker(pyrat.Worker):
 
     def block_reader(self, *args, **kwargs):
         return False
+
+    def close(self, *args, **kwargs):
+        """
+        Close the file here (to be overloaded)
+        """
+        pass
 

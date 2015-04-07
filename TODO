@@ -1,11 +1,15 @@
 TODO IMPLEMENT:
 
 - Better check dim / parameter / dtype (especially is list of layers is required)
+- Meta data handling when number of layers changes...
+- Palette verwenden wenn Export to Pixmap / Paletten in CLI
 - Abort routine on "detected error" without crashing
-- Guter Import für TSX/TDX
 - Fritz Filter
 - PolSAR Methoden
 - Import / Export nach HDF5
+- Export nach Generic binary
+- Export nach ENVI
+- Corner Analyse
 
 TODO DATALAYER:
 
@@ -13,15 +17,12 @@ TODO DATALAYER:
 - Doku schreiben 8-/
 
 TODO CLI:
--
+- FSAR Import blockweise!!!
 
 TODO GUI:
-- Preview handling -> HDF5 -> auto?
-- Undo
-- Bessere Layerauswahl in GUI
-- RGB Selection in GUI
-- Palettenauswahl
-- Pyramide mit weniger Hauptspeicher???
+- Editable Layername
+- Pyramide auch in Memory Layer
+- Recalculate Pyramid nur wenn noetig (e.g. amplitude -> phase)
 [- Metadateneditor...]
 
 BUGS:
@@ -31,6 +32,4 @@ Batchmode:
 - ?
 
 ALLGEMEINES / LANGZEIT:
-- Besserer Viewer
-- Importroutinen
 - Blockverarbeitung mit sich ändernden Größen

@@ -18,11 +18,13 @@ class RotateLeft(pyrat.FilterWorker):
         self.blockprocess = False
         
     def filter(self, array, *args, **kwargs):
-        if array.ndim == 3:
-            array = np.rollaxis(array, axis=0, start=3)
+        if array.ndim > 2:
+            for k in range(array.ndim-2):
+                array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 1)
-        if array.ndim == 3:
-            array = np.rollaxis(array, axis=2)
+        if array.ndim > 2:
+            for k in range(array.ndim-2):
+                array = np.rollaxis(array, axis=0, start=array.ndim)
         return array
 
 
@@ -42,11 +44,13 @@ class RotateRight(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
-        if array.ndim == 3:
-            array = np.rollaxis(array, axis=0, start=3)
+        if array.ndim > 2:
+            for k in range(array.ndim-2):
+                array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 3)
-        if array.ndim == 3:
-            array = np.rollaxis(array, axis=2)
+        if array.ndim > 2:
+            for k in range(array.ndim-2):
+                array = np.rollaxis(array, axis=0, start=array.ndim)
         return array
 
 
@@ -66,7 +70,8 @@ class Transpose(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
-        array = np.transpose(array)
+        # array = np.transpose(array, axes=list(range(array.ndim-2, array.ndim)))
+        array = np.swapaxes(array, array.ndim-2, array.ndim-1)
         return array
 
 

@@ -4,7 +4,6 @@ import logging
 from .Template import *
 from .Wizard import *
 
-
 from .Despeckle import *
 from .Edgedetect import  *
 from .Texture import  *

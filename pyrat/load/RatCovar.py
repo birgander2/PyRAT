@@ -41,7 +41,7 @@ class RatCovar(pyrat.ImportWorker):
             meta['c0'] = pp.c0
             meta['rd'] = pp.rd
             meta['rs'] = pp.rsf/subx
-            meta['lambda'] = pp.__dict__['lambda']
+            meta['lam'] = pp.__dict__['lam']
             meta['band'] = pp.band
             meta['antdir'] = pp.antdir
             meta['v0'] = pp.v0

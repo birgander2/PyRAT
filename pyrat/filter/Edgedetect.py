@@ -70,7 +70,7 @@ try:
         return Roberts(*args, **kwargs).run(**kwargs)
 
 except ImportError:
-    print("Roberts module requires skimage library (install?)")
+    logging.info("Roberts module requires skimage library (install?)")
 
 
 ############################################################################################

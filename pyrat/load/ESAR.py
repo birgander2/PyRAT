@@ -20,7 +20,7 @@ class ESAR(pyrat.ImportWorker):
    
     """
 
-    gui = {'menu': 'File|Open external', 'entry': 'E-SAR'}
+    gui = {'menu': 'File|Import airborne', 'entry': 'E-SAR'}
     para = [
         {'var': 'filename', 'value': ''},
         {'var': 'polarisations', 'value': '*'},
@@ -52,6 +52,8 @@ class ESAR(pyrat.ImportWorker):
             else:
                 self.product = 'SLC'
                 logging.info('Info: use slc settings')
+        else:
+            self.product = self.product.upper()
 
         if os.path.isdir(self.filename):
             # polarisations aren't included in the filenames(in difference to FSAR)
@@ -143,10 +145,12 @@ class ESAR(pyrat.ImportWorker):
                     meta['rsf'] = float(next(line for line in etext if 'init.range_sampling_rate' in line)[-15:]) * 1e6
                     meta['nrg'] = drg
                     meta['naz'] = daz
-                    meta['lambda'] = float(next(line for line in etext if 'init.wavelength' in line)[-15:])
+                    meta['lam'] = float(next(line for line in etext if 'init.wavelength' in line)[-15:])
                     meta['band'] = next(line for line in etext if 'init.freq_band' in line)[-15:].strip()
-# todo: there are some left and some right looking antennas on ESAR !!!
-                    meta['antdir'] = -1
+                    if meta['band'] == 'X':
+                        meta['antdir'] = +1
+                    else:
+                        meta['antdir'] = -1
                     meta['v0'] = float(next(line for line in etext if 'init.forw_velocity' in line)[-15:])
                     meta['bw'] = float(next(line for line in etext if 'init.chirp_bandwidth' in line)[-15:]) * 1e6
 
@@ -190,7 +194,7 @@ class EsarImportWidget(QtGui.QDialog):
         self.setWindowTitle("ESAR import")
         mainlayout = QtGui.QVBoxLayout(self)
 
-        self.dirwidget = FileselWidget(title='ESAR product file', type='openfile')
+        self.dirwidget = FileselWidget(title='ESAR product directory (RGI-SR)', type='opendir')
         self.dirwidget.setvalue(dir)
         mainlayout.addWidget(self.dirwidget)
         mainlayout.addWidget(HLine())
@@ -220,7 +224,7 @@ class EsarImportWidget(QtGui.QDialog):
         self.polar = self.productwidget.getvalue(2)
 
         if os.path.isdir(self.dir):  # read from several files
-            allfiles = glob.glob(os.path.join(self.dir,'*.dat'))
+            allfiles = glob.glob(os.path.join(self.dir,'*slc*'+'*.dat'))
         elif os.path.isfile(self.dir):  # read from a single file
             allfiles = [self.dir]
         else:  # nothing selected
@@ -260,7 +264,8 @@ class EsarImportWidget(QtGui.QDialog):
 def crawlMetaForInfo(path, nametag):
     """
     reads the value with the nametag from the meta file, which belongs to the *.dat file and returns it as string
-    only written for ESAR-metadata (.txt) files
+    only written for ESAR-metadata (.txt) files,
+    the meta file should be in the same dir...
     :param path: absolute path from the .dat file
     :param nametag: name from the attribute (for example 'init.polarization')
     """
@@ -268,6 +273,11 @@ def crawlMetaForInfo(path, nametag):
         # */i*_slc.dat --> */e*.txt
         fl = os.path.split(path)
         efile = fl[0] + '/e' + fl[1][1:].replace('_slc.dat', '.txt')
+
+        # are the data files in a dir which names 'RGI-SR'? - solution for a specific case
+        if os.path.split(efile)[0][-6:] == 'RGI-SR':
+            # then change the directory to 'RGI-RDP'
+            efile = efile.replace('RGI-SR', 'RGI-RDP')
 
         # get meta data
         lun = open(efile, 'r')
@@ -285,7 +295,7 @@ def crawlMetaForInfo(path, nametag):
 
         return data
 
-    except:
+    except FileNotFoundError:
         #logging.error("Warning: perhaps the format isn't completely supported, some features wont function ")
         return None
 

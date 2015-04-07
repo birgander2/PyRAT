@@ -10,6 +10,7 @@ class Crop(pyrat.FilterWorker):
 
     :author: Andreas Reigber
     """
+    #todo: With only reading selected block...)
     #todo: Update rubberband when changing coordinates in GUI (add apply button...)
 
     gui = {'menu': 'Tools', 'entry': 'Crop region'}
@@ -33,7 +34,6 @@ class Crop(pyrat.FilterWorker):
             block[1] = array.shape[-2] - block[0]
         if block[3] == 0 or block[2]+block[3] > array.shape[-1]:
             block[3] = array.shape[-1] - block[2]
-
         return array[..., block[0]:block[0]+block[1], block[2]:block[2]+block[3]]
 
     @classmethod

@@ -6,7 +6,7 @@ class MyWizard(pyrat.WizardWorker):
     Simple Wizard filter...
     """
 
-    gui = {'menu': 'Tools', 'entry': 'Template Wizard'}
+    # gui = {'menu': 'Tools', 'entry': 'Template Wizard'}
     para = [
         {'var': 'win', 'value': 100, 'type': 'int',  'range': [3, 999],   'text': 'Window size', 'subtext': ['range', 'azimuth']},
         {'var': 'method', 'value': 'original', 'type': 'list', 'range': ['original', 'old', 'new'], 'text': 'Method'}

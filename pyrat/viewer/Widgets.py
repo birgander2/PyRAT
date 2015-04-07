@@ -68,7 +68,7 @@ class FileselWidget(QtGui.QWidget):
     """
     Custom widget for file selection
     """
-    def __init__(self, type='filename', title=None, parent=None):
+    def __init__(self, type='openfile', title=None, parent=None):
         super(FileselWidget, self).__init__(parent)
         self.type = type
         self.value = ''
@@ -93,6 +93,7 @@ class FileselWidget(QtGui.QWidget):
             self.value = str(QtGui.QFileDialog(self).getExistingDirectory())
         elif self.type == 'savefile':
             self.value = str(QtGui.QFileDialog(self).getSaveFileName())
+
         self.text.setText(self.value)
 
     def setvalue(self, value):

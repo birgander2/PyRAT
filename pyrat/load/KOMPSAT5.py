@@ -9,7 +9,7 @@ from xml.etree.ElementTree import ParseError
 
 class KOMPSAT5(pyrat.ImportWorker):
 
-    gui = {'menu': 'File|Open external', 'entry': 'KOMPSAT-5'}
+    gui = {'menu': 'File|Import spaceborne', 'entry': 'KOMPSAT-5'}
 
     para = [{'var': 'filename', 'value': '', 'type': 'openfile', 'text': 'something with *.h5 please'},
             {'var': 'crop', 'value': [0, 0, 0, 0]}]

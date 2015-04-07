@@ -7,7 +7,7 @@ from pyrat.load.tools import rrat, RatFile
 
 class RatFormat(pyrat.ImportWorker):
 
-    gui = {'menu': 'File', 'entry': 'Open RAT file', 'before': 'Open external'}
+    gui = {'menu': 'File', 'entry': 'Open RAT file', 'before': 'Open pixmap'}
     para = [{'var': 'filename', 'value': '', 'type': 'openfile', 'text': ''}]
 
     def __init__(self, *args, **kwargs):
@@ -26,7 +26,7 @@ class RatFormat(pyrat.ImportWorker):
             return size
         except IOError:
             logging.error("IOError: file format not recognised!")
-            return False
+            return False, False
 
     def block_reader(self, *args, **kwargs):
         block = kwargs['block']
