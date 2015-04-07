@@ -1,0 +1,19 @@
+Key             Type            Description, Examples
+
+info            string          some general text describing the data set
+sensor          string          name of the sensor
+prf             float           pulse repetition frequency [Hz]
+rsf             float           range sampling frequency [Hz]
+rd              float           range delay [s]
+lam             float           wavelenght
+band            string          band (e.g. 'X', 'P', ...)
+c0              float           speed of light [m/s]
+antdir          int             antenna look direction (-1 right, +1 left)
+
+res_az          float           azimuth resolution [m]
+res_rg          float           slant / ground range resolution [m]
+ps_az           float           azimuth pixel spacing [m]
+ps_rg           float           slant / ground range pixel spacing [m]
+
+CH_pol          string          HH, VV, VH, HV, XX (symmetrised cross)
+

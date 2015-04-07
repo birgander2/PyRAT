@@ -1,0 +1,5 @@
+numpy
+scipy
+h5py
+PyQt4
+cython
