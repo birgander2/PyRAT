@@ -4,6 +4,7 @@ import logging
 import copy
 from pyrat.tools import ProgressBar
 
+
 def exec_parallel(args):
     return args[0].filter(args[1], meta=args[2], block=args[3]), args[2]
 

@@ -353,7 +353,7 @@ try:
         return LeeSigma(*args, **kwargs).run(**kwargs)
 
 except ImportError:
-    print("LeeSigma module not found. (run build process?)")
+    logging.info("LeeSigma module not found. (run build process?)")
 
 
 

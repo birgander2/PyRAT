@@ -319,7 +319,7 @@ class LayerData():
             self.dshape = tuple(dshape)
 
     def getLayerNames(self):
-        return self.layers.keys()
+        return list(self.layers.keys())
 
     def getDataLayerNames(self, layer=None):
         if layer is None:
@@ -333,7 +333,7 @@ class LayerData():
                 group = '/' + layer.split('/')[1]
                 nchannel = np.prod(self.layers[group].attrs['_lshape'])
                 names.append([group + '/D' + str(channel) for channel in range(nchannel)])
-        if len(names) == 1:
+        if len(layers) == 1:
             names = names[0]
         return names
 
@@ -388,16 +388,28 @@ class LayerData():
                     logging.info('Cannot delete parts of layers')
                 else:
                     if silent is False:
-                        logging.info('Deletinging layer ' + layer)
+                        logging.info('Deleting layer ' + layer)
                     else:
-                        logging.debug('Deletinging layer ' + layer)
+                        logging.debug('Deleting layer ' + layer)
 
                     if self.layers[layer].attrs['_type'] == 'Disc':
                         self.layers[layer].group.close()
                         del self.layers[layer].group
                         os.remove(self.layers[layer].fn)
-                    if layer in self.active:
-                        self.active.remove(layer)   # TODO: Check for active data layers
+
+                    if isinstance(self.active, list):
+                        active = self.active
+                    else:
+                        active = [self.active]
+                    if layer in active:
+                        active.remove(layer)
+                    if len(active) == 0:
+                        self.active = None
+                    elif len(active) == 1:
+                        self.active = active[0]
+                    else:
+                        self.active = active
+
                     del self.layers[layer]
 
 

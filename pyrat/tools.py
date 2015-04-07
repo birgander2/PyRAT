@@ -34,10 +34,15 @@ class ProgressBar():
 
         hashes = '#' * int(round(percent * self.width))
         spaces = ' ' * (self.width - len(hashes))
-        retline = "\r" if sys.stdout.isatty() else ""
-        if sys.stdout.isatty() or val == 0:
-            sys.stdout.write(retline + self.message + ": [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))))
-            sys.stdout.flush()
+        retline = "\r" #if sys.stdout.isatty() else ""
+        # if sys.stdout.isatty() or val == 0:
+        print(retline + self.message + ": [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))), end='')
+        # logging.info(retline + self.message + ": [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))))
+
+            # sys.stdout.flush()
+        # if sys.stdout.isatty() or val == 0:
+        #     sys.stdout.write(retline + self.message + ": [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))))
+        #     sys.stdout.flush()
 
 
 def deshape(shape):
@@ -62,3 +67,28 @@ def deshape(shape):
     return lshape, dshape
 
 
+def flattenlist(d):
+    """
+    Flattens an abirary shaped deeply nested list object
+    """
+    thelist = []
+    for x in d:
+        if not isinstance(x, list):
+            thelist += [x]
+        else:
+            thelist += flattenlist(x)
+    return thelist
+
+
+def unflattenlist(d, ref):
+    """
+    Unflattens a list to an abirary shaped deeply nested list object,
+    following the shape of an example list provided in ref.
+    """
+    thelist = []
+    for elem in ref:
+        if not isinstance(elem, list):
+            thelist.append(d.pop(0))
+        else:
+            thelist.append(unflattenlist(d, elem))
+    return thelist

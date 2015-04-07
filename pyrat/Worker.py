@@ -3,7 +3,7 @@ from PyQt4 import QtGui, QtCore
 import pyrat
 import copy
 import logging
-from pyrat.tools import ProgressBar
+from pyrat.tools import ProgressBar, flattenlist, unflattenlist
 
 
 def exec_out(args):
@@ -50,6 +50,9 @@ class Worker(object):
         self.require_para = False
         self.allowed_dtype = False
 
+        if pyrat._debug is True:
+            self.nthreads = 1
+
     def layer_process(self, func, silent=True, **kwargs):
         """
         Generates a new layer from the return of its method 'func', called with **kwargs (and possible args stored
@@ -61,7 +64,14 @@ class Worker(object):
         else:
             self.input = pyrat.data.active
 
-        query = pyrat.data.queryLayer(self.layer)
+        if any([isinstance(foo, list) for foo in self.input]):
+            layshp = self.input
+            self.input = flattenlist(self.input)
+            nested = True
+        else:
+            nested = False
+
+        query = pyrat.data.queryLayer(self.input)
         if isinstance(query, list):
             dshape = query[0]['shape']
         else:
@@ -89,6 +99,8 @@ class Worker(object):
             inputs = []
             for ix in bidx:                                                    # loop over blocks in chunk
                 data = self.read_block(nb1)
+                if nested is True:
+                    data = unflattenlist(data, layshp)
                 kwargs_copy = copy.deepcopy(kwargs)
                 kwargs_copy["args"] = data
                 kwargs_copy["meta"] = meta
@@ -200,7 +212,7 @@ class Worker(object):
         else:
             self.input = pyrat.data.active
 
-        query = pyrat.data.queryLayer(self.layer)
+        query = pyrat.data.queryLayer(self.input)
         if isinstance(query, list):
             dshape = query[0]['shape']
         else:
@@ -263,7 +275,7 @@ class Worker(object):
         else:
             self.input = pyrat.data.active
 
-        query = pyrat.data.queryLayer(self.layer)
+        query = pyrat.data.queryLayer(self.input)
         if isinstance(query, list):
             dshape = query[0]['shape']
         else:
@@ -312,7 +324,6 @@ class Worker(object):
         if silent is False:
             del P
         return self.input
-
 
     def initBP(self, size):
         """
@@ -375,7 +386,6 @@ class Worker(object):
             else:
                 pyrat.data.setData(dat, layer=output[n])
 
-
     def read_block(self, k):
         """
         Read block number k from input layer(s).
@@ -405,6 +415,8 @@ class Worker(object):
             del kwargs[key]
 
     def checkinput(self):
+        if isinstance(self.layer, list):
+            return True
 
         query = pyrat.data.queryLayer(self.layer)
 
@@ -457,5 +469,5 @@ class Worker(object):
             layers = plugin.run()
             del plugin
             viewer.statusBar.setMessage(message=' Ready ', colour='G')
-            viewer.updateViewer()
+            viewer.updateViewer(layer=layers)
 

@@ -2,6 +2,7 @@ from __future__ import print_function
 import pyrat
 import numpy as np
 from scipy import ndimage
+import logging
 
 
 class CoVar(pyrat.FilterWorker):
@@ -134,7 +135,7 @@ try:
         return Entropy(*args, **kwargs).run(**kwargs)
 
 except ImportError:
-    print("Entropy module requires skimage library (install?)")
+    logging.info("Entropy module requires skimage library (install?)")
 
 ########################################################################################################################
 ########################################################################################################################
@@ -198,7 +199,7 @@ try:
         return GLCM(*args, **kwargs).run(**kwargs)
 
 except ImportError:
-    print("GLCM module requires skimage library (install?)")
+    logging.info("GLCM module requires skimage library (install?)")
 
 ############################################################################################
 ############################################################################################

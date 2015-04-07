@@ -18,7 +18,7 @@ def usage():
     logging.info(" ")
 
 def main():
-
+    
     if len(sys.argv) > 1:
         if sys.argv[1] in ['-h', '--help']:
             usage()

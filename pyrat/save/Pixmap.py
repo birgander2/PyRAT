@@ -6,12 +6,12 @@ from scipy import misc
 
 
 class Pixmap(pyrat.ExportWorker):
-    gui = {'menu': 'File', 'entry': 'Save pixmap', 'before': 'Exit'}
     para = [
         {'var': 'filename', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
         {'var': 'chscl', 'value': True, 'type': 'bool', 'text': 'Scale channels indiviually'},
         {'var': 'scale', 'value': 'SAR', 'type': 'list', 'range': ['SAR', 'phase', 'coherence'], 'text': 'Scaling'}
     ]
+    key = None
 
     def __init__(self, *args, **kwargs):
         super(Pixmap, self).__init__(*args, **kwargs)
@@ -46,10 +46,60 @@ class Pixmap(pyrat.ExportWorker):
         if array.ndim == 3:
             out = out[self.order, ...]
 
-        misc.imsave(self.filename, out)
-
-        return True
-
+        try:
+            misc.imsave(self.filename, out, format=self.key)
+            return True
+        except IOError as err:
+            logging.error("ERROR:"+str(err))
+            return False
+        else:
+            logging.error("UNKNOWN ERROR")
+            return False
 
 def pixmap(*args, **kwargs):
     Pixmap(*args, **kwargs).run(**kwargs)
+
+
+class JPG(Pixmap):
+    gui = {'menu': 'File|Save pixmap', 'entry': 'JPEG'}
+    key = "JPEG"
+
+
+def jpg(*args, **kwargs):
+    JPG(*args, **kwargs).run(**kwargs)
+
+
+class PNG(Pixmap):
+    gui = {'menu': 'File|Save pixmap', 'entry': 'PNG'}
+    key = "PNG"
+
+
+def png(*args, **kwargs):
+    PNG(*args, **kwargs).run(**kwargs)
+
+
+class TIFF(Pixmap):
+    gui = {'menu': 'File|Save pixmap', 'entry': 'TIFF'}
+    key = "TIFF"
+
+
+def tiff(*args, **kwargs):
+    TIFF(*args, **kwargs).run(**kwargs)
+
+
+class PDF(Pixmap):
+    gui = {'menu': 'File|Save pixmap', 'entry': 'PDF'}
+    key = "PDF"
+
+
+def pdf(*args, **kwargs):
+    PDF(*args, **kwargs).run(**kwargs)
+
+
+class EPS(Pixmap):
+    gui = {'menu': 'File|Save pixmap', 'entry': 'EPS'}
+    key = "EPS"
+
+
+def eps(*args, **kwargs):
+    EPS(*args, **kwargs).run(**kwargs)

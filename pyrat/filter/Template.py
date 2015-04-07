@@ -12,7 +12,9 @@ class Template(pyrat.FilterWorker):
     """
 
     # Optional line, adds the class to the viewer menu.
-    gui = {'menu': 'Tools', 'entry': 'Test module'}
+
+    # COMMENT IN NEXT LINE TO MAKE IT APPEAR IN VIEWER!!!
+    # gui = {'menu': 'Tools', 'entry': 'Test module'}
 
     # Defines parameters and their defaults (as well as the dialogbox when calling from the viewer)
     para = [

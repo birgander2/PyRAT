@@ -10,7 +10,7 @@ class Wishart(pyrat.Worker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'PolSAR', 'entry': 'Wishart Classification'}
+    gui = {'menu': 'PolSAR|Classification', 'entry': 'Unsupervised Wishart'}
     para = [
         {'var': 'nclass', 'value': 8, 'type': 'int', 'range': [2, 99], 'text': '# of classes'},
         {'var': 'niter', 'value': 10, 'type': 'int', 'range': [2, 99], 'text': '# of iterations'}

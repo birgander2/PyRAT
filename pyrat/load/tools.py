@@ -109,10 +109,6 @@ class RatFile():
         """
         block = (rgstart, azstart, rgsize, azsize)
         """
-        if 'step' in kwargs:
-            step = kwargs['step']
-        else:
-            step = 1
         if self.version == 2.0:
             lun = open(self.filename, 'rb')
             if 'block' in kwargs:
@@ -123,7 +119,7 @@ class RatFile():
                     arr = np.ndarray(shape=blockshape, dtype=self.dtype)
                     lun.seek(1000 + arr.itemsize * block[1] * blockshape[1] * self.nchannel)
                     lun.readinto(arr.data)
-                    arr = arr[:, block[0]:block[0] + block[2]:step, ...]
+                    arr = arr[:, block[0]:block[0] + block[2], ...]
                 else:
                     blockshape = self.dim[::-1]
                     blockshape[-2] = block[3]

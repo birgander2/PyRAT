@@ -28,8 +28,11 @@ class FSAR_track(pyrat.ImportWorker):
         self.name  = "FSAR REAL/REF TRACK IMPORT"
         self.block = 'T'
         if 'crop' not in self.__dict__:  self.crop = (0,0,0,0)
+        if 'data_layer' not in self.__dict__: self.data_layer = '/L0'
 
     def reader(self, *args, **kwargs):
+        sys = pyrat.data.getAnnotation()
+        pre_az = sys['pre_az']              # pressuming in azimuth factor
         if self.product == 'RGI-SLC':
             #head = 'reftr_sar_resa'
             head = '_sar_resa'
@@ -64,39 +67,24 @@ class FSAR_track(pyrat.ImportWorker):
                 daz = block[1]-block[0]
                 drg = block[3]-block[2]
 
-                barr = np.empty((len(bandfiles)/2, 7, daz))
+                barr = np.empty((len(bandfiles)/2, sys['pre_az']*daz, 7))
 
                 for k, pol in enumerate(pols):
                     polfiles = [f for f in bandfiles if pol+'_' in f]
                     for i, f in enumerate(polfiles):
                         logging.info("Found "+f)
                         if 'reftr' in f:
-                            barr[k, 0:3, ...] = RatFile(f).read(block=(2*block[0], 1, 2*daz, 3), step=2)
-                            barr[k, 6, ...] = RatFile(f).read(block=(2*block[0], 0, 2*daz, 1), step=2)
+                            barr[k, :, 0:3] = RatFile(f).read(block=(pre_az*block[0], 1, pre_az*daz, 3)).T
+                            barr[k, :, 6] = RatFile(f).read(block=(pre_az*block[0], 0, pre_az*daz, 1))
                         elif 'track' in f:
-                            barr[k, 3:6, ...] = RatFile(f).read(block=(2*block[0], 1, 2*daz, 3), step=2)
-                array.append(barr)
+                            barr[k, :, 3:6] = RatFile(f).read(block=(pre_az*block[0], 1, pre_az*daz, 3)).T
+                array.append(barr[:, 0:pre_az*daz:pre_az, :])
         if len(array) == 0:
             return None, None
         elif len(array) == 1:
-            return array[0].T, None
+            return array[0], None
         else:
             return array, None
-
-'''
-        # TODO: use PyRAT's rrat instead of the one from STEtools
-        #track = RatFile(file[0])
-        track = STEtools.rrat(file[0])
-        head = 'reftr_sar_resa'
-        file = glob.glob(os.path.join(self.dir, src[0], src[1], head+'*'+self.bands.upper()+self.polarisations.lower()+'*.rat'))
-        reftr = STEtools.rrat(file[0])
-
-        meta_track = np.empty([7, daz])
-        meta_track[0:3,:] = reftr[1:,2*block[0]:2*block[1]:2]
-        meta_track[3:6,:] = track[1:,2*block[0]:2*block[1]:2]
-        meta_track[6,:] = reftr[0:1,2*block[0]:2*block[1]:2]    # load time
-        return np.transpose(meta_track), None
-'''
 
 def fsar_track(*args, **kwargs):
     return FSAR_track(*args, **kwargs).run(**kwargs)
