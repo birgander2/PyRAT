@@ -29,7 +29,7 @@ _debug = False
 version = 0.3
 
 
-def pyrat_init(tmpdir=False, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
+def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
     global data, pool
 
     global _debug

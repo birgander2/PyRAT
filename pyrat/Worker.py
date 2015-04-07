@@ -446,6 +446,15 @@ class Worker(object):
         action = QtGui.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
         viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
 
+        if cls.gui['menu'] not in viewer.menue:
+            logging.warning("\nWARNING: The gui annotation '" +
+                            cls.gui['menu'] +
+                            "' of the plugin '" +
+                            cls.__name__+
+                            "' is not present in the PyRat menue!\n")
+            return
+
+
         before = viewer.exitAct
         if 'before' in cls.gui:                                           # if there is a "before" specified,
             entries = viewer.menue[cls.gui['menu']].actions()             # put new menu entry there
@@ -470,4 +479,3 @@ class Worker(object):
             del plugin
             viewer.statusBar.setMessage(message=' Ready ', colour='G')
             viewer.updateViewer(layer=layers)
-
