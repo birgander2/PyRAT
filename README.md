@@ -1,4 +1,4 @@
-# j-branch of PyRat (Python RadarTools)
+# j-branch of PyRAT (Python Radar Analysis Tools)
 
 ## Installation and git usage
 
@@ -35,9 +35,11 @@ In order to be able use the PyRat module, update your PYTHONPATH (write e.g. in 
 ## Content
 
 
-* PyRat/ folder contains the main PyRat module, including main classes,
+* pyrat/ folder contains the main PyRat module, including main classes,
   library functions, and tests
 
-* docs/ folder contains documentation
+* doc/ folder contains documentation
 
 * icons/ folder contains the artwork for various icons of the GUI application
+
+* plugins/ folder for custom plugins

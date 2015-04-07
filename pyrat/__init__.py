@@ -71,11 +71,17 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
 
     cfg = read_config_file()
 
+    # set up tmp dir
     if tmpdir is None:
         if "tmpdir" in cfg:
             tmpdir = cfg["tmpdir"]
         else:
             tmpdir = tempfile.gettempdir()
+    if not os.path.exists(tmpdir):
+        if os.path.exists(os.path.dirname(tmpdir)):
+            os.mkdir(tmpdir)
+        else:
+            logging.error("Temporary directory doesn't exist: " + tmpdir)
 
     logging.info("Temporary directory: " + str(tmpdir))
     data = LayerData(tmpdir)
