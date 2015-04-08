@@ -19,9 +19,9 @@ class LayerData():
     def addLayer(self, array=None, shape=None, dtype='float32', memory=False, block='D', **kwargs):
         """
         Adds a new layer to the existing PyRat Data object. One can
-        add one or multiple existing ndarrays (as list), or specify the 
+        add one or multiple existing ndarrays (as list), or specify the
         shape / dtype of a (single) new layer to be later filled with data.
-        
+
         :author: Andreas Reigber
         :returns: list of layer names as strings
         """
@@ -58,7 +58,7 @@ class LayerData():
 
     def activateLayer(self, layers, silent=False):
         """
-        Activates a given layer or a list of layers or datasets. 
+        Activates a given layer or a list of layers or datasets.
         """
         valid = self.existLayer(layers)
         if not isinstance(layers, list):
@@ -239,7 +239,7 @@ class LayerData():
 
     def getAnnotation(self, layer=None, key=False):
         """
-        Returns all annotations of a layer or data set. 
+        Returns all annotations of a layer or data set.
         """
         if layer is None:
             layer = self.active
@@ -377,7 +377,7 @@ class LayerData():
     def delLayer(self, layer, silent=False):
         """
         Deletes an entire layer from the object. Note that the memory (i.e. disc space) is not freed
-        automatically for disc layers. A call to PyRat.Data.repack() is necessary, but it requires 
+        automatically for disc layers. A call to PyRat.Data.repack() is necessary, but it requires
         copying around the data of all disc layers...
         """
         layers = layer if isinstance(layer, list) else [layer]
@@ -429,6 +429,14 @@ class DiscLayer():
         self.attrs['_block'] = block
         self.group.create_group("P")  # Preview subgroup * not yet there
         self.group.create_dataset("D", (np.prod(lshape),) + dshape, dtype=dtype)  # create 2D Data layer
+
+    def info(self):
+        print("DiskLayer Info for layer {}".format(self.name))
+        print("Filename: {}".format(self.fn))
+        print("HDF5 Content: ",list(self.group.keys()))
+        print("Attributes: ")
+        for k,v in self.attrs.items():
+            print("  {:10}: ".format(k), v)
 
     def setCrop(self, block, reset=False):
         block = list(block)
@@ -643,5 +651,4 @@ class MemoryLayer():
             channel = int(layer.split('/')[2][1:])
             return np.squeeze(self.data[channel, block[0]:block[1], block[2]:block[3]])
         else:
-            logging.error('Layer name unknown') 
-
+            logging.error('Layer name unknown')

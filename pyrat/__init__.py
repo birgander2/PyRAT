@@ -67,7 +67,7 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)
         else:
-            logging.error("Temporary directory doesn't exist: " + tmpdir)
+            logging.warning("WARNING: Temporary directory doesn't exist: " + tmpdir)
 
 
     logging.info("Temporary directory: " + str(tmpdir))
