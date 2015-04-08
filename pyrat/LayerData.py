@@ -572,6 +572,13 @@ class MemoryLayer():
         nchannels = np.prod(lshape)
         self.data = np.empty((nchannels,) + dshape, dtype=dtype)
 
+    def info(self):
+        print("MemoryLayer Info for layer {}".format(self.name))
+        print("Data shape: ", self.data.shape)
+        print("Attributes: ")
+        for k,v in self.attrs.items():
+            print("  {:10}: ".format(k), v)
+
     def setCrop(self, block, reset=False):
         if block[1] == 0: block[1] = self.attrs['_shape'][-2]
         if block[3] == 0: block[3] = self.attrs['_shape'][-1]
