@@ -7,6 +7,7 @@ import sys
 import logging
 import pyrat
 
+
 def usage():
     logging.basicConfig(format='  %(message)s', level=logging.INFO)
     logging.info(" ")
@@ -17,6 +18,7 @@ def usage():
     logging.info("  --batch/-b    : Run in batch mode, not starting the gui")
     logging.info(" ")
 
+
 def main():
     
     if len(sys.argv) > 1:
@@ -25,9 +27,9 @@ def main():
             sys.exit()
         elif sys.argv[1] in ['-b', '--batch']:
             import code
-            vars = globals().copy()
-            vars.update(locals())
-            shell = code.InteractiveConsole(vars)
+            var = globals().copy()
+            var.update(locals())
+            shell = code.InteractiveConsole(var)
             shell.push("from pyrat import *")
             shell.push("pyrat_init()")
             if len(sys.argv) == 3:
