@@ -60,7 +60,7 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
 
     # set up tmp dir
     if tmpdir is None:
-        if "tmpdir" in cfg:
+        if cfg["tmpdir"] is not None:
             tmpdir = cfg["tmpdir"]
         else:
             tmpdir = tempfile.gettempdir()
@@ -69,12 +69,15 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
             os.mkdir(tmpdir)
         else:
             logging.warning("WARNING: Temporary directory doesn't exist: " + tmpdir)
-
-
     logging.info("Temporary directory: " + str(tmpdir))
+
     data = LayerData(tmpdir)
     # pool = multiprocessing.Pool(nthreads)
     logging.info("Pool with " + str(nthreads) + " workers initialised" + '\n')
+
+    # import plugins
+    import_plugins(plugin_paths = cfg["plugin_paths"], verbose=True)
+
     atexit.register(pyrat_exit)
 
 
@@ -118,7 +121,9 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
             cfgp = ConfigParser()
             cfgp.read(config_file)
             cfgp = {k.lower():v for k,v in cfgp.items()} # make case-insensitive
-            cfg = cfgp["pyrat"]
+            cfg = dict(cfgp["pyrat"])
+            if "plugin_paths" in cfgp:
+                cfg["plugin_paths"] = [v for k,v in cfgp["plugin_paths"].items()]
         except:  # probably old-time plain ascii file
             cfg = read_config_file(config_file, verbose=False,
                                    config_type='plain')
@@ -128,8 +133,56 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
         lun.close()
         cfg = {"tmpdir": tmpdir}
 
+    # defaults, if not provided
+    if "tmpdir" not in cfg:
+        cfg["tmpdir"] = None
+    if "plugin_paths" not in cfg:
+        cfg["plugin_paths"] = []
+
     return cfg
 
+def import_plugins(plugin_paths = [], verbose=False):
+    import pyrat
+    pyrat_path = pyrat.__path__[0]
+    default_plugin_path = os.path.dirname(pyrat_path) + "/plugins"
+
+    plugins = [] # to import only the first occurence
+    for directory in set(plugin_paths + [default_plugin_path]):
+        if verbose:
+            print("Scanning for plugins: {}".format(directory))
+
+        if not os.path.isdir(directory):
+            if verbose:
+                print(" - Skip. Not a directory: {}".format(directory))
+            continue
+
+        sys.path.append(directory)
+        for item in os.walk(directory):
+            dirpath = item[0]
+            for filename in item[2]:
+                if not filename.endswith(".py") or filename == "__init__.py":
+                    continue
+                candidate = os.path.join(dirpath, filename)
+
+                if filename in plugins:
+                    continue  # don't import if another version imported
+                else:
+                    plugins.append(filename)
+
+                try:
+                    mod = __import__(filename.split('.py')[0],
+                                     globals=globals(),
+                                     locals=locals(), fromlist=['*'])
+                    try:
+                        attrlist = mod.__all__
+                    except AttributeError:
+                        attrlist = dir(mod)
+                    for attr in attrlist:
+                        globals()[attr] = getattr(mod, attr)
+                    if verbose:
+                        print(" + Imported external plugin: %s" % filename)
+                except Exception:
+                    print("Unable to import the code in plugin: %s" % filename)
 
 def foo(bar):
     pass
@@ -157,4 +210,4 @@ except AttributeError:
 if interpreter is True:
     pyrat_init()
 
-from . import plugins
+#from . import plugins
