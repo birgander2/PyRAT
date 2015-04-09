@@ -21,6 +21,7 @@ from . import viewer
 
 import os, logging, atexit, tempfile, sys
 import multiprocessing
+from configparser import ConfigParser
 import json
 
 data = False
@@ -78,7 +79,19 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
 
 
 def read_config_file(config_file=None, verbose=True, config_type='json'):
-    """Read config file into a json-type dict structure."""
+    """Read config file into a dict structure.
+
+    Three config file formats supported:
+    - json (default)
+    - ini files
+    - plain (tmpdir only)
+
+    If config_file is found, it tries to read it first in json format. If it
+    doesn't work, it tries to read in the .ini format. If this doesn't work
+    as well, it will finally attempt to read it in the plain form.
+
+    config_type : {'json', 'ini', 'plain'}
+    """
     if config_file is None:
         if sys.platform.startswith('win'):
             config_file = os.path.join(os.path.expanduser('~'), 'pyrat.ini')
@@ -98,8 +111,17 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
             try:
                 cfg = json.load(fid)
             except ValueError:  # probably old-time plain ascii file
-                cfg = read_config_file(config_file, config_type='plain')
-
+                cfg = read_config_file(config_file, verbose=False,
+                                       config_type='ini')
+    if config_type == 'ini':   # load .ini config file
+        try:
+            cfgp = ConfigParser()
+            cfgp.read(config_file)
+            cfgp = {k.lower():v for k,v in cfgp.items()} # make case-insensitive
+            cfg = cfgp["pyrat"]
+        except:  # probably old-time plain ascii file
+            cfg = read_config_file(config_file, verbose=False,
+                                   config_type='plain')
     elif config_type == 'plain': # load initial single line config file
         lun = open(config_file, 'rb')
         tmpdir = lun.read().rstrip().decode()
