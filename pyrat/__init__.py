@@ -141,13 +141,18 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
 
     return cfg
 
+class Plugins:
+    """Will contain imported plugins, similar to previous module plugins"""
+    pass
+plugins = Plugins()
+
 def import_plugins(plugin_paths = [], verbose=False):
     import pyrat
     pyrat_path = pyrat.__path__[0]
     default_plugin_path = os.path.dirname(pyrat_path) + "/plugins"
 
-    plugins = [] # to import only the first occurence
-    for directory in set(plugin_paths + [default_plugin_path]):
+    imported = [] # to import only the first occurence
+    for directory in plugin_paths + [default_plugin_path]:
         if verbose:
             print("Scanning for plugins: {}".format(directory))
 
@@ -164,10 +169,10 @@ def import_plugins(plugin_paths = [], verbose=False):
                     continue
                 candidate = os.path.join(dirpath, filename)
 
-                if filename in plugins:
+                if filename in imported:
                     continue  # don't import if another version imported
                 else:
-                    plugins.append(filename)
+                    imported.append(filename)
 
                 try:
                     mod = __import__(filename.split('.py')[0],
@@ -178,7 +183,8 @@ def import_plugins(plugin_paths = [], verbose=False):
                     except AttributeError:
                         attrlist = dir(mod)
                     for attr in attrlist:
-                        globals()[attr] = getattr(mod, attr)
+                        setattr(plugins , attr, getattr(mod, attr))
+                        #globals()[attr] = getattr(mod, attr)
                     if verbose:
                         print(" + Imported external plugin: %s" % filename)
                 except Exception:
