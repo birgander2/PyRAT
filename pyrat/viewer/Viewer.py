@@ -28,6 +28,7 @@ class MainWindow(QtGui.QMainWindow):
         self.config = {}                                                  # current config
 
         self.block_redraw = False
+        self.picture_redraw = False
         self.show_rubberband = False
         self.undolist = []
 
@@ -211,7 +212,6 @@ class MainWindow(QtGui.QMainWindow):
         self.resizeframeevent = self.frame.resizeEvent
         self.frame.resizeEvent = self.resizeFrameEvent  # a bit dirtyt to overload like this...
 
-
         # self.central.move.connect(lambda: self.splitterMoved())
 
         # self.frame = QtGui.QWidget()
@@ -288,10 +288,10 @@ class MainWindow(QtGui.QMainWindow):
         self.data = GenPyramid(layer=layer, force=force, mode=mode).run()
         self.size = self.data[0].shape[-2:][::-1]  # [xmin,xmax,ymin,ymax]
 
-#-----------------------------------------------------------
-#-----------------------------------------------------------
-#-----------------------------------------------------------
-#-----------------------------------------------------------
+# -----------------------------------------------------------
+# -----------------------------------------------------------
+# -----------------------------------------------------------
+# -----------------------------------------------------------
 
     def data2img(self, cut_box, scale=0):
         if self.config['colour'] is False:
@@ -323,7 +323,7 @@ class MainWindow(QtGui.QMainWindow):
         else:
             img = np.uint8(int)
 
-        img = img[..., 0:img.shape[-2] // 4 * 4, 0:img.shape[-1] // 4 * 4]    # QT Limitation!!
+        # img = img[..., 0:img.shape[-2] // 4 * 4, 0:img.shape[-1] // 4 * 4]    # QT Limitation!!
         img = np.rollaxis(np.rollaxis(img, axis=2), axis=2)
         # img = np.rot90(np.rollaxis(np.rollaxis(img, axis=2), axis=2))
 
@@ -350,10 +350,17 @@ class MainWindow(QtGui.QMainWindow):
                         cut_box[3] - cut_box[2] > self.imageLabel.height():
                     break
                 self.scale -= 1
+
             cut_box = [foo // 2 ** self.scale for foo in self.box]
 
-        self.scale = np.clip(self.scale, 0, len(self.data) - 1)
+        cut_box[1] = cut_box[0] + (cut_box[1]-cut_box[0])//4*4                 # QT Limitation!!
+        cut_box[3] = cut_box[2] + (cut_box[3]-cut_box[2])//4*4
+        self.scale = int(np.clip(self.scale, 0, len(self.data) - 1))
+        self.box[1] = cut_box[1] * int(2**self.scale)
+        self.box[3] = cut_box[3] * int(2**self.scale)
+
         img = self.data2img(cut_box, scale=self.scale)
+
 
         xWin = self.imageLabel.width()
         yWin = self.imageLabel.height()
@@ -366,16 +373,16 @@ class MainWindow(QtGui.QMainWindow):
 
         if imgRatio >= winRatio:                                               # match widths
             self.width = xWin
-            self.height = xWin / imgRatio
+            self.height =int( xWin / imgRatio)
         else:                                                                  # match heights
             self.height = yWin
-            self.width = yWin * imgRatio
+            self.width = int(yWin * imgRatio)
 
         self.factor = int(100.0 * self.width / (self.box[1] - self.box[0]))
         if self.factor <= 100:
-            img = img.scaled(int(self.width), int(self.height))  # Bilinear?
+            img = img.scaled(self.width, self.height)  # Bilinear?
         else:
-            img = img.scaled(int(self.width), int(self.height))  # Nearest Neighbour
+            img = img.scaled(self.width, self.height)  # Nearest Neighbour
 
         self.statusBar.setMessage(size=1, zoom=1, level=1, scale=1)
         self.viewCombo.setItemText(0, str(int(self.factor)) + '%')
@@ -386,6 +393,7 @@ class MainWindow(QtGui.QMainWindow):
 
         img.setColorTable(colortable)
         self.imageLabel.setPixmap(QtGui.QPixmap.fromImage(img))
+
 
     def zoom(self, factor, mx=0, my=0):
         px = self.box[0] + int(
@@ -407,8 +415,8 @@ class MainWindow(QtGui.QMainWindow):
             newy = np.clip(int(newx / winRatio), 0, self.size[1])
         else:
             newx = np.clip(int(newy * winRatio), 0, self.size[0])
-        newx = np.clip(newx, 4, self.size[0])
-        newy = np.clip(newy, 4, self.size[1])
+        newx = np.clip(newx, 8, self.size[0])
+        newy = np.clip(newy, 8, self.size[1])
         if midx - newx // 2 < 0:
             midx = newx // 2
         if midx + newx // 2 > self.size[0]:
@@ -433,8 +441,12 @@ class MainWindow(QtGui.QMainWindow):
             if midy + sizy // 2 > self.size[1]:
                 midy = self.size[1] - sizy // 2
             self.box = [midx - sizx // 2, midx + sizx // 2, midy - sizy // 2, midy + sizy // 2]
-        if hasattr(self, 'data'):
-            self.processPicture()
+
+        if self.picture_redraw is False:                              # needed to avoid concurrent redraws
+            self.picture_redraw = True
+            if hasattr(self, 'data'):
+                self.processPicture()
+            self.picture_redraw = False
 
     def undo(self):
         if len(self.undolist) >= 2:
@@ -483,7 +495,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def comboZoom(self, index):
         if index == 1:
-            if hasattr(self, 'data'): self.processPicture(fitwin=1)
+            if hasattr(self, 'data'):
+                self.processPicture(fitwin=1)
             self.viewCombo.setCurrentIndex(0)
         elif index == 2:
             print("Not implemented")
@@ -494,6 +507,37 @@ class MainWindow(QtGui.QMainWindow):
         elif index == 4:
             print("Not implemented")
             self.viewCombo.setCurrentIndex(0)
+
+    def getPosVal(self, x, y):
+        """
+        Calc position of mouse in data coordinates and returns string containing the
+        values at that position.
+        """
+        hscale = (self.box[1] - self.box[0]) / self.frame.rect().width()
+        vscale = (self.box[3] - self.box[2]) / self.frame.rect().height()
+        scale = max(hscale, vscale)
+
+        dpx = (self.imageLabel.width()-self.width)//2
+        dpy = (self.imageLabel.height()-self.height)//2
+
+        posx = self.box[0] + int((x-dpx) * scale)
+        posy = self.box[2] + int((y-dpy) * scale)
+
+        if 0 <= posx <= self.size[0] and 0 <= posy <= self.size[1]:
+            values = pyrat.data.getData(block=(posy, posy+1, posx, posx+1), layer=self.current)
+            txt = '<pre>Cursor position: ['+str(y)+', '+str(x)+']'
+            for k, val in enumerate(values):
+                txt += '<br>D'+str(k)+':   '
+                if np.iscomplexobj(val):
+                    txt += str(np.abs(val)) + ' abs  /  ' + str(np.angle(val, deg=True))+' deg'
+                elif self.config['scaling'] == 'phase':
+                    txt += str(val * 180.0 / np.pi)+' deg'
+                else:
+                    txt += str(val)
+            txt += '</pre>'
+        else:
+            txt = ''
+        return txt
 
     def resizeFrameEvent(self, event):
         if self.block_redraw is False:                                  # needed to avoid concurrent redraws -> segfault
@@ -525,12 +569,15 @@ class MainWindow(QtGui.QMainWindow):
             self.block_redraw = False
 
     def wheelEvent(self, event):
+        x = event.x() - self.central.x() - self.frame.x()                      # easier with self.frame.mapFrom()
+        y = event.y() - self.central.y() - self.frame.y()
+
         if event.delta() < 0:
-            self.zoom(2.0 / 3.0, mx=event.x() - self.imageLabel.width() // 2,
-                      my=event.y() - self.imageLabel.height() // 2)
+            self.zoom(2.0 / 3.0, mx=x-self.imageLabel.width() // 2,
+                      my=y-self.imageLabel.height() // 2)
         if event.delta() > 0:
-            self.zoom(3.0 / 2.0, mx=event.x() - self.imageLabel.width() // 2,
-                      my=event.y() - self.imageLabel.height() // 2)
+            self.zoom(3.0 / 2.0, mx=x-self.imageLabel.width() // 2,
+                      my=y-self.imageLabel.height() // 2)
         if hasattr(self, 'data'):
             self.processPicture()
 
@@ -541,8 +588,27 @@ class MainWindow(QtGui.QMainWindow):
             self.rubberband.setGeometry(QtCore.QRect(self.origin, QtCore.QSize()))
             self.rubberband.show()
         else:
-            self.dragX = event.x()
-            self.dragY = event.y()
+            if event.button() == QtCore.Qt.RightButton:
+                xoff = self.central.x() + self.frame.x()                       # easier with self.frame.mapFrom()
+                yoff = self.central.y() + self.frame.y()
+                x = event.x() - xoff
+                y = event.y() - yoff
+                txt = self.getPosVal(x, y)
+                if hasattr(self, "posval"):
+                    self.posval.setText(txt)
+                    self.posval.adjustSize()
+                    self.posval.show()
+                else:
+                    self.posval = QtGui.QLabel(txt)
+                    self.posval.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                    self.posval.setWindowTitle("position / value")
+                    self.posval.setGeometry(self.x()+xoff, self.y()+yoff, 200, 100)
+                    self.posval.adjustSize()
+                    self.posval.show()
+            else:
+                self.dragX = event.x()
+                self.dragY = event.y()
+
         QtGui.QWidget.mousePressEvent(self, event)
 
     def mouseReleaseEvent(self, event):
@@ -551,21 +617,29 @@ class MainWindow(QtGui.QMainWindow):
                 self.rubberband.hide()
                 self.show_rubberband = False
         else:
-            if event.button() == 1:
+            if event.button() == QtCore.Qt.LeftButton:
                 dx = int((1.0 * self.box[1] - self.box[0]) / self.imageLabel.width() * (self.dragX - event.x()))
                 dy = int((1.0 * self.box[3] - self.box[2]) / self.imageLabel.height() * (self.dragY - event.y()))
                 midx = self.box[0] + (self.box[1] - self.box[0]) // 2 + dx
                 midy = self.box[2] + (self.box[3] - self.box[2]) // 2 + dy
                 sizx = self.box[1] - self.box[0]
                 sizy = self.box[3] - self.box[2]
-                if midx - sizx // 2 < 0:            midx = sizx // 2
-                if midx + sizx // 2 > self.size[0]: midx = self.size[0] - sizx // 2
-                if midy - sizy // 2 < 0:            midy = sizy // 2
-                if midy + sizy // 2 > self.size[1]: midy = self.size[1] - sizy // 2
+                if midx - sizx // 2 < 0:
+                    midx = sizx // 2
+                if midx + sizx // 2 > self.size[0]:
+                    midx = self.size[0] - sizx // 2
+                if midy - sizy // 2 < 0:
+                    midy = sizy // 2
+                if midy + sizy // 2 > self.size[1]:
+                    midy = self.size[1] - sizy // 2
                 self.box = [midx - sizx // 2, midx + sizx // 2, midy - sizy // 2, midy + sizy // 2]
-                if hasattr(self, 'data'):
+                if hasattr(self, 'data') and len(self.data) > 0:
                     self.processPicture()
                 self.imageLabel.setGeometry(0, 0, self.frame.width(), self.frame.height())
+            elif event.button() == QtCore.Qt.RightButton:
+                # if hasattr(self, "posval"):
+                #     self.posval.hide()
+                pass
         QtGui.QWidget.mouseReleaseEvent(self, event)
 
     def mouseMoveEvent(self, event):
@@ -575,7 +649,17 @@ class MainWindow(QtGui.QMainWindow):
                 # todo: limit size
                 self.rubberband.setGeometry(QtCore.QRect(self.origin, pos).normalized())
         else:
-            self.imageLabel.move(event.x() - self.dragX, event.y() - self.dragY)
+            if event.buttons() == QtCore.Qt.LeftButton:
+                self.imageLabel.move(event.x() - self.dragX, event.y() - self.dragY)
+            elif event.buttons() == QtCore.Qt.RightButton:
+                if hasattr(self, "posval"):
+                    xoff = self.central.x() + self.frame.x()
+                    yoff = self.central.y() + self.frame.y()
+                    x = event.x() - xoff
+                    y = event.y() - yoff
+                    txt = self.getPosVal(x, y)
+                    self.posval.setText(txt)
+                    self.posval.adjustSize()
         QtGui.QWidget.mouseMoveEvent(self, event)
 
 

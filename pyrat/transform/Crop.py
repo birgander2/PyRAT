@@ -22,7 +22,6 @@ class Crop(pyrat.FilterWorker):
         self.name = "CROP REGION"
         self.blockprocess = False
 
-
     def filter(self, array, *args, **kwargs):
         block = list(self.crop)
         if block[0] < 0 or block[0] >= array.shape[-2]:

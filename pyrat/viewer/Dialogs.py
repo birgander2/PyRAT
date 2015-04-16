@@ -1,6 +1,7 @@
 from PyQt4 import QtGui, QtCore
 import pyrat
 
+
 class FlexInputDialog(QtGui.QDialog):
     def __init__(self, params, title='', doc='no help available', parent=None):
         super(FlexInputDialog, self).__init__(parent)
