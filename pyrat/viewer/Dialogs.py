@@ -201,7 +201,6 @@ class LayerTreeWidget(QtGui.QTreeWidget):
     def __init__(self, parent=None, viewer=None):
         QtGui.QTreeWidget.__init__(self, parent)
         self.treelements = {}
-
         self.viewer = viewer
         self.colors = {
             'default': QtGui.QColor.fromRgb(0, 0, 0, 0),
@@ -216,7 +215,7 @@ class LayerTreeWidget(QtGui.QTreeWidget):
         self.setHeaderLabels(['Available Layers'])
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.treeContextMenu)
-        self.itemDoubleClicked.connect(self.onDoubleClick)
+        self.itemChanged.connect(self.newLayerName)
         self.scalemenu = [None] * 6
 
     def redraw(self):
@@ -236,6 +235,7 @@ class LayerTreeWidget(QtGui.QTreeWidget):
             self.treelements[lname] = QtGui.QTreeWidgetItem()
             self.treelements[lname].setText(0, ltext)
             self.treelements[lname].setWhatsThis(0, layer)
+            self.treelements[lname].setFlags(self.treelements[lname].flags() | QtCore.Qt.ItemIsEditable)
             self.addTopLevelItem(self.treelements[lname])
 
             sensor = meta['sensor'] if 'sensor' in meta else 'unknown'
@@ -453,8 +453,8 @@ class LayerTreeWidget(QtGui.QTreeWidget):
             else:
                 GenPyramid(layer=layer, force=True).run()
 
-    def onDoubleClick(self, item):
-        layer = item.whatsThis(0)
-        print("ondoubleclick", layer)
-        if layer[1] == 'L':
-            self.activate(layer)
+    def newLayerName(self, item):
+        text = item.text(0)
+        what = item.whatsThis(0)
+        if '/'+text != what and 'D' not in what and 'meta' not in what:
+            pyrat.data.setAnnotation({'info': text}, layer=what)
