@@ -1,5 +1,6 @@
 numpy
 scipy
 h5py
+gdal
 PyQt4
 cython
