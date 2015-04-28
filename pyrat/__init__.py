@@ -59,11 +59,10 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     cfg = read_config_file()
 
     # set up tmp dir
-    if tmpdir is None:
-        if cfg["tmpdir"] is not None:
-            tmpdir = cfg["tmpdir"]
-        else:
-            tmpdir = tempfile.gettempdir()
+    if cfg["tmpdir"] is not None:
+        tmpdir = cfg["tmpdir"]
+    else:
+        tmpdir = tempfile.gettempdir()
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)
@@ -76,7 +75,7 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     logging.info("Pool with " + str(nthreads) + " workers initialised" + '\n')
 
     # import plugins
-    import_plugins(plugin_paths = cfg["plugin_paths"], verbose=True)
+    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=True)
 
     atexit.register(pyrat_exit)
 
@@ -95,6 +94,7 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
 
     config_type : {'json', 'ini', 'plain'}
     """
+    cfg = {}
     if config_file is None:
         if sys.platform.startswith('win'):
             config_file = os.path.join(os.path.expanduser('~'), 'pyrat.ini')
@@ -104,61 +104,61 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
     if not os.path.isfile(config_file):
         if verbose:
             logging.info('No config file found!')
-        return {}
+    else:
+        if verbose:
+            logging.debug('Found config file : ' + config_file)
 
-    if verbose:
-        logging.debug('Found config file : ' + config_file)
-
-    if config_type == 'json':   # load json config file
-        with open(config_file) as fid:
+        if config_type == 'json':   # load json config file
+            with open(config_file) as fid:
+                try:
+                    cfg = json.load(fid)
+                except ValueError:  # probably old-time plain ascii file
+                    cfg = read_config_file(config_file, verbose=False,
+                                           config_type='ini')
+        if config_type == 'ini':   # load .ini config file
             try:
-                cfg = json.load(fid)
-            except ValueError:  # probably old-time plain ascii file
+                cfgp = ConfigParser()
+                cfgp.read(config_file)
+                cfgp = {k.lower(): v for k, v in cfgp.items()}                 # make case-insensitive
+                cfg = dict(cfgp["pyrat"])
+                if "plugin_paths" in cfgp:
+                    cfg["plugin_paths"] = [v for k, v in cfgp["plugin_paths"].items()]
+            except:  # probably old-time plain ascii file
                 cfg = read_config_file(config_file, verbose=False,
-                                       config_type='ini')
-    if config_type == 'ini':   # load .ini config file
-        try:
-            cfgp = ConfigParser()
-            cfgp.read(config_file)
-            cfgp = {k.lower():v for k,v in cfgp.items()} # make case-insensitive
-            cfg = dict(cfgp["pyrat"])
-            if "plugin_paths" in cfgp:
-                cfg["plugin_paths"] = [v for k,v in cfgp["plugin_paths"].items()]
-        except:  # probably old-time plain ascii file
-            cfg = read_config_file(config_file, verbose=False,
-                                   config_type='plain')
-    elif config_type == 'plain': # load initial single line config file
-        lun = open(config_file, 'rb')
-        tmpdir = lun.read().rstrip().decode()
-        lun.close()
-        cfg = {"tmpdir": tmpdir}
+                                       config_type='plain')
+        elif config_type == 'plain':                                           # load initial single line config file
+            lun = open(config_file, 'rb')
+            tmpdir = lun.read().rstrip().decode()
+            lun.close()
+            cfg = {"tmpdir": tmpdir}
 
     # defaults, if not provided
     if "tmpdir" not in cfg:
         cfg["tmpdir"] = None
     if "plugin_paths" not in cfg:
         cfg["plugin_paths"] = []
-
     return cfg
+
 
 class Plugins:
     """Will contain imported plugins, similar to previous module plugins"""
     pass
 plugins = Plugins()
 
-def import_plugins(plugin_paths = [], verbose=False):
+
+def import_plugins(plugin_paths=[], verbose=False):
     import pyrat
     pyrat_path = pyrat.__path__[0]
     default_plugin_path = os.path.dirname(pyrat_path) + "/plugins"
 
-    imported = [] # to import only the first occurence
+    imported = []                                                               # to import only the first occurence
     for directory in plugin_paths + [default_plugin_path]:
         if verbose:
-            print("Scanning for plugins: {}".format(directory))
+            logging.info("Scanning for plugins: {}".format(directory))
 
         if not os.path.isdir(directory):
             if verbose:
-                print(" - Skip. Not a directory: {}".format(directory))
+                logging.debug(" - Skip. Not a directory: {}".format(directory))
             continue
 
         sys.path.append(directory)
@@ -170,7 +170,7 @@ def import_plugins(plugin_paths = [], verbose=False):
                 candidate = os.path.join(dirpath, filename)
 
                 if filename in imported:
-                    continue  # don't import if another version imported
+                    continue                                                  # don't import if another version imported
                 else:
                     imported.append(filename)
 
@@ -183,12 +183,12 @@ def import_plugins(plugin_paths = [], verbose=False):
                     except AttributeError:
                         attrlist = dir(mod)
                     for attr in attrlist:
-                        setattr(plugins , attr, getattr(mod, attr))
-                        #globals()[attr] = getattr(mod, attr)
+                        setattr(plugins, attr, getattr(mod, attr))
                     if verbose:
-                        print(" + Imported external plugin: %s" % filename)
+                        logging.info(" + Imported external plugin: %s" % filename)
                 except Exception:
-                    print("Unable to import the code in plugin: %s" % filename)
+                    logging.info("Unable to import the code in plugin: %s" % filename)
+
 
 def foo(bar):
     pass
@@ -215,5 +215,3 @@ except AttributeError:
         interpreter = True
 if interpreter is True:
     pyrat_init()
-
-#from . import plugins
