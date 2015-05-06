@@ -525,6 +525,8 @@ class MainWindow(QtGui.QMainWindow):
 
         if 0 <= posx <= self.size[0] and 0 <= posy <= self.size[1]:
             values = pyrat.data.getData(block=(posy, posy+1, posx, posx+1), layer=self.current)
+            if values.shape == ():
+                values = values.reshape(1)
             txt = '<pre>Cursor position: ['+str(y)+', '+str(x)+']'
             for k, val in enumerate(values):
                 txt += '<br>D'+str(k)+':   '
