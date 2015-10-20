@@ -53,7 +53,7 @@ class StatusBar:
             self.statusZoom.setText(str(int(self.parent.factor)) + '%')
         
         if scale > 0:
-            self.statusScale.setText("F="+str(self.parent.sarscale+1))
+            self.statusScale.setText("F="+str(self.parent.sarscale))
         
         if level > 0:
             self.statusLevel.setText("S="+str(self.parent.scale))

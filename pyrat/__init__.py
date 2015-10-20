@@ -18,7 +18,9 @@ from . import transform
 from . import polar
 from . import insar
 from . import viewer
+from . import tomo
 
+from .tools import bcolors
 import os, logging, atexit, tempfile, sys
 import multiprocessing
 from configparser import ConfigParser
@@ -63,6 +65,8 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
         tmpdir = cfg["tmpdir"]
     else:
         tmpdir = tempfile.gettempdir()
+        logging.warning(bcolors.FAIL+bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
+        logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)
@@ -185,7 +189,7 @@ def import_plugins(plugin_paths=[], verbose=False):
                     for attr in attrlist:
                         setattr(plugins, attr, getattr(mod, attr))
                     if verbose:
-                        logging.info(" + Imported external plugin: %s" % filename)
+                        logging.info(" + Imported external plugin: " + bcolors.OKGREEN + filename + bcolors.ENDC)
                 except Exception:
                     logging.info("Unable to import the code in plugin: %s" % filename)
 

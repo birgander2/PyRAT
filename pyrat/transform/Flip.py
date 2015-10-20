@@ -23,7 +23,7 @@ class RotateLeft(pyrat.FilterWorker):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 1)
         if array.ndim > 2:
-            for k in range(array.ndim-2):
+            for k in range(2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         return array
 
@@ -44,12 +44,13 @@ class RotateRight(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
+        print(array.shape)
         if array.ndim > 2:
             for k in range(array.ndim-2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 3)
         if array.ndim > 2:
-            for k in range(array.ndim-2):
+            for k in range(2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         return array
 

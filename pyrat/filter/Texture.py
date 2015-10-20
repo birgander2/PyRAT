@@ -103,7 +103,7 @@ def inhomgenenity(*args, **kwargs):
 ############################################################################################
 
 try:
-    from skimage.filter.rank import entropy as skentropy
+    from skimage.filters.rank import entropy as skentropy
     from pyrat.viewer.tools import sarscale
 
     class Entropy(pyrat.FilterWorker):

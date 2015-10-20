@@ -41,7 +41,7 @@ def sobel(*args, **kwargs):
 ############################################################################################
 
 try:
-    from skimage import filter
+    from skimage import filters
 
     class Roberts(pyrat.FilterWorker):
         """

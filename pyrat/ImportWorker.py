@@ -18,6 +18,7 @@ class ImportWorker(pyrat.Worker):
             self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items() if k in para or k in kwargs)))
 
         size = tuple(self.getsize(*args, **kwargs))
+        size += (1,)*(2-len(size))
         if size[0] is None:                  # getsize not overloaded -> use full image import
             data, meta = self.reader(*args, **kwargs)
             if data is None and meta is None:

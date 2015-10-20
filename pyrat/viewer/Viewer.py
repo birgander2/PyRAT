@@ -7,8 +7,8 @@ from .Dialogs import PaletteSelector, LayerWidget
 from .StatusBar import *
 from . import egg
 
-from pyrat.tools import ProgressBar
-from pyrat.viewer.tools import sarscale, colortables, subsample
+from pyrat.tools import ProgressBar, colortables
+from pyrat.viewer.tools import sarscale, subsample
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -43,7 +43,6 @@ class MainWindow(QtGui.QMainWindow):
         self.updateDisplayList()
         self.show()
         self.rubberband = QtGui.QRubberBand(QtGui.QRubberBand.Rectangle, self.imageLabel)
-        self.colortables = colortables()
         self.palette = 0
 
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self.easterEgg)
@@ -231,7 +230,7 @@ class MainWindow(QtGui.QMainWindow):
     #     print("Event", self.frame.width(), self.frame.height())
 
     def paletteChooser(self):
-        wid = PaletteSelector(self.colortables, current=self.palette, parent=self)
+        wid = PaletteSelector(colortables(), current=self.palette, parent=self)
         res = wid.exec_()
         if res == 1:
             self.display[self.current]['palette'] = wid.palette
@@ -388,7 +387,7 @@ class MainWindow(QtGui.QMainWindow):
         self.viewCombo.setItemText(0, str(int(self.factor)) + '%')
 
         # colortable = [QtGui.qRgb(i, i, i) for i in range(256)]
-        p = self.colortables[1][self.config['palette']]
+        p = colortables(self.config['palette'])[1]
         colortable = [QtGui.qRgb(p[i, 0], p[i, 1], p[i, 2]) for i in range(256)]
 
         img.setColorTable(colortable)

@@ -9,7 +9,7 @@ class LayerData():
         self.tmpdir = dir
         self.laynam = 1  # actual (unique) internal layer name
         self.layers = {}  # internal group / layer names
-        self.active = []  # list of active layers
+        self.active = None  # list of active layers
         self.shape = None  # data layer shape
         self.dtype = None  # data layer dtype
         self.lshape = None  # layer shape, e.g. (4,4) or (3,)
@@ -369,16 +369,14 @@ class LayerData():
 
     def info(self):
         for group in ['/L' + str(l) for l in sorted([int(k[2:]) for k in self.layers.keys()])]:
-            active = ' *' if group in self.active else ''
+            active = ' *' if self.active is not None and group in self.active else ''
             print((self.layers[group].name + active).ljust(9), self.layers[group].attrs['_type'].ljust(15),
                   self.layers[group].attrs['_block'], self.layers[group].attrs['_dtype'].ljust(10),
                   self.layers[group].attrs['_shape'])
 
     def delLayer(self, layer, silent=False):
         """
-        Deletes an entire layer from the object. Note that the memory (i.e. disc space) is not freed
-        automatically for disc layers. A call to PyRat.Data.repack() is necessary, but it requires 
-        copying around the data of all disc layers...
+        Deletes an entire layer from the data object.
         """
         layers = layer if isinstance(layer, list) else [layer]
         for layer in layers:

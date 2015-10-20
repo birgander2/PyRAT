@@ -27,7 +27,8 @@ class FSAR(pyrat.ImportWorker):
         {'var': 'bands', 'value': '*'},
         {'var': 'polarisations', 'value': '*'},
         {'var': 'product', 'value': 'RGI-SLC'},
-        {'var': 'crop', 'value': [0, 0, 0, 0]}]
+        {'var': 'crop', 'value': [0, 0, 0, 0]},
+        {'var': 'mask', 'type': bool, 'value': False}]
 
     def __init__(self, *args, **kwargs):
         super(FSAR, self).__init__(*args, **kwargs)
@@ -46,12 +47,19 @@ class FSAR(pyrat.ImportWorker):
         if self.product == 'INF-SLC':
             head = 'slc_coreg'
             src = ('INF','INF-SR')
+        if self.product == 'INF-CIR':
+            head = 'slcpol'
+            src = ('INF','INF-SR')
 
-        files = glob.glob(os.path.join(self.dir, src[0], src[1], head+'*'+self.bands.upper()+self.polarisations.lower()+'*.rat'))
+        if self.polarisations == '*':
+            self.polarisations = '??'
+        if self.product == 'INF-CIR':
+            files = glob.glob(os.path.join(self.dir, src[0], src[1], head+'*'+self.bands.upper()+self.polarisations.lower()+'*_c'+str(self.track)+'_s'+str(self.subaperture)+'_*coreg.rat'))
+        else:
+            files = glob.glob(os.path.join(self.dir, src[0], src[1], head+'*'+self.bands.upper()+self.polarisations.lower()+'_*.rat'))
         bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
         pols = list(set([os.path.basename(slc).split('_')[2][1:3] for slc in files]))
 
-        # stop()
         # match = self.match if hasattr(self, 'match') else ''
         # files = glob.glob(self.filename+'/RGI/RGI-SR/slc_*'+match+'_*rat')
         # bands = set([f.split('_')[-2][0] for f in files])
@@ -64,6 +72,9 @@ class FSAR(pyrat.ImportWorker):
             else:
                 bandfiles = [f for f in files if '_'+band in f]
                 fil = RatFile(bandfiles[0])
+                if self.mask is True:
+                    maskfile = glob.glob(os.path.join(self.dir, src[0], src[1], 'mask*'+band.upper()+'*.rat'))
+                    msk = RatFile(maskfile[0])
                 naz = fil.dim[1]
                 nrg = fil.dim[0]
                 block = list(self.crop)
@@ -82,7 +93,9 @@ class FSAR(pyrat.ImportWorker):
                 for k, f in enumerate(bandfiles):
                     logging.info("Found "+f)
                     barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
-
+                    if self.mask is True:
+                        mask = msk.read(block=(block[2], block[0], drg, daz))
+                        # barr[k, ...] *= mask
                     if self.product == 'RGI-SLC':
                         ppfile = f.replace('RGI-SR', 'RGI-RDP').replace('slc_', 'pp_').replace('.rat', '.xml')
                     if self.product == 'RGI-AMP':
@@ -90,24 +103,32 @@ class FSAR(pyrat.ImportWorker):
                     if self.product == 'INF-SLC':
                         ppname = 'pp_'+'_'.join(os.path.basename(f).split('_')[3:]).replace('.rat','.xml')
                         ppfile = os.path.join(self.dir,'INF','INF-RDP',ppname)
+                    if self.product == 'INF-CIR':
+                        ppname = 'ppgeo_csar_'+'_'.join(os.path.basename(f).split('_')[1:4])+'.xml'
+                        ppfile = os.path.join(self.dir,'GTC','GTC-RDP',ppname)
                     pp = Xml2Py(ppfile)
                     bmeta['CH_pol'][k] = pp.polarisation
                 bmeta['prf'] = pp.prf
                 bmeta['c0'] = pp.c0
                 bmeta['rd'] = pp.rd
                 bmeta['rsf'] = pp.rsf
-                bmeta['nrg'] = pp.nry
-                bmeta['naz'] = pp.nrx
+                bmeta['nrg'] = drg
+                bmeta['naz'] = daz
                 bmeta['lam'] = pp.__dict__['lambda']
                 bmeta['band'] = pp.band
                 bmeta['antdir'] = pp.antdir
                 bmeta['v0'] = pp.v0
                 bmeta['bw'] = pp.cbw
+                bmeta['ps_rg'] = pp.ps_rg
+                bmeta['ps_az'] = pp.ps_az
                 bmeta['rd'] += block[2] / bmeta['rsf']
+                bmeta['h0'] = pp.h0
                 bmeta['pre_az'] = pp.pre_az
 
-
-                array.append(barr)
+                if self.mask is True:
+                    array.append([barr, mask])
+                else:
+                    array.append(barr)
                 meta.append(bmeta)
 
 

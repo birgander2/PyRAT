@@ -69,7 +69,7 @@ class FSAR_dem(pyrat.ImportWorker):
                 daz = block[1]-block[0]
                 drg = block[3]-block[2]
 
-                barr = np.empty((len(bandfiles), daz, drg), dtype='complex64')
+                barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
                 for k, f in enumerate(bandfiles):
                     logging.info("Found "+f)
                     barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))

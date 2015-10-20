@@ -1,7 +1,7 @@
 from __future__ import print_function
 import pyrat
 import numpy as np
-from skimage import filter
+from skimage import filters
 
 class Canny(pyrat.FilterWorker):
     """

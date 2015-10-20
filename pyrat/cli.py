@@ -7,6 +7,12 @@ def info():
     data.info()
 
 
+def active():
+    from pyrat import data
+
+    return data.active
+
+
 def activate(layer, silent=False):
     from pyrat import data
 

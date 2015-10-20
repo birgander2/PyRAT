@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from PyQt4 import QtCore, QtGui
 from pyrat.load.tools import rrat, RatFile
+from pyrat.tools import bcolors
 
 
 class RatFormat(pyrat.ImportWorker):
@@ -17,15 +18,19 @@ class RatFormat(pyrat.ImportWorker):
     def getsize(self, *args, **kwargs):
         try:
             file = RatFile(self.filename)
-            size = tuple(file.dim[:file.ndim][::-1])
-            if len(size) == 3 and size[2] < size[0] and size[2] < size[1]:
-                size = (size[2], size[0], size[1])
-            if len(size) == 4 and size[2] < size[0] and size[2] < size[1] and size[3] < size[0] and size[3] < size[1]:
-                size = (size[2], size[3], size[0], size[1])
-            del file
-            return size
+            if file.exists:
+                size = tuple(file.dim[:file.ndim][::-1])
+                if len(size) == 3 and size[2] < size[0] and size[2] < size[1]:
+                    size = (size[2], size[0], size[1])
+                if len(size) == 4 and size[2] < size[0] and size[2] < size[1] and size[3] < size[0] and size[3] < size[1]:
+                    size = (size[2], size[3], size[0], size[1])
+                del file
+                return size
+            else:
+                logging.error(bcolors.FAIL + "IOError: file not found '"+ self.filename + "'" + bcolors.ENDC)
+                return False, False
         except IOError:
-            logging.error("IOError: file format not recognised!")
+            logging.error(bcolors.FAIL + "IOError: file format not recognised!" + bcolors.ENDC)
             return False, False
 
     def block_reader(self, *args, **kwargs):

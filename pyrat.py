@@ -26,10 +26,12 @@ def main():
             usage()
             sys.exit()
         elif sys.argv[1] in ['-b', '--batch']:
-            import code
+            # import code
+            from pyrat.tools import HistoryConsole
             var = globals().copy()
             var.update(locals())
-            shell = code.InteractiveConsole(var)
+            shell = HistoryConsole(vars)
+            # shell = code.InteractiveConsole(var)
             shell.push("from pyrat import *")
             shell.push("pyrat_init()")
             if len(sys.argv) == 3:

@@ -7,10 +7,6 @@ from pyrat.filter.tools import rebin
 from pyrat.tools import ProgressBar
 
 
-from ipdb import set_trace
-stop = set_trace
-
-
 class RatCovar(pyrat.ImportWorker):
 
     #gui = {'menu': 'File', 'entry': 'Open RAT file', 'before': 'Open external'}
@@ -28,6 +24,11 @@ class RatCovar(pyrat.ImportWorker):
             self.subx = 3
         if 'suby' not in self.__dict__:
             self.suby = 3
+        if 'fe_file' not in self.__dict__:
+            self.fe_file = None
+        if 'dem_file' not in self.__dict__:
+            self.dem_file = None
+
 
     def reader(self, *args, **kwargs):
         fN = len(self.filenames)
@@ -76,23 +77,37 @@ class RatCovar(pyrat.ImportWorker):
 
         meta['nrg'] = oDim[0]
         meta['naz'] = oDim[1]
+
+        pha_fe = None
+        if self.fe_file is not None:
+            pha_fe = rrat(self.fe_file)
+            if len(self.rat_block) == 4:
+                pha_fe = pha_fe[self.rat_block[0]:np.sum(self.rat_block[0:1])]
             
         P = ProgressBar('  ' + self.name, nBlocks)
         P.update(0)
         for n in range(nBlocks):
             rInd = np.minimum(np.asarray([n*blenIn,(n+1)*blenIn]),imDim[0])
-            wInd = rInd/sub
+            wInd = rInd/sub[0]
             if wInd[0] >= wInd[1]:
                 continue
 
+            blk = [0,rInd[0],imDim[1],rInd[1]-rInd[0]]
+            if len(self.rat_block) == 4:
+                blk[0] = self.rat_block[0]
+                blk[1] += self.rat_block[1]
+                blk[2] = self.rat_block[2]
             binInd = [(wInd[1]-wInd[0])*sub[0],oDim[1]*sub[1]]
             bDim = (wInd[1]-wInd[0],oDim[1])
+
+            pha_corr = None
+            if self.dem_file is not None:
+                pha_corr = rrat(self.dem_file,block=blk)
+                if (pha_fe is not None):
+                    pha_corr += pha_fe.reshape(1,imDim[1])
+                pha_corr = np.exp(1j*pha_corr[:binInd[0],:binInd[1]])
+
             for u in range(fN):
-                blk = [0,rInd[0],imDim[1],rInd[1]-rInd[0]]
-                if len(self.rat_block) == 4:
-                    blk[0] = self.rat_block[0]
-                    blk[1] += self.rat_block[1]
-                    blk[2] = self.rat_block[2]
                 arr1 = rrat(self.filenames[u],block=blk)
                 arr1 = arr1[0:binInd[0],0:binInd[1]]
 
@@ -103,7 +118,11 @@ class RatCovar(pyrat.ImportWorker):
 
                 for v in range(u+1,fN):
                     arr2 = rrat(self.filenames[v],block=blk)
-                    
+                    arr2 = arr2[0:binInd[0],0:binInd[1]]
+
+                    if (u < fN/2) and (v >= fN/2) and (pha_corr is not None):
+                        arr2 *= pha_corr
+
                     covar[u,v,wInd[0]:wInd[1],:] = rebin(arr1*np.conj(arr2),bDim)
                     covar[v,u,wInd[0]:wInd[1],:] = np.conj(covar[u,v,wInd[0]:wInd[1],:])
 

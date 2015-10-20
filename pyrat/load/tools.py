@@ -114,7 +114,7 @@ class RatFile():
             if 'block' in kwargs:
                 block = kwargs['block']
                 if self.pixel_il:
-                    blockshape = self.dim[::-1]
+                    blockshape = self.dim[::-1]+[1]*(2-self.ndim)
                     blockshape[0] = block[3]
                     arr = np.ndarray(shape=blockshape, dtype=self.dtype)
                     lun.seek(1000 + arr.itemsize * block[1] * blockshape[1] * self.nchannel)

@@ -5,10 +5,46 @@ import scipy as sp
 
 import numpy as np
 cimport numpy as np
+from libc.math cimport sqrt, abs, exp
+
+ctypedef fused fltcpl_t:
+    cython.float
+    cython.double
+    cython.floatcomplex
+    cython.doublecomplex
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cy_leesigma(float [:, :] array, float looks=1.0, win=(7,7)):
+def cy_bilateral(float [:, :] array, win=11, looks=1.0):
+    cdef float [:, :] out = np.zeros_like(array)
+    cdef float sigma_d = sqrt(win*win/4.6051)
+    cdef float sigma_r = np.sqrt(1.0/looks)
+    
+    cdef int ny = array.shape[0]
+    cdef int nx = array.shape[1]
+    cdef int ym = win/2
+    cdef int xm = win/2
+    
+    cdef int k, l, x, y
+    cdef float norm = 0.0
+    cdef float dd, dr, sd, sr
+    for k in range(ym, ny-ym):
+        for l in range(xm, nx-xm):
+            norm = 0.0
+            for y in range(-ym, ym+1):
+                for x in range(-xm, xm+1):
+                    dd = sqrt(x**2 + y**2)                     # spatial distance
+                    dr = abs(array[k, l] - array[k+y, l+x])    # statistical distance
+                    sd = exp(-(dd / sigma_d)**2 / 2)
+                    sr = exp(-(dr / sigma_r)**2 / 2)
+                    out[k, l] += array[k+y, l+x] * sd * sr
+                    norm += sd * sr
+            out[k, l] /= norm
+    return np.asarray(out)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_leesigmaold(float [:, :] array, float looks=1.0, win=(7,7)):
     cdef float [:, :] out = np.empty_like(array)
     cdef float diff = 2.0 * np.sqrt(1.0/looks)
     cdef int ny = array.shape[0]
@@ -37,64 +73,364 @@ def cy_leesigma(float [:, :] array, float looks=1.0, win=(7,7)):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cy_leesigmanew(float [:, :] array, float looks=1.0, win=(7,7)):
-
-# STEP 2
-
-    sig2 = 1.0 / looks
-    sfak = 1.0 + sig2
-    span = np.asarray(array)
-    m2arr = sp.ndimage.filters.uniform_filter(span**2, size=(5,5))
-    marr = sp.ndimage.filters.uniform_filter(span, size=(5,5))
-    vary = (m2arr - marr ** 2).clip(1e-10)
-    varx = ((vary - marr ** 2 * sig2) / sfak).clip(0)
-    kfac = varx / vary
-    xestnp = marr + (span - marr) * kfac
-
-# STEP 3
+def cy_leesigma(float [:, :] span, fltcpl_t [:, :, :, :] array, float looks=1.0, win=(7,7)):
+    cdef fltcpl_t [:, :, :, :] out = np.empty_like(array)
     cdef float diff = 2.0 * np.sqrt(1.0/looks)
+    cdef int ny = array.shape[2]
+    cdef int nx = array.shape[3]
+    cdef int nv = array.shape[0]
+    cdef int nz = array.shape[1]
+    cdef int ym = win[0]/2
+    cdef int xm = win[1]/2
+    cdef int limit = (xm + ym)  # //4
+    cdef int k, l, x, y, v, z
+    if cython.float is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float32')
+    elif cython.floatcomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex64')
+    elif cython.double is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float64')
+    elif cython.doublecomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex128')
+    cdef fltcpl_t [:, :] res = foo
 
-    cdef float [:, :] out = np.empty_like(array)
-    cdef float [:, :] xest = xestnp
+    cdef int n = 0
+    for k in range(ym, ny-ym):
+        for l in range(xm, nx-xm):
+            for v in range(nv):
+                for z in range(nz):
+                    res[v, z] = 0.0
+            n = 0
+            for y in range(-ym, ym+1):
+                for x in range(-xm, xm+1):
+                    if span[k+y, l+x]>span[k, l]*(1.0-diff) and (span[k+y, l+x]<span[k, l]*(1.0+diff)):
+                        for v in range(nv):
+                            for z in range(nz):
+                                res[v, z] = res[v, z] + array[v, z, k+y, l+x]
+                        n += 1
+            if n >= limit:
+                for v in range(nv):
+                    for z in range(nz):
+                        out[v, z, k, l] = res[v, z] / n
+            else:
+               for v in range(nv):
+                    for z in range(nz):
+                        out[v, z, k, l] = (array[v, z, k-1, l] + array[v, z, k+1, l] + array[v, z, k, l-1] + array[v, z, k, l+1]) / 4.0
+    return np.asarray(out)
+
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_leeimproved_old(float [:, :] array, bounds=(0.5, 3.0), float thres=5.0, looks=1.0, win=(9, 9), float newsig=0.5):
+    cdef float sig2 = 1.0 / looks
+    cdef float sfak = 1.0 + sig2
+    cdef float nsig2 = newsig
+    cdef float nsfak = 1.0 + nsig2
     cdef int ny = array.shape[0]
     cdef int nx = array.shape[1]
     cdef int ym = win[0]/2
     cdef int xm = win[1]/2
     cdef int k, l, x, y
+    cdef float m2arr, marr, vary, varx, kfac, i1, i2
+    cdef float res = 0.0
+    cdef int n = 0
 
-    cdef float m2pix = 0.0
-    cdef float mpix = 0.0
-    cdef int npix = 0
-    cdef float k2, varzz, varxx
-    cdef i1 = 0.221
-    cdef i2 = 2.744
-    cdef nv2 = 0.5699**2
-
+    cdef float [:, :] out = np.zeros_like(array)
     for k in range(ym, ny-ym):
         for l in range(xm, nx-xm):
-            npix = 0
-            mpix = 0.0
-            m2pix = 0.0
-            for y in range(-ym, ym+1):
-                for x in range(-xm, xm+1):
-                    if (array[k+y, l+x]>=xest[k, l]*i1) and (array[k+y, l+x]<=xest[k, l]*i2):
-                    # if array[k+y, l+x]>array[k, l]*(1.0-diff) and (array[k+y, l+x]<array[k, l]*(1.0+diff)):
-                        mpix += array[k+y, l+x]
-                        m2pix += array[k+y, l+x]*array[k+y, l+x]
-                        npix += 1
-            if npix>0:
-                mpix /= npix
-                m2pix /= npix
-                varzz = m2pix - mpix*mpix
-                varxx = (varzz - mpix*mpix*nv2) / (1.0+nv2)
-                if varzz>0.0:
-                    k2 = varxx / varzz
+            m2arr = 0.0
+            marr = 0.0
+            n = 0
+            for y in range(-1, 2):                          # check 3x3 neighbourhood
+                for x in range(-1, 2):
+                    m2arr += array[k+y, l+x]**2
+                    marr += array[k+y, l+x]
+                    if array[k+y, l+x] > thres:
+                        n += 1
+
+            if n >= 6:                                      # keep all point targets
+                for y in range(-1, 2):
+                    for x in range(-1, 2):
+                        if array[k+y, l+x] > thres:
+                            out[k+y, l+x] = array[k+y, l+x]
+
+            if out[k, l] == 0.0:                             # no point target
+                m2arr /= 9.0
+                marr /= 9.0
+                vary = (m2arr - marr**2)
+                if vary < 1e-10: vary = 1e-10
+                varx = ((vary - marr ** 2 * sig2) / sfak)
+                if varx < 0: varx = 0
+                kfac = varx / vary
+                xtilde = (array[k, l] - marr) * kfac + marr
+
+                i1 = xtilde*bounds[0]
+                i2 = xtilde*bounds[1]
+                m2arr = 0.0
+                marr = 0.0
+                n = 0
+
+                for y in range(-ym, ym+1):
+                    for x in range(-xm, xm+1):
+                        if array[k+y, l+x]>i1 and array[k+y, l+x]<i2:
+                            m2arr += array[k+y, l+x]**2
+                            marr += array[k+y, l+x]
+                            n += 1
+                if n == 0:
+                    out[k, l] = 0.0
                 else:
-                    k2 = 0.0
-            else:
-                k2 = 1.0
-            out[k, l] = mpix  + (array[k, l] - mpix) * k2
+                    m2arr /= n
+                    marr /= n
+                    vary = (m2arr - marr**2)
+                    if vary < 1e-10: vary = 1e-10
+                    varx = ((vary - marr ** 2 * nsig2) / nsfak)
+                    if varx < 0.0: varx = 0.0
+                    kfac = varx / vary
+                    out[k, l] = (array[k, l] - marr) * kfac + marr
+    return np.asarray(out)
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_leeimproved(float [:, :] span, fltcpl_t [:, :, :, :] array, bounds=(0.5, 3.0), float thres=5.0, looks=1.0, win=(9, 9), float newsig=0.5):
+    cdef fltcpl_t [:, :, :, :] out = np.zeros_like(array)
+    cdef float sig2 = 1.0 / looks
+    cdef float sfak = 1.0 + sig2
+    cdef float nsig2 = newsig
+    cdef float nsfak = 1.0 + nsig2
+    cdef float xtilde
+    cdef int nv = array.shape[0]
+    cdef int nz = array.shape[1]
+    cdef int ny = array.shape[2]
+    cdef int nx = array.shape[3]
+    cdef int ym = win[0]/2
+    cdef int xm = win[1]/2
+    cdef int norm = win[0] * win[1]
+    cdef int k, l, x, y, v, z
+    cdef float m2arr, marr, vary, varx, kfac, i1, i2
+    if cython.float is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float32')
+    elif cython.floatcomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex64')
+    elif cython.double is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float64')
+    elif cython.doublecomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex128')
+    cdef fltcpl_t [:, :] res = foo
+
+    cdef int n = 0
+    for k in range(ym, ny-ym):
+        for l in range(xm, nx-xm):
+            m2arr = 0.0
+            marr = 0.0
+            n = 0
+            for y in range(-1, 2):                          # check 3x3 neighbourhood
+                for x in range(-1, 2):
+                    m2arr += span[k+y, l+x]**2
+                    marr += span[k+y, l+x]
+                    if span[k+y, l+x] > thres:
+                        n += 1
+            if n >= 6:                                      # keep all point targets
+                for y in range(-1, 2):
+                    for x in range(-1, 2):
+                        for v in range(nv):
+                            for z in range(nz):
+                                if span[k+y, l+x] > thres:
+                                    out[v, z, k+y, l+x] = array[v, z, k+y, l+x]
+
+            if out[0, 0, k, l] == 0.0:                      # no point target, also not prior
+                m2arr /= 9.0
+                marr /= 9.0
+                vary = (m2arr - marr**2)
+                if vary < 1e-10: vary = 1e-10
+                varx = ((vary - marr ** 2 * sig2) / sfak)
+                if varx < 0: varx = 0
+                kfac = varx / vary
+
+                xtilde = (span[k, l] - marr) * kfac + marr
+
+                i1 = xtilde*bounds[0]
+                i2 = xtilde*bounds[1]
+                m2arr = 0.0
+                marr = 0.0
+                n = 0
+                for v in range(nv):
+                    for z in range(nz):
+                        res[v, z] = 0.0
+
+                for y in range(-ym, ym+1):
+                    for x in range(-xm, xm+1):
+                        if span[k+y, l+x]>i1 and span[k+y, l+x]<i2:
+                            m2arr += span[k+y, l+x]**2
+                            marr += span[k+y, l+x]
+                            n += 1
+                            for v in range(nv):
+                                for z in range(nz):
+                                    res[v, z] = res[v, z] + array[v, z, k+y, l+x]
+                if n == 0:
+                    for v in range(nv):
+                        for z in range(nz):
+                            out[v, z, k, l] = 0.0
+                else:
+                    m2arr /= n
+                    marr /= n
+                    vary = (m2arr - marr**2)
+                    if vary < 1e-10: vary = 1e-10
+                    varx = ((vary - marr ** 2 * nsig2) / nsfak)
+                    if varx < 0.0: varx = 0.0
+                    kfac = varx / vary
+                    for v in range(nv):
+                        for z in range(nz):
+                            out[v, z, k, l] = (array[v, z, k, l] - res[v, z] / n) * kfac + res[v, z] / n
+    return np.asarray(out)
+
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_srad_old(float [:, :] array, float looks=1.0, float step=0.05, int iter=0, float scale=1.0):
+    cdef float p1, p2, p3, p4, aim, aip, ajm, ajp
+    cdef int i, j
+    cdef float d2i, qp1, qp2, q2, d
+    cdef int ny = array.shape[0]
+    cdef int nx = array.shape[1]
+
+    cdef q0 = 1.0/sqrt(looks)*exp(-step*iter/6.0)
+
+    cdef float [:, :] ci = np.zeros_like(array)
+    cdef float [:, :] out = np.zeros_like(array)
+
+    for i in range(0, ny):
+        for j in range(0, nx):
+            aip = array[i+1, j] if i != ny-1 else array[i, j]
+            aim = array[i-1, j] if i != 0 else array[i, j]
+            ajp = array[i, j+1] if j != nx-1 else array[i, j]
+            ajm = array[i, j-1] if j != 0 else array[i, j]
+            p1 = aip - array[i, j]
+            p2 = ajp - array[i, j]
+            p3 = array[i, j] - aim
+            p4 = array[i, j] - ajm
+
+            d2I = (aip + aim + ajp + ajm - 4.0*array[i, j]) / scale / scale
+            qp1 = sqrt(p1*p1 + p2*p2 + p3*p3 + p4*p4) / array[i, j] / scale
+            qp2 = d2I / array[i, j]
+
+            q = sqrt((qp1*qp1/2.0 - qp2*qp2/16.0) / (1.0 + qp2/4.0)**2)
+
+            ci[i, j] = 1/(1+(q*q - q0*q0)/(q0*q0*(1.0+q0*q0)))
+            # ci[i, j] = exp(-(q*q - q0*q0)/(q0*q0*(1.0+q0*q0)))
+            # ci[i, j] = 1.0
+
+    for i in range(0, ny):
+        for j in range(0, nx):
+            aip = array[i+1, j] if i != ny-1 else array[i, j]
+            aim = array[i-1, j] if i != 0 else array[i, j]
+            ajp = array[i, j+1] if j != nx-1 else array[i, j]
+            ajm = array[i, j-1] if j != 0 else array[i, j]
+            cip = ci[i+1, j] if i != ny-1 else ci[i, j]
+            cim = ci[i-1, j] if i != 0 else ci[i, j]
+            cjp = ci[i, j+1] if j != nx-1 else ci[i, j]
+            cjm = ci[i, j-1] if j != 0 else ci[i, j]
+
+            d = (cip*(aip-array[i, j]) + ci[i, j]*(aim-array[i, j]) + cjp*(ajp-array[i, j]) + ci[i, j]*(ajm-array[i, j]))
+            out[i, j] = array[i, j] + step/4.0*d
 
     return np.asarray(out)
 
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_srad(float [:, :] span, fltcpl_t [:, :, :, :] array, float looks=1.0, float step=0.05, int iter=0, float scale=1.0):
+    cdef float p1, p2, p3, p4, sip, sim, sjp, sjm
+    cdef fltcpl_t aim, aip, ajm, ajp
+    cdef int i, j, v, z
+    cdef float d2i, qp1, qp2, q2
+    cdef int nv = array.shape[0]
+    cdef int nz = array.shape[1]
+    cdef int ny = array.shape[2]
+    cdef int nx = array.shape[3]
+
+    cdef q0 = 1.0/sqrt(looks)*exp(-step*iter/6.0)
+    cdef q02 = q0 * q0
+
+    cdef float [:, :] ci = np.zeros_like(span, dtype='f4')
+    cdef fltcpl_t [:, :, :, :] out = np.zeros_like(array)
+
+    for i in range(1, ny-1):
+        for j in range(1, nx-1):
+            p1 = span[i+1, j] - span[i, j]
+            p2 = span[i, j+1] - span[i, j]
+            p3 = span[i, j] - span[i-1, j]
+            p4 = span[i, j] - span[i, j-1]
+            d2I = (span[i+1, j] + span[i-1, j] + span[i, j+1] + span[i, j-1] - 4.0*span[i, j]) / scale / scale
+            qp1 = sqrt(p1**2 + p2**2 + p3**2 + p4**2) / span[i, j] / scale
+            qp2 = d2I / span[i, j]
+            q = ((qp1*qp1/2.0 - qp2*qp2/16.0) / (1.0 + qp2/4.0)**2)
+            ci[i, j] = 1/(1+(q - q02)/(q02*(1.0+q02)))
+            # ci[i, j] = exp(-(q - q02)/(q02*(1.0+q02)))
+            # ci[i, j] = 1.0
+
+    # boundary conditions 1
+
+    for i in [0, ny-1]:
+        for j in [0, nx-1]:
+            sip = span[i+1, j] if i != ny-1 else span[i, j]
+            sim = span[i-1, j] if i != 0 else span[i, j]
+            sjp = span[i, j+1] if j != nx-1 else span[i, j]
+            sjm = span[i, j-1] if j != 0 else span[i, j]
+            p1 = sip - span[i, j]
+            p2 = sjp - span[i, j]
+            p3 = span[i, j] - sim
+            p4 = span[i, j] - sjm
+            d2I = (sip + sim + sjp + sjm - 4.0*span[i, j]) / scale / scale
+            qp1 = sqrt(p1**2 + p2**2 + p3**2 + p4**2) / span[i, j] / scale
+            qp2 = d2I / span[i, j]
+            q = ((qp1*qp1/2.0 - qp2*qp2/16.0) / (1.0 + qp2/4.0)**2)
+            ci[i, j] = 1/(1+(q - q02)/(q02*(1.0+q02)))
+            # ci[i, j] = exp(-(q - q02)/(q02*(1.0+q02)))
+            # ci[i, j] = 1.0
+
+    # update
+
+    for i in range(1, ny-1):
+        for j in range(1, nx-1):
+            for v in range(nv):
+                for z in range(nz):
+                    out[v, z, i, j] = array[v, z, i, j] + step/4.0*(
+                          ci[i+1, j]*(array[v, z, i+1, j]-array[v, z, i, j])
+                        + ci[i, j]*(array[v, z, i-1, j]-array[v, z, i, j])
+                        + ci[i, j+1]*(array[v, z, i, j+1]-array[v, z, i, j])
+                        + ci[i, j]*(array[v, z, i, j-1]-array[v, z, i, j]))
+
+    # boundary conditions 2
+
+    for i in [0, ny-1]:
+        for j in [0, nx-1]:
+            cip = ci[i+1, j] if i != ny-1 else ci[i, j]
+            cjp = ci[i, j+1] if j != nx-1 else ci[i, j]
+            for v in range(nv):
+                for z in range(nz):
+                    aip = array[v, z, i+1, j] if i != ny-1 else array[v, z, i, j]
+                    aim = array[v, z, i-1, j] if i != 0 else array[v, z, i, j]
+                    ajp = array[v, z, i, j+1] if j != nx-1 else array[v, z, i, j]
+                    ajm = array[v, z, i, j-1] if j != 0 else array[v, z, i, j]
+                    out[v, z, i, j] = array[v, z, i, j] + step/4.0*(cip*(aip-array[v, z, i, j])
+                        + ci[i, j]*(aim-array[v, z, i, j]) + cjp*(ajp-array[v, z, i, j])
+                        + ci[i, j]*(ajm-array[v, z, i, j]))
+
+    return np.asarray(out)
 
