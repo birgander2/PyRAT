@@ -44,7 +44,6 @@ class RotateRight(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
-        print(array.shape)
         if array.ndim > 2:
             for k in range(array.ndim-2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)

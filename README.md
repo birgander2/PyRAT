@@ -1,45 +1,66 @@
-# j-branch of PyRAT (Python Radar Analysis Tools)
+# PyRAT (Python Radar Analysis Tools)
 
-## Installation and git usage
+PyRat is a flexible framework for postprocessing synthetic aperture radar (SAR) data. It
+is made for both airborne and spaceborne data and especially focused on providing an
+easy plugin-based programming interface. 
 
-Create a directory:
+Technically, PyRat is implemented in Python (supported by some Cython) and uses HDF5 based 
+disc containers for temporary storage. It features automatic multithreaded block 
+processing for speed and memory efficiency, a powerful batch system and a Qt-based GUI. 
+It is expandable by plugins without deep knowledge of framework itself.
 
-    mkdir ~/progs/pyrat
-    cd ~/progs/pyrat
+## Installation
 
-Clone git reposotory:
+Compile / build:
+    
+    python setup.py build_ext --inplace
 
-    git clone https://mxn@bitbucket.org/mxn/pyrat.git
+Install (with root rights)
 
-Update (pull) repository:
+    python setup.py install
 
-    git pull
+Install (as user)
 
-Current status:
+    python setup.py install --user
 
-    git status
+## Usage
 
-Adding new files to repository (only if this file is not yet tracked by git):
+CLI Interface:
 
-    git add filename
+    ./pyrat.py -b [rat filename]
+    ./pyrat.py --batch [rat filename]
+    
+GUI Interface:
 
-Commit & push changes:
+    ./pyrat.py [rat filename]
 
-    git commit –a –m "Useful doc-string describing the change"
-    git push
+Current modules:
+* load:      Importing of data
+* save:      Exporting of data
+* filter:    Various image manipulations
+* transform: Geometrical transformations
+* insar:     Interferometric processing
+* polar:     Polarimetric processing
 
-In order to be able use the PyRat module, update your PYTHONPATH (write e.g. in .bashrc):
+More information about modules and contents (replace 'module' by correct name, e.g. 'filter):
+    
+    >>> module.info()
 
-    export PYTHONPATH=~/progs/pyrat:$PYTHONPATH
+## Example batch usage
 
-## Content
+    ./ pyrat.py -b
+    >>> x1 = load.rat(filename='abc.rat')
+    >>> x2 = filter.lee(looks=3)
+    >>> x3 = filter.boxcar(layer=x1)
+    >>> save.pixmap(filename='abc.jpg', layer=x2)
+    >>> var = getdata(layer=x1)
+    >>> show()
 
+## Implementing your own modules
 
-* pyrat/ folder contains the main PyRat module, including main classes,
-  library functions, and tests
+PyRat has a quite simple programming interface. Have a look at the file 'pyrat/filter/Template.py',
+this should explain at least the basics of programming own modules. Put your own code
+in the 'plugins' directory, it is automatically scanned at startup. PyRat will automatically
+attach your code to the GUI and run it using parallel processing.
 
-* doc/ folder contains documentation
-
-* icons/ folder contains the artwork for various icons of the GUI application
-
-* plugins/ folder for custom plugins
+For more detailed questions, please contact the authors directly.
