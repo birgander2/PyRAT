@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 
 # C extensions
+*.o
 *.so
 *.hd5
 *.rat

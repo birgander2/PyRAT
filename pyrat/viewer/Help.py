@@ -12,7 +12,7 @@ class About(pyrat.Worker):
         message = """
         PyRat - Radar Tools Collection
         ---
-        (c) 2014-2015 by the RAT development team
+        (c) 2014-2016 by the RAT development team
         ---
         PyRat version: v%s
         running on: %s / python %s
