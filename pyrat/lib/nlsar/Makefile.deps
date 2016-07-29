@@ -1,0 +1,103 @@
+sarerror.o: tools/sarerror.c tools/sarerror.h
+sarprintf.o: tools/sarprintf.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+sarwaitbar.o: tools/sarwaitbar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarwaitbar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+matrixtools.o: tools/matrixtools.c tools/mathtools.h tools/matrixtools.h \
+ tools/sarprintf.h
+inv_func.o: tools/inv_func.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+iorat.o: data/iorat.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h data/sardata.h \
+ data/rgbdata.h
+iobin.o: data/iobin.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h data/sardata.h \
+ data/rgbdata.h
+ioxima.o: data/ioxima.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h data/sardata.h \
+ data/rgbdata.h
+iosar.o: data/iosar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h data/sardata.h \
+ data/rgbdata.h data/iorat.h data/iobin.h data/iosar.h data/ioxima.h
+ionetpbm.o: data/ionetpbm.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h data/ionetpbm.h
+sardata.o: data/sardata.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h data/sardata.h \
+ data/rgbdata.h
+rgbdata.o: data/rgbdata.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h data/rgbdata.h
+fltdata.o: data/fltdata.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h data/fltdata.h
+sar2rgb.o: data/sar2rgb.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h data/sardata.h \
+ data/rgbdata.h data/ionetpbm.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h
+sarboxcar.o: algos/carfilter/sarboxcar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sardiskcar.o: algos/carfilter/sardiskcar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sargausscar.o: algos/carfilter/sargausscar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+fltboxcar.o: algos/carfilter/fltboxcar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h
+nlsar.o: algos/nlsar/nlsar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarwaitbar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/matrixtools.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/noisegen/noisegen.h \
+ algos/nlsar/sarsim.h algos/nlsar/sarsimstats.h algos/nlsar/nlsar.h \
+ algos/nlsar/phi.h
+sarsimstats.o: algos/nlsar/sarsimstats.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/nlsar/sarsim.h algos/nlsar/sarsimstats.h
+sarsim_glrwishart.o: algos/nlsar/sarsim_glrwishart.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/matrixtools.h \
+ algos/nlsar/sarsim.h /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h
+phi.o: algos/nlsar/phi.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ algos/nlsar/sarsimstats.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h algos/nlsar/sarsim.h \
+ algos/nlsar/phi.h
+noisegen.o: algos/noisegen/noisegen.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/mathtools.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/noisegen/noisegen.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h

@@ -1,0 +1,96 @@
+sarprintf.o: sarprintf.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+sarwaitbar.o: sarwaitbar.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarwaitbar.h
+sarinfo.o: sarinfo.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarread.o: sarread.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarwrite.o: sarwrite.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sar2rgb.o: sar2rgb.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarnlsar.o: sarnlsar.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/nlsar/nlsar.h
+sarboxcar.o: sarboxcar.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sardiskcar.o: sardiskcar.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sargausscar.o: sargausscar.c /opt/MATLAB/R2011b/extern/include/mex.h \
+ /opt/MATLAB/R2011b/extern/include/matrix.h \
+ /opt/MATLAB/R2011b/extern/include/tmwtypes.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sarinfo.mexa64: sarinfo.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sarinfo.o ../../lib/libnlsartoolbox.a   -output sarinfo.mexa64
+
+sarread.mexa64: sarread.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sarread.o ../../lib/libnlsartoolbox.a   -output sarread.mexa64
+
+sarwrite.mexa64: sarwrite.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sarwrite.o ../../lib/libnlsartoolbox.a   -output sarwrite.mexa64
+
+sar2rgb.mexa64: sar2rgb.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sar2rgb.o ../../lib/libnlsartoolbox.a   -output sar2rgb.mexa64
+
+sarnlsar.mexa64: sarnlsar.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sarnlsar.o ../../lib/libnlsartoolbox.a   -output sarnlsar.mexa64
+
+sarboxcar.mexa64: sarboxcar.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sarboxcar.o ../../lib/libnlsartoolbox.a   -output sarboxcar.mexa64
+
+sardiskcar.mexa64: sardiskcar.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sardiskcar.o ../../lib/libnlsartoolbox.a   -output sardiskcar.mexa64
+
+sargausscar.mexa64: sargausscar.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	mex -cxx -largeArrayDims LDFLAGS=" -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp -shared" sarprintf.o sarwaitbar.o sargausscar.o ../../lib/libnlsartoolbox.a   -output sargausscar.mexa64
+

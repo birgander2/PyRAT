@@ -1,0 +1,483 @@
+#!/bin/sh
+## configure: configuration script of the NL-SAR Toolbox
+##
+## This file is part of NL-SAR Toolbox version 0.6.
+##
+## Copyright Charles-Alban Deledalle (2013)
+## Email charles-alban.deledalle@math.u-bordeaux1.fr
+##
+## This software is a computer program whose purpose is to provide a
+## suite of tools to manipulate SAR images.
+##
+## This software is governed by the CeCILL license under French law and
+## abiding by the rules of distribution of free software. You can use,
+## modify and/ or redistribute the software under the terms of the CeCILL
+## license as circulated by CEA, CNRS and INRIA at the following URL
+## "http://www.cecill.info".
+##
+## As a counterpart to the access to the source code and rights to copy,
+## modify and redistribute granted by the license, users are provided only
+## with a limited warranty and the software's author, the holder of the
+## economic rights, and the successive licensors have only limited
+## liability.
+##
+## In this respect, the user's attention is drawn to the risks associated
+## with loading, using, modifying and/or developing or reproducing the
+## software by the user in light of its specific status of free software,
+## that may mean that it is complicated to manipulate, and that also
+## therefore means that it is reserved for developers and experienced
+## professionals having in-depth computer knowledge. Users are therefore
+## encouraged to load and test the software's suitability as regards their
+## requirements in conditions enabling the security of their systems and/or
+## data to be ensured and, more generally, to use and operate it in the
+## same conditions as regards security.
+##
+## The fact that you are presently reading this means that you have had
+## knowledge of the CeCILL license and that you accept its terms.
+##
+##
+## Started on  Wed Jul 24 14:53:54 2013 Charles-Alban Deledalle
+## Last update Tue Apr  8 17:54:37 2014 Charles-Alban Deledalle
+##
+
+# does the same as "readlink -f" which is not
+# supported on MacOS X Lion
+readlinkrec()
+{
+    targetfile=$1
+    curdir=`pwd`
+    cd `dirname $targetfile`
+    targetfile=`basename $targetfile`
+    while [ -L "$targetfile" ]
+    do
+	targetfile=`readlink $targetfile`
+	cd `dirname $targetfile`
+	targetfile=`basename $targetfile`
+    done
+    physdir=`pwd -P`
+    echo $physdir/$targetfile
+    cd $curdir
+}
+
+WORKDIR=`dirname $0`
+WORKDIR=`readlinkrec $WORKDIR`
+MAKEFILE_RULES=$WORKDIR/Makefile.rules
+
+searchbin()
+{
+    binname=$1
+    binpath=`which $binname 2>/dev/null`
+    if [ "$?" != "0" ] ; then
+	return 1;
+    fi
+    binpath=`readlinkrec $binpath`
+    binpath=`dirname $binpath`
+    echo $binpath
+    return 0
+}
+
+searchlib()
+{
+    libname=$1
+    for libpath in `echo $LD_LIBRARY_PATH | sed 's/:/ /g'` '/lib/' '/usr/lib/' '/usr/local/lib/'; do
+	if ls $libpath/$libname > /dev/null 2> /dev/null; then
+	    libpath=`readlinkrec $libpath/`
+	    echo $libpath
+	    return 0
+	fi
+    done
+    for libfullname in `locate "${libname}"` ; do
+	libpath=`dirname $libfullname`
+	if ls $libpath/$libname > /dev/null 2> /dev/null; then
+	    libpath=`readlinkrec $libpath/`
+	    echo $libpath
+	    return 0
+	fi
+    done
+    return 1
+}
+
+is64bits()
+{
+    # not very elegant but uname -m does not seem to work for Mac Os X
+    LD=`which ld`
+    LD=`readlinkrec $LD`
+    if file $LD | grep 64 >/dev/null 2>/dev/null ; then
+	return 0
+    else
+	return 1
+    fi
+}
+
+# Get options
+# Set prefix
+PREFIX="/usr/"
+DOBLAS=0
+DOLAPACK=1
+DOGSL=0
+DOOMP=1
+DOMEX=1
+DOPYTHON=1
+DOIDL=1
+DOPOLSARPRO=0
+while [ $# -gt 0 ] ; do
+    case $1 in
+	--disable-blas)
+	    DOBLAS=0
+	    ;;
+	--disable-lapack)
+            DOLAPACK=0
+	    ;;
+	--disable-gsl)
+            DOGSL=0
+	    ;;
+	--disable-openmp)
+            DOOMP=0
+	    ;;
+	--disable-matlab)
+            DOMEX=0
+	    ;;
+	--disable-python)
+            DOPYTHON=0
+	    ;;
+	--disable-idl)
+            DOIDL=0
+	    ;;
+	--enable-blas)
+	    DOBLAS=1
+	    ;;
+	--enable-lapack)
+            DOLAPACK=1
+	    ;;
+	--enable-gsl)
+            DOGSL=1
+	    ;;
+	--enable-openmp)
+            DOOMP=1
+	    ;;
+	--include=*)
+                INCLUDE=`echo $1 | cut -f 2 -d'='`
+		CFLAGS_COMMON="$CFLAGS_COMMON -I$INCLUDE "
+		;;
+	--prefix=*)
+                PREFIX=`echo $1 | cut -f 2 -d'='`
+		;;
+	--prefix-matlab=*)
+                PREFIX_MATLAB=`echo $1 | cut -f 2 -d'='`
+		;;
+	--prefix-python=*)
+                PREFIX_PYTHON=`echo $1 | cut -f 2 -d'='`
+		;;
+	--prefix-idl=*)
+                PREFIX_IDL=`echo $1 | cut -f 2 -d'='`
+		;;
+	--prefix-polsarpro=*)
+                PREFIX_POLSARPRO=`echo $1 | cut -f 2 -d'='`
+		DOPOLSARPRO=1
+		;;
+	--help)
+		echo "Usage: $0 [OPTIONS]"
+		echo "Configure NL-SAR Toolbox."
+		echo
+		echo "Options are:"
+		echo "  --disable-blas		Disable the use of BLAS"
+		echo "  --disable-lapack		Disable the use of LAPACK"
+		echo "  --disable-gsl			Disable the use of GLS"
+		echo "  --disable-openmp		Disable the use of OpenMP"
+		echo "  --disable-matlab		Disable Matlab's inteface"
+		echo "  --disable-python		Disable Python's inteface"
+		echo "  --disable-idl			Disable IDL's inteface"
+		echo "  --prefix=DIRECTORY		Specify installation path (default /usr/)"
+		echo "  --prefix-matlab=DIRECTORY	Specify Matlab installation path"
+		echo "  --prefix-python=DIRECTORY	Specify Python installation path"
+		echo "  --prefix-idl=DIRECTORY	Specify IDL installation path"
+		echo "  --prefix-polsarpro=DIRECTORY	Specify PolSARpro installation path"
+		echo "  --help			Show this message"
+		return
+		;;
+	*)
+		echo "Parameter $1 unknown"
+		;;
+    esac
+    shift 1
+done
+
+
+# Start checking installations
+
+printf 'Checking for gcc '
+GCC_PATH=`searchbin gcc`
+if [ "$?" = "0" ] ; then
+    CC=gcc
+    printf '[ok]\n'
+else
+    printf '[ko]\n'
+    printf 'Configuration failed\n'
+    exit 2
+fi
+
+printf 'Extract gcc version '
+gccversion=`gcc --version | head -1 | sed -e 's/.*(.*) \([[:digit:]]\.[[:digit:]]\).*/\1/'`
+printf "$gccversion \n"
+
+printf 'Checking for OpenMP activation '
+if [ "$DOOMP" = "1" ] ; then
+    if [ `echo "$gccversion < 4.2" | bc` -eq 1 ] ; then
+	CFLAGS_COMMON="-Wno-unknown-pragmas $CFLAGS_COMMON"
+	printf '[ko] (gcc version too old)\n'
+    else
+	CFLAGS_COMMON="-DOMP -fopenmp $CFLAGS_COMMON"
+	LDFLAGS_COMMON="-fopenmp $LDFLAGS_COMMON"
+	printf '[ok]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Extract CPU architecture: '
+if ! is64bits ; then
+    printf '32 bits\n'
+else
+    printf '64 bits\n'
+    printf 'Looking for specific library directories for 64 bits '
+    if [ -d '/usr/lib64/' ]; then
+	LD_LIBRARY_PATH="/usr/lib64/:$LD_LIBRARY_PATH"
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+fi
+
+# For mac user
+if [ `uname` = 'Darwin' ] ; then
+    LDFLAGS_COMMON="-undefined dynamic_lookup $LDFLAGS_COMMON"
+    LDEXT=dylib
+else
+    LDEXT=so
+fi
+
+CFLAGS_COMMON="-I$WORKDIR $CFLAGS_COMMON"
+DOCLI=1
+
+printf 'Checking for lapack '
+if [ "$DOLAPACK" = "1" ] ; then
+    LAPACK_PATH=`searchlib liblapack.$LDEXT`
+    if [ "$?" = "0" ] ; then
+	CFLAGS_COMMON="-DLAPACK -I`readlinkrec $LAPACK_PATH/../include` $CFLAGS_COMMON"
+	LDFLAGS_COMMON="-llapack -L$LAPACK_PATH $LDFLAGS_COMMON"
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Checking for blas '
+if [ "$DOBLAS" = "1" ] ; then
+    BLAS_PATH=`searchlib libblas.$LDEXT`
+    if [ "$?" = "0" ] ; then
+	CFLAGS_COMMON="-DBLAS -I`readlinkrec $BLAS_PATH/../include` $CFLAGS_COMMON"
+	LDFLAGS_COMMON="-lblas -L$BLAS_PATH $LDFLAGS_COMMON"
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Checking for gslcblas '
+if [ "$DOBLAS" = "1" ] && [ "$DOGSL" = "1" ] ; then
+    GSLCBLAS_PATH=`searchlib libgslcblas.$LDEXT`
+    if [ "$?" = "0" ] ; then
+	CFLAGS_COMMON="-DGSLCBLAS -I`readlinkrec $GSLCBLAS_PATH/../include` $CFLAGS_COMMON"
+	LDFLAGS_COMMON="-lgslcblas -L$GSLCBLAS_PATH $LDFLAGS_COMMON"
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Checking for gsl '
+if [ "$DOGSL" = "1" ] ; then
+    GSL_PATH=`searchlib libgsl.$LDEXT`
+    if [ "$?" = "0" ] ; then
+	CFLAGS_COMMON="-DGSL -I`readlinkrec $GSL_PATH/../include` $CFLAGS_COMMON"
+	LDFLAGS_COMMON="-lgsl -L$GSL_PATH $LDFLAGS_COMMON"
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Checking for fftw3f '
+FFTW3F_PATH=`searchlib libfftw3f.$LDEXT`
+if [ "$?" = "0" ] ; then
+    CFLAGS_COMMON="-DFFTW3F -I`readlinkrec $FFTW3F_PATH/../include` $CFLAGS_COMMON"
+    LDFLAGS_COMMON="-lpthread -lfftw3f -L$FFTW3F_PATH $LDFLAGS_COMMON"
+    printf '[ok]\n'
+else
+    printf '[ko]\n'
+    printf 'Configuration failed\n'
+    exit 2
+fi
+
+printf 'Checking for idl '
+if [ "$DOIDL" = "1" ] ; then
+    IDL_PATH=`searchbin idl`
+    if [ "$?" = "0" ] ; then
+	if [ "$PREFIX_IDL" = "" ] ; then
+	    PREFIX_IDL=`readlinkrec $IDL_PATH/../`
+	    IDL_DLM=`echo 'print, !DLM_PATH' | idl 2>/dev/null | cut -d':' -f 1`
+	else
+	    IDL_DLM=$PREFIX_IDL/dlm/
+	fi
+	DOIDL=1
+	CFLAGS_IDL="-I`readlinkrec $IDL_PATH/../external/include/` $CFLAGS_IDL"
+	printf '[ok]\n'
+    else
+	DOIDL=0
+	printf '[ko]\n'
+    fi
+fi
+
+printf 'Checking for python '
+if [ "$DOPYTHON" = "1" ] ; then
+    PYTHON_PATH=`searchbin python`
+    if [ "$?" = "0" ] ; then
+	if [ "$PREFIX_PYTHON" = "" ] ; then
+	    PREFIX_PYTHON=`python -c "import site ; print(site.getsitepackages()[-1])"`
+	fi
+	printf '[ok]\n'
+	printf 'Checking for numpy '
+	NUMPY_INCLUDE=`python -c "import numpy ; print(numpy.get_include())" 2> /dev/null`
+	if [ "$?" = "1" ] ; then
+	    DOPYTHON=0
+	    printf '[ko]\n'
+	else
+	    DOPYTHON=1
+	    CFLAGS_PYTHON="`python3-config --includes` -I$NUMPY_INCLUDE $CFLAGS_PYTHON"
+	    printf '[ok]\n'
+	fi
+    else
+	DOPYTHON=0
+	printf '[ko]\n'
+    fi
+else
+    printf '[disable]\n'
+fi
+
+printf 'Checking for matlab '
+if [ "$DOMEX" = "1" ] ; then
+    MATLAB_PATH=`searchbin matlab`
+    if [ "$?" = "0" ] ; then
+	if [ "$PREFIX_MATLAB" = "" ] ; then
+	    PREFIX_MATLAB=`readlinkrec $MATLAB_PATH/../`
+	fi
+	printf '[ok]\n'
+	DOMEX=1
+	MEXEXT=`$MATLAB_PATH/mexext`
+	if is64bits ; then
+	    MEXFLAGS="-largeArrayDims $MEXFLAGS"
+	fi
+	CFLAGS_MEX="-DMATLAB_MEX_FILE $CFLAGS_MEX"
+	CFLAGS_MEX="-I`readlinkrec $MATLAB_PATH/../extern/include` $CFLAGS_MEX"
+	printf 'Checking for matlab compability with CPU architecture '
+	if ! is64bits || echo $MEXEXT | grep 64 >/dev/null 2>/dev/null ; then
+	    printf '[ok]\n'
+	else
+	    DOMEX=0
+	    printf '[ko]\n'
+	fi
+    else
+	DOMEX=0
+	printf '[ko]\n'
+    fi
+fi
+
+printf 'Checking for PolSARPro '
+if [ "$DOPOLSARPRO" = "1" ] ; then
+    POLSARPRO_PATH=$PREFIX_POLSARPRO
+    DOPOLSARPRO=0
+    if [ -f "$PREFIX_POLSARPRO/PolSARpro_v4.2.0.tcl" ] ; then
+	DOPOLSARPRO=1
+    fi
+    if [ "$DOPOLSARPRO" = "1" ] ; then
+	printf '[ok]\n'
+    else
+	printf '[ko]\n'
+    fi
+else
+    DOMPOLSARPRO=0
+    printf '[ko]\n'
+fi
+
+printf 'Checking for pdflatex '
+PDFLATEX_PATH=`searchbin pdflatex`
+if [ "$?" = "0" ] ; then
+    DODOC=1
+    printf '[ok]\n'
+else
+    DODOC=0
+    printf '[ko]\n'
+fi
+
+# Set default parameters
+
+CFLAGS_COMMON="-O3 -W -Wall -g -fexceptions -fPIC $CFLAGS_COMMON "
+LDFLAGS_COMMON="-lm $LDFLAGS_COMMON"
+
+# Create Makefile.rules
+
+rm -f $MAKEFILE_RULES
+
+echo CC=$CC >> $MAKEFILE_RULES
+
+echo LDEXT=$LDEXT >> $MAKEFILE_RULES
+echo MEXEXT=$MEXEXT >> $MAKEFILE_RULES
+
+echo DOCLI=$DOCLI >> $MAKEFILE_RULES
+echo DOIDL=$DOIDL >> $MAKEFILE_RULES
+echo DOPYTHON=$DOPYTHON >> $MAKEFILE_RULES
+echo DOMEX=$DOMEX >> $MAKEFILE_RULES
+echo DODOC=$DODOC >> $MAKEFILE_RULES
+echo DOPOLSARPRO=$DOPOLSARPRO >> $MAKEFILE_RULES
+
+echo CFLAGS_COMMON=$CFLAGS_COMMON >> $MAKEFILE_RULES
+echo CFLAGS_LIB=$CFLAGS_LIB >> $MAKEFILE_RULES
+echo CFLAGS_CLI=$CFLAGS_CLI >> $MAKEFILE_RULES
+echo CFLAGS_IDL=$CFLAGS_IDL >> $MAKEFILE_RULES
+echo CFLAGS_PYTHON=$CFLAGS_PYTHON >> $MAKEFILE_RULES
+echo CFLAGS_MEX=$CFLAGS_MEX >> $MAKEFILE_RULES
+
+echo LDFLAGS_COMMON=$LDFLAGS_COMMON >> $MAKEFILE_RULES
+echo LDFLAGS_LIB=$LDFLAGS_LIB >> $MAKEFILE_RULES
+echo LDFLAGS_CLI=$LDFLAGS_CLI >> $MAKEFILE_RULES
+echo LDFLAGS_IDL=$LDFLAGS_IDL >> $MAKEFILE_RULES
+echo LDFLAGS_PYTHON=$LDFLAGS_PYTHON >> $MAKEFILE_RULES
+echo LDFLAGS_MEX=$LDFLAGS_MEX >> $MAKEFILE_RULES
+
+echo MEXFLAGS=$MEXFLAGS >> $MAKEFILE_RULES
+
+echo STATICLIBS_COMMON=$STATICLIBS_COMMON >> $MAKEFILE_RULES
+echo STATICLIBS_CLI=$STATICLIBS_CLI >> $MAKEFILE_RULES
+echo STATICLIBS_IDL=$STATICLIBS_IDL >> $MAKEFILE_RULES
+echo STATICLIBS_PYTHON=$STATICLIBS_PYTHON >> $MAKEFILE_RULES
+echo STATICLIBS_MEX=$STATICLIBS_MEX >> $MAKEFILE_RULES
+
+echo PREFIX=$PREFIX >> $MAKEFILE_RULES
+echo PREFIX_IDL=$PREFIX_IDL >> $MAKEFILE_RULES
+echo PREFIX_PYTHON=$PREFIX_PYTHON >> $MAKEFILE_RULES
+echo PREFIX_MATLAB=$PREFIX_MATLAB >> $MAKEFILE_RULES
+echo PREFIX_POLSARPRO=$PREFIX_POLSARPRO >> $MAKEFILE_RULES
+
+echo IDL_DLM=$IDL_DLM >> $MAKEFILE_RULES
+
+make depend
+
+printf 'Configuration succeed\n'

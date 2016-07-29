@@ -1,0 +1,1055 @@
+%%
+%% doc.tex: Documentation of NL-SAR Toolbox
+%%
+%% This file is part of NL-SAR Toolbox version 0.6.
+%%
+%% Copyright Charles-Alban Deledalle (2013)
+%% Email charles-alban.deledalle@math.u-bordeaux1.fr
+%%
+%% This software is a computer program whose purpose is to provide a
+%% suite of tools to manipulate SAR images.
+%%
+%% This software is governed by the CeCILL license under French law and
+%% abiding by the rules of distribution of free software. You can use,
+%% modify and/ or redistribute the software under the terms of the CeCILL
+%% license as circulated by CEA, CNRS and INRIA at the following URL
+%% "http://www.cecill.info".
+%%
+%% As a counterpart to the access to the source code and rights to copy,
+%% modify and redistribute granted by the license, users are provided only
+%% with a limited warranty and the software's author, the holder of the
+%% economic rights, and the successive licensors have only limited
+%% liability.
+%%
+%% In this respect, the user's attention is drawn to the risks associated
+%% with loading, using, modifying and/or developing or reproducing the
+%% software by the user in light of its specific status of free software,
+%% that may mean that it is complicated to manipulate, and that also
+%% therefore means that it is reserved for developers and experienced
+%% professionals having in-depth computer knowledge. Users are therefore
+%% encouraged to load and test the software's suitability as regards their
+%% requirements in conditions enabling the security of their systems and/or
+%% data to be ensured and, more generally, to use and operate it in the
+%% same conditions as regards security.
+%%
+%% The fact that you are presently reading this means that you have had
+%% knowledge of the CeCILL license and that you accept its terms.
+%%
+%%
+%% Started on  Wed Jul 24 16:23:36 2013 Charles-Alban Deledalle
+%% Last update Thu Apr 10 17:58:28 2014 Charles-Alban Deledalle
+%%
+
+\documentclass[10pt,french,english,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{fancyvrb}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{color}
+\usepackage[bookmarks,bookmarksnumbered,bookmarksopen,
+  colorlinks,citecolor=blue]{hyperref}
+
+\usepackage[vmargin=2cm,hmargin=2cm]{geometry}
+
+\newcommand{\up}[1]{$^{#1}$}
+\newcommand{\down}[1]{$_{#1}$}
+
+\setlength{\parindent}{0cm}
+
+\title{%
+  NL-SAR Toolbox Manual
+}
+\author{
+  Charles-Alban Deledalle\\
+  \url{charles-alban.deledalle@math.u-bordeaux1.fr}
+}
+\date{\today}
+
+\begin{document}
+\sloppy
+
+\maketitle
+
+NL-SAR Toolbox provides a collection of tools for the estimation of
+multi-modal SAR images with non-local filters. Beyond estimation,
+NL-SAR Toolbox provides a suite of tools to manipulate SAR images.
+There are 6 ways to interact with NL-SAR:
+\begin{itemize}
+\item through 5 interfaces:
+\begin{itemize}
+\item in command line
+\item with Matlab
+\item with Python
+\item with IDL
+\item as a dynamic library ({\it e.g.} to use it from a C program).
+\end{itemize}
+\item and through 1 plugin:
+\begin{itemize}
+\item for PolSARpro (experimental).
+\end{itemize}
+\end{itemize}
+
+Another plugin for OTB should appear soon.\\
+
+So far, the command line version is the most stable one while others can crash,
+for instance, if you do not provide the good inputs in arguments. Feel free to fix
+such bugs or contribute to NL-SAR Toolbox as you wish under the term of the license
+(see Section \ref{sec:license}).\\
+
+NL-SAR Toolbox has been compiled and tested successfully on
+GNU/Linux (Ubuntu 12.04 Precise Pangolin \& Linux Mint 13 Maya) and Max OS X (10.7.5 Lion).
+
+\tableofcontents
+
+\section{License}
+\label{sec:license}
+
+This software is a computer program whose purpose is to provide a
+suite of tools to manipulate SAR images.\\
+
+This software is governed by the CeCILL license under French law and
+abiding by the rules of distribution of free software. You can use,
+modify and/ or redistribute the software under the terms of the CeCILL
+license as circulated by CEA, CNRS and INRIA at the following URL
+"http://www.cecill.info".\\
+
+As a counterpart to the access to the source code and rights to copy,
+modify and redistribute granted by the license, users are provided only
+with a limited warranty and the software's author, the holder of the
+economic rights, and the successive licensors have only limited
+liability.\\
+
+In this respect, the user's attention is drawn to the risks associated
+with loading, using, modifying and/or developing or reproducing the
+software by the user in light of its specific status of free software,
+that may mean that it is complicated to manipulate, and that also
+therefore means that it is reserved for developers and experienced
+professionals having in-depth computer knowledge. Users are therefore
+encouraged to load and test the software's suitability as regards their
+requirements in conditions enabling the security of their systems and/or
+data to be ensured and, more generally, to use and operate it in the
+same conditions as regards security.\\
+
+The fact that you are presently reading this means that you have had
+knowledge of the CeCILL license and that you accept its terms.
+
+\section{Installation}
+
+In the following, we are assuming that you are using \texttt{bash}.
+In this case, make sure that the configuration file \texttt{.bashrc} is sourced when
+opening a new shell instance. This is the default behavior, but not everytime
+(for instance on Mac OS X). In this case type once:
+\begin{Verbatim}[frame=single]
+  > echo 'source $HOME/.bashrc' >> $HOME/.bash_profile
+\end{Verbatim}
+% $
+If you are using another shell (like \texttt{csh} or \texttt{zsh}) replace
+in the followings \texttt{.bashrc} with the corresponding configuration file
+and adjust the commands accordingly.
+
+\subsection{Dependencies}
+
+First check the following dependencies:
+\begin{center}
+  \begin{tabular}{|l|l|l|}
+    \hline
+    software		& feature & status\\
+    \hline
+    gcc			& to compile the project & required\\
+    fftw3f		& to enable non-local filtering with fft implementation and car filters & required\\
+    gcc version $> 4.2$   & to enable parallelization with OpenMP & optional\\
+    lapack		& to enable non-local filtering with covariance matrices higher than 3 x 3 & optional\\
+%    blas		& to enable non-local filtering with covariance matrices higher than 3 x 3 & optional\\
+%    gsl			& to enable non-wishart distribution [exerimental] & optional\\
+%    gslcblas		& to enable non-wishart distribution [exerimental] & optional\\
+    idl			& to enable IDL interface & optional\\
+    matlab		& to enable Matlab interface & optional\\
+    python		& to enable Python interface & optional\\
+    numpy		& to enable Python interface & optional\\
+    pdflatex		& to create the documentation & optional\\
+    \hline
+  \end{tabular}
+\end{center}
+The above pieces of software have to be present in your environment
+variable \texttt{PATH} (for binaries) or \texttt{LD\_LIBRARY\_PATH} (for libraries) otherwise
+their associated feature will be disabled. For instance, if you want to enable the MATLAB
+interface, typing in your shell:
+\begin{Verbatim}[frame=single]
+  > which matlab
+\end{Verbatim}
+should give you the path where MATLAB is installed (e.g.,
+\texttt{/Applications/MATLAB\_R2013a.app/bin/matlab}). If it is not the case,
+type something like:
+\begin{Verbatim}[frame=single]
+  > echo 'export PATH=/Applications/MATLAB_R2013a.app/bin/:$PATH' >> $HOME/.bashrc
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+Or, if you are using aliases, you can instead do the following:
+\begin{Verbatim}[frame=single]
+  > echo 'export PATH=$(dirname `echo ${BASH_ALIASES[matlab]}`):$PATH' >> $HOME/.bashrc
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+
+Once you have checked your dependencies, you can compile and install NL-SAR in two ways:
+as a super user or as a non super user.
+
+\subsection{Installation for super users}
+
+First configure and compile NL-SAR by typing in a shell prompt:
+\begin{Verbatim}[frame=single]
+  > ./configure
+  > make
+  > sudo make install
+\end{Verbatim}
+This will install NL-SAR's command line interface and
+dynamic library interface in \texttt{/usr/},
+NL-SAR's Matlab interface in Matlab's subdirectory \texttt{toolbox/nlsar/},
+NL-SAR's Python interface in Python's site-packages directory
+and NL-SAR's IDL interface in IDL's subdirectory \texttt{external/lib/nlsar/}.\\
+
+\subsection{Installation for non super users}
+
+First configure and compile NL-SAR by typing in a shell prompt:
+\begin{Verbatim}[frame=single]
+  > ./configure --prefix=<NLSAR_PATH> --prefix-matlab=<MATLAB_PATH>
+                --prefix-python=<PYTHON_PATH> --prefix-idl=<IDL_PATH>
+  > make
+  > make install
+\end{Verbatim}
+This will install NL-SAR's command line interface and
+dynamic library interface in \texttt{<NLSAR\_PATH>},
+NL-SAR's Matlab interface in \texttt{<MATLAB\_PATH>/toolbox/nlsar/},
+NL-SAR's Python module in \texttt{<PYTHON\_PATH>}
+and NL-SAR's IDL interface in \texttt{<IDL\_PATH>/lib/nlsar/}.\\
+
+You will need to update your environment paths variables.
+Make sure you are placed in the NL-SAR's directory and type the followings:
+\begin{Verbatim}[frame=single]
+  > echo 'export PATH=<NLSAR_PATH>/bin:$PATH' >> $HOME/.bashrc
+  > echo' export LD_LIBRARY_PATH=<NLSAR_PATH>/lib:$LD_LIBRARY_PATH' >> $HOME/.bashrc
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+
+\subsection{Installation of the PolSARpro plugin}
+
+To also install the PolSARpro plugin, you just have
+to adds the following option \texttt{--prefix-polsarpro=<POLSARPRO\_PATH>} to
+the configure script
+where \texttt{<POLSARPRO\_PATH>} is the directory where PolSARpro is installed.
+For instance, if you are installing the NL-SAR Toolbox
+as super-user, do the following
+\begin{Verbatim}[frame=single]
+  > ./configure --prefix-polsarpro=<POLSARPRO_PATH>
+  > make
+  > sudo make install
+\end{Verbatim}
+So far, the plugin is only available for PolSARpro version 4.2.0.
+
+\subsection{Update Matlab environment}
+
+If you are using Matlab and you have specified a different prefix during configuration,
+you will need to update the Matlab environment as follows:
+\begin{Verbatim}[frame=single]
+  > echo 'export MATLABPATH=<MATLAB_PATH>/toolbox/nlsar/:$MATLABPATH' >> $HOME/.bashrc
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+
+\subsection{Update Python environment}
+
+If you are using Python and you have specified a different prefix during configuration,
+you will need to update the Python environment as follows:
+\begin{Verbatim}[frame=single]
+  > echo 'export PYTHONPATH=<PYTHON_PATH>:$PYTHONPATH' >> $HOME/.bashrc
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+
+\subsection{Update IDL environment}
+
+If you are using IDL and you have specified a different prefix during configuration,
+you will need to update the IDL environment as follows:
+%  > echo export LD_LIBRARY_PATH=<IDL_PATH>/lib/nlsar/:'$LD_LIBRARY_PATH' >> $HOME/.bashrc
+\begin{Verbatim}[frame=single]
+  > echo "PREF_SET, 'IDL_PATH', '<PREFIX_IDL>/lib/nlsar/:<IDL_DEFAULT>', /COMMIT" | idl
+  > echo "PREF_SET, 'IDL_DLM_PATH', '<IDL_PATH>/dlm/:<IDL_DLM_DEFAULT>', /COMMIT" | idl
+  > source $HOME/.bashrc
+\end{Verbatim}
+% $
+
+\section{Prerequisites}
+
+\begin{itemize}
+\item From command line: works out of the box
+\item From Matlab: works out of the box
+\item From Python: add the following before doing anything
+\begin{Verbatim}[frame=single]
+    import nlsartoolbox as nlsartb
+\end{Verbatim}
+\item From IDL: works out of the box
+\item From C: add the following before everything
+  \begin{Verbatim}[frame=single]
+    #include <nlsartoolbox.h>
+  \end{Verbatim}
+  Link to NL-SAR Toolbox with the option \texttt{-lnlsartoolbox}
+\end{itemize}
+
+The PolSARpro plugin should work out of the box.
+
+\section{Images formats}
+
+Supported formats:
+\begin{itemize}
+  \item RAT formats,
+  \item PolSARpro formats,
+  \item XIMA formats.
+\end{itemize}
+
+Note that
+NL-SAR deals only with images of intensity or of covariance matrices.
+Other inputs will not produce what you want.
+If you have amplitude or complex images, use
+the program \texttt{sarjoin} which build an intensity image or
+an image of covariance matrices from amplitude or complex images
+(see Section \ref{sec:join}).\\
+
+Files can be encoded in little or big endian.
+The defaults behavior of NL-SAR is to interpret binary data according to your own architecture.
+You can specify NL-SAR that the data uses the other endianness by adding '[SWAP]' at the
+end of the file name (see Section \ref{sec:convert})
+
+Obviously, the PolSARpro plugin deals only with PolSARpro formats.
+
+\subsection{RAT formats}
+
+\begin{itemize}
+\item
+  NL-SAR can read RAT files of version 1 and 2, but it writes only RAT files in version 1.
+\item
+  A RAT file is assumed to be an image of complex covariance matrices.
+  A RAT file containing vectorial data will produce an error message.
+  Only the arrays of the following types are implemented so far:
+  \begin{itemize}
+    \item float (\texttt{var} = 4)
+    \item float complex (\texttt{var} = 6)
+    \item double complex (\texttt{var} = 9)
+  \end{itemize}
+  Rat files with other types will produce an error message.
+  Fell free to contact me to extend to other modalities.
+\end{itemize}
+
+\subsection{PolSARpro format}
+
+
+\begin{itemize}
+\item
+  NL-SAR can read Sinclar, Coherency and Complex matrices,
+  but it writes only Coherency and Complex matrices.
+  Fell free to contact me to extend to other modalities.
+\item
+  A PolSARPRo data is a directory containing binary files (with extensions \texttt{.bin})
+  and a \texttt{config.txt} file,
+  You can find more details about this format there:
+  \url{http://earth.eo.esa.int/polsarpro/Manuals/PolSARpro_DataFormat.pdf}
+\item
+  Note that NL-SAR can deal with a specific mode (\texttt{PolarType:~pp0})
+  for reading 1-dimensional data.
+\end{itemize}
+
+\subsection{XIMA format}
+
+\begin{itemize}
+\item
+  An XIMA data is a binary file without header which comes with a file with same name and extension .dim.
+  You can find more details about this format there: \url{http://perso.telecom-paristech.fr/~nicolas/XIMA/index.html}.
+\item
+  NL-SAR can read all XIMA formats (NB: all formats haven't been tested,
+  contact me if you have any troubles)
+  but write only in cxf (complex float) from a
+  1-dimensional SAR image.
+\end{itemize}
+
+\section{Interfaces and their basic commands}
+
+This section describes the different basic commands/functions that are available
+to manipulate SAR images in different languages: command line,
+Matlab, Python, IDL or in C.
+
+\subsection{Reading information}
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sarinfo file.rat
+    dimensions:
+	M = 512
+	N = 256
+	D = 3
+  \end{Verbatim}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > [M, N, D] = sarinfo('file.rat')
+    M =
+         512
+    N =
+         256
+    D =
+           3
+  \end{Verbatim}
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: M, N, D = nlsartb.sarinfo('file.rat')
+
+    In [2]: M, N, D
+    Out[2]: (512, 256, 3)
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > PRINT, sarinfo('file.rat')
+              512         256          3
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata* sarimage;
+
+    // anything
+
+    if (!(sarimage = sardata_alloc()))
+        // treat error
+    if (!(sarimage = sarread_header("file.rat", sarimage)))
+        // treat error
+    printf("M=%d N=%d D=%d\n", sarimage->M, sarimage->N, sarimage->D);
+
+    // anything
+
+    sardata_free(sarimage);
+  \end{Verbatim}
+\end{itemize}
+
+\subsection{Reading data}
+
+The following commands import a SAR image from disk to memory
+\begin{itemize}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarimage = sarread('file.rat');
+  \end{Verbatim}
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    > size(sarimage)
+    ans =
+         3      3    256    512
+  \end{Verbatim}
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: sarimage = nlsartb.sarread('file.rat')
+
+  \end{Verbatim}
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    In [2]: shape(sarimage)
+    Out[2]: (512, 256, 3, 3)
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarimage = sarread('file.rat')
+  \end{Verbatim}
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    > PRINT, size(sarimage, /DIMENSIONS)
+           3           3         256         512
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata* sarimage;
+
+    // anything
+
+    if (!(sarimage = sardata_alloc()))
+        // treat error
+    if (!(sarimage = sarread("file.rat", sarimage)))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage);
+  \end{Verbatim}
+\end{itemize}
+
+Note that a command line version would be meaningless.
+
+\subsection{Writing data}
+
+The following commands export a SAR image from memory to disk.
+\begin{itemize}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarwrite(sarimage, 'newfile.rat');
+  \end{Verbatim}
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: nlsartb.sarwrite(sarimage, 'newfile.rat')
+    Out[1]: True
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarwrite, sarimage, 'newfile.rat'
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+
+    // anything
+
+    if (!(sarwrite(sarimage, "newfile.rat")))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage);
+  \end{Verbatim}
+\end{itemize}
+
+Note that a command line version would be meaningless.
+
+\subsection{Join}
+\label{sec:join}
+
+The following commands creates an intensity image
+or a covariance matrix from a list of amplitude images or
+a single look complex images:
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sarjoin file1 [file2 ... fileN] newfile
+  \end{Verbatim}
+\end{itemize}
+
+Note that it is the only command of NL-SAR which deals
+with amplitude or single look complex data as input. If you provide
+only one file in input, this function basically compute
+the intensity image from the amplitude or complex image.
+
+\subsection{Conversion}
+\label{sec:convert}
+
+The following example convert a RAT file to PolSARpro format:
+\begin{itemize}
+\item From command line
+  \begin{Verbatim}[frame=single]
+    > sarconvert file.rat newfile
+  \end{Verbatim}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarimage = sarread('file.rat');
+    > sarwrite(sarimage, 'newfile');
+  \end{Verbatim}
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: sarimage = nlsartb.sarread('file.rat')
+
+    In [2]: nlsartb.sarwrite(sarimage, 'newfile')
+    Out[2]: True
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarimage = sarread('file.rat')
+    > sarwrite, sarimage, 'newfile'
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+
+    // anything
+
+    if (!(sarimage = sardata_alloc()))
+        // treat error
+    if (!(sarimage = sarread("file.rat", sarimage)))
+        // treat error
+    if (!(sarwrite(sarimage, "newfile")))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage);
+  \end{Verbatim}
+\end{itemize}
+
+The following example convert a PolSARpro format to the same PolSARpro format
+except it switches the endianness of the output:
+\begin{itemize}
+\item From command line
+  \begin{Verbatim}[frame=single]
+    > sarconvert file newfile[SWAP]
+  \end{Verbatim}
+\item Same principle from other interfaces.
+\end{itemize}
+
+\subsection{Extraction}
+
+The following commands extract a subarea
+from position $(x, y)$ to position $(x + width - 1, y + height - 1)$
+with a decimation step:
+\begin{itemize}
+\item From command line
+  \begin{Verbatim}[frame=single]
+    > sarextract file.rat newfile.rat x y width height step
+  \end{Verbatim}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarimage(:, :, y + (1:step:height)), x + (1:step:width));
+  \end{Verbatim}
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: sarimage_new = sarimage[x:x + width:step, y:y + height:step, :, :]
+
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarimage[*, *, y:(y + height - 1):step, x:(x + width - 1):step]
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+    sardata*    sarimage_new;
+    long int    xoffset, yoffset, width, height, step;
+
+    // anything
+
+    if (!(sarimage_new = sardata_alloc()))
+        // treat error
+    if (!(sarimage_new = sardata_extract(sarimage, sarimage_new,
+                                         x, y, width, height, step)))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage_new);
+  \end{Verbatim}
+\end{itemize}
+
+\subsection{RGB export}
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sar2png file.rat rgbexport.png [alpha]
+  \end{Verbatim}
+  where \texttt{alpha} is an optional parameter
+  to enhance contrast (default 3)
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > rgbexport = sar2rgb(sarimage [, alpha]);
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the command line version.\\
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    > size(sarimage)
+    ans =
+         3      3    256    512
+    > size(rgbexport)
+    ans =
+       512    256      3
+  \end{Verbatim}
+  The storing convention for the RGB image is reversed compared
+  to our usual convention to ensure compatibility with
+  the Matlab Image Toolbox.
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: rgbexport = nlsartb.sar2rgb(sarimage [, alpha]);
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the command line version.\\
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    In [2]: shape(sarimage)
+    Out[2]: (512, 256, 3, 3)
+    In [2]: shape(rgbexport)
+    Out[2]: (512, 256, 3)
+  \end{Verbatim}
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > rgbexport = sar2rgb(sarimage [, alpha])
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the command line version.\\
+  Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    > PRINT, SIZE(sarimage, /DIMENSIONS)
+           3           3         256         512
+    > PRINT, SIZE(rgbexport, /DIMENSIONS)
+           3         256         512
+  \end{Verbatim}
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+    rgbdata*    rgbexport;
+
+    // anything
+
+    if (!(rgbexport = rgbdata_alloc()))
+        // treat error
+    if (!(rgbexport = sar2rgb(sarimage, rgbexport, alpha, gamma)))
+        // treat error
+
+    // anything
+
+    rgbdata_free(rgbexport);
+  \end{Verbatim}
+\end{itemize}
+
+\subsection{Viewer}
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sarshow file.rat [alpha]
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the RGB export.\\
+  The first time, you will probably have the following message:
+  \begin{Verbatim}[frame=single]
+    Please set your environment variable NLSAR_VIEWER
+  \end{Verbatim}
+  You need to define an environment variable \texttt{NLSAR\_VIEWER} pointing
+  to your favorite image viewer. For instance for Linux, if you like
+  Eye Of Gnome, type the following:
+  \begin{Verbatim}[frame=single]
+    > echo 'export NLSAR_VIEWER="eog -n"' >> $HOME/.bashrc
+    > source $HOME/.bashrc
+  \end{Verbatim}
+  Or, if you prefer Konqueror
+  \begin{Verbatim}[frame=single]
+    > echo 'export NLSAR_VIEWER=konqueror' >> $HOME/.bashrc
+    > source $HOME/.bashrc
+  \end{Verbatim}
+  For Mac OS X, you can use
+  \begin{Verbatim}[frame=single]
+    > echo 'export NLSAR_VIEWER="open -W"' >> $HOME/.bashrc
+    > source $HOME/.bashrc
+  \end{Verbatim}
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarshow(sarimage [, alpha]);
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the RGB export.
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: nlsartb.sarshow(sarimage [, alpha]);
+    Out[1]: True
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the RGB export.
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarshow, sarimage [, alpha]
+  \end{Verbatim}
+  The argument \texttt{alpha} is the same as for the RGB export.
+\end{itemize}
+
+%\section{Image generation}
+
+%\subsection{Noise generation}
+
+%\section{Image statistics}
+
+%\subsection{Histogram of amplitudes}
+
+%\subsection{Log-cumulant diagram}
+
+%\subsection{Log-cumulant RGB output}
+
+\section{Interfaces for image filtering}
+
+\subsection{Car filters}
+
+NL-SAR Toolbox implements the boxcar, diskcar and gausscar filters. Examples:
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sarboxcar file.rat newfile.rat [hW]
+  \end{Verbatim}
+  where \texttt{hW} is the half-width of the box (default 1).
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarboxcar(sarimage [, hW]);
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: sarimage_new = nlsartb.sarboxcar(sarimage [, hW]);
+
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarboxcar(sarimage [, hW])
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+    sardata*    sarimage_new;
+    int         hW;
+
+    // anything
+
+    if (!(sarimage_new = sardata_alloc()))
+        // treat error
+    if (!(sarimage_new = sarboxcar(sarimage, sarimage_new, hW)))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage_new);
+  \end{Verbatim}
+\end{itemize}
+
+\subsection{NL-SAR filter}
+
+NL-SAR Toolbox implements the NL-SAR filter. Examples:
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    > sarnlsar file.rat newfile.rat L [hW hP verbose noise.rat]
+  \end{Verbatim}
+  where \texttt{L} is the equivalent number of look of the input noisy image,
+  \texttt{hW} is the radius of the largest search window size (default 12) and
+  \texttt{hP} the half-width of the largest patches (default 5).
+  If \texttt{verbose} = 1, steps and progressing bars are displayed on the standard output (default 1).
+  \texttt{noise.rat} an homogeneous image containing only noise (default iid L looks Wishart)
+\item From Matlab:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarnlsar(sarimage, L [, verbose, hW, hP, sarnoise]);
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+\item From Python:
+  \begin{Verbatim}[frame=single]
+    In [1]: sarimage_new = nlsartb.sarnlsar(sarimage, L [, verbose, hW, hP, sarnoise])
+
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+\item From IDL:
+  \begin{Verbatim}[frame=single]
+    > sarimage_new = sarnlsar(sarimage, L [, verbose, hW, hP, sarnoise])
+  \end{Verbatim}
+  % $
+  The arguments are the same as for the command line version.
+\item From C:
+  \begin{Verbatim}[frame=single]
+    sardata*    sarimage;
+    sardata*    sarimage_new;
+    int         L;
+    int         nb_optional_args = 2;
+    int         verbose, hW;
+
+    // anything
+
+    if (!(sarimage_new = sardata_alloc()))
+        // treat error
+    if (!(sarimage_new = sarnlsar(sarimage, sarimage_new, L,
+                                  nb_optional_args, verbose, hW)))
+        // treat error
+
+    // anything
+
+    sardata_free(sarimage_new);
+  \end{Verbatim}
+  The arguments are the same as for the command line version.
+  In this examples only two optionals arguments are given.
+\end{itemize}
+
+\paragraph*{Example}
+
+\begin{itemize}
+\item From command line:
+  \begin{Verbatim}[frame=single]
+    # Create a simulated polsar image with 3-looks Wishart speckle
+    > sarmire example.rat 256 256 3 3
+    > sarshow example.rat
+  \end{Verbatim}
+  \includegraphics[width=0.3\linewidth]{nlsar_example.png}
+  \begin{Verbatim}[frame=single]
+    # Run the non-local estimation
+    > sarnlsar example.rat result.rat 3
+    Load image
+    Noise analysis
+    	eta2=0.33 [theoretical=0.33] corr=0.03
+    	=> #scales=3 step=1
+    Compute similarity statistics
+    	s=1 hP= 1 mean=9.758588 std=1.576362
+    	s=1 hP= 5 mean=9.717225 std=0.428879
+    	s=2 hP= 1 mean=1.118128 std=0.216376
+    	s=2 hP= 5 mean=1.111482 std=0.064944
+    	s=3 hP= 1 mean=0.375286 std=0.107277
+    	s=3 hP= 5 mean=0.374484 std=0.035698
+    Computation (#proc=1, #windows=1)
+    |==================================================| 100%
+    Save image
+    > sarshow result.rat
+  \end{Verbatim}
+  \includegraphics[width=0.3\linewidth]{nlsar_result.png}
+\item From other interfaces:
+  See provided examples in directory \texttt{examples}.
+\end{itemize}
+
+
+\section{Plugin of the NL-SAR filter for PolSARpro}
+
+From PolSARpro, you can run the NL-SAR filter from the menus:\\
+
+\quad \texttt{Process} $\to$ \texttt{Polarimetric Speckle Filter}
+$\to$ \texttt{NLSAR Speckle Filter}.\\
+
+Note that unlike the interfaces described in the previous function,
+the PolSARpro plugin does not give you (yet) the possibility to provide
+an homogeneous image containing only noise
+to the NL-SAR filter. In this case, the NL-SAR
+filter will assume that the speckle is described by a L looks Wishart
+distribution. Performances can then be affected, essentially when speckle
+is spatially correlated.\\
+
+This plugin is experimental and as not been tested exhaustively.
+
+\section{Frequently asked questions (FAQ)}
+
+\paragraph{\bf How can I participate to the development of NL-SAR Toolbox?}
+
+Send me an email!
+
+\paragraph{\bf Why does Matlab crash with the following message ``Invalid MEX-file [...]: undefined symbol: fftwf\_cleanup''?}
+
+Matlab might use its own precompiled version of FFTW3. NL-SAR Toolbox uses the version
+usually placed in the directory \texttt{/usr/lib/}. In order to use the right version,
+run matlab from command line as follows:
+
+  \begin{Verbatim}[frame=single]
+    LD_PRELOAD=/usr/bin/libfftw3f.so:$LD_PRELOAD matlab
+  \end{Verbatim}
+
+
+\paragraph{\bf Why \texttt{mex} compilation failed with message \texttt{ld: library not found -lgomp}?}
+
+Matlab might not use \texttt{gcc} to compile \texttt{C} programs.
+To change this behavior, do the following
+
+  \begin{Verbatim}[frame=single]
+    cp <PREFIX_MATLAB>/bin/mexopts.sh $HOME/.matlab/<version>/mexopts.sh
+    chmod 755 $HOME/.matlab/<version>/mexopts.sh
+  \end{Verbatim}
+
+where you replace \texttt{<PREFIX\_MATLAB>} by the directory where MATLAB is installed
+and \texttt{<version>} by the version identifier (something like \texttt{R2013a}).
+Then edit the file \texttt{\$HOME/.matlab/<version>/mexopts.sh}. Locate the lines
+
+  \begin{Verbatim}[frame=single]
+    CC='<some compiler>'
+  \end{Verbatim}
+
+where \texttt{<some compiler>} might be for instance ``\texttt{xcrun -sdk macosx10.7 clang}''
+and replace them by
+
+  \begin{Verbatim}[frame=single]
+    CC='gcc'
+  \end{Verbatim}
+
+Then rerun compilation.
+
+\paragraph{\bf I've just installed some dependencies (for instance \texttt{libfftw3f})
+  but when I run \texttt{./configure} it cannot find it, why?}
+
+NL-SAR Toolbox uses the command \texttt{locate} to find your dependencies.
+You may need to update your locate database. On Linux run
+
+  \begin{Verbatim}[frame=single]
+    sudo updatedb
+  \end{Verbatim}
+
+On Mac OS X run
+
+  \begin{Verbatim}[frame=single]
+    sudo /usr/libexec/locate.updatedb
+  \end{Verbatim}
+
+\paragraph{\bf
+Most of your examples are based on covariance matrices.
+Could you give an example of using the NL-SAR filter with an image of intensity?}
+
+Intensity images are particular cases of $1 \times 1$ matrices. Hence, every examples
+with covariance matrices can be used identically with intensity images.
+File with RAT or XIMA formats can be used for intensity images.
+A modified PolSARpro format can be used for intensity image with
+as specific mode \texttt{PolarType: pp0}.
+If you are using another specific format, an alternative is to load your file
+from Matlab, Python, IDL or C in a single precision floating matrix that you give as an argument
+to NL-SAR functions.
+Recall that NL-SAR Toolbox assumes that the content of a scalar image corresponds to
+intensity values (not the amplitude). You can use
+\texttt{sarjoin} (see Section \ref{sec:join}) to convert amplitude images
+to intensity images.
+
+\paragraph{\bf I've exported an intensity image in PolSARpro format
+  from the Next ESA SAR Toolbox (NEST), but NL-SAR Toolbox cannot read it, why?}
+
+When you export an intensity image from NEST to PolSARpro format, the directory contains
+a file \texttt{config.txt} and \texttt{Intensity\_HH.bin}.
+Rename \texttt{Intensity\_HH.bin} to \texttt{C11.bin} and change
+in the file \texttt{config.txt} the field \texttt{PolarType} from
+\texttt{pp1} to \texttt{pp0}.
+NL-SAR Toolbox will then read your file successfully, otherwise contact me.
+
+\paragraph{\bf I want to produce interferograms with NL-SAR toolbox
+but the input and output are images of covariance matrices. What should I do?}
+
+From a pair of single look complex images (SLC), you can build an image of $2 \times 2$
+covariance matrix with the command \texttt{sarjoin} (see Section \ref{sec:join}).
+Then run NL-SAR on this image. After you can retrieve the interferometric phase or
+coherence (normalized correlation) from the produced image. For instance,
+you can do the following using Matlab:
+
+  \begin{Verbatim}[frame=single]
+    > insar_phase     = squeeze(angle(sarimage(1,2,:,:)));
+    > insar_coherence = squeeze(abs(sarimage(1,2,:,:)) ./ ...
+                          sqrt(abs(sarimage(1,1,:,:)) .* abs(sarimage(2,2,:,:)));
+  \end{Verbatim}
+
+If you moreover assume the same reflectivity (radar cross-section) for each pair
+of corresponding pixels in both images,
+the coherence can be refined as
+
+  \begin{Verbatim}[frame=single]
+    > insar_coherence = squeeze(2 * abs(sarimage(1,2,:,:)) ./ ...
+                          (abs(sarimage(1,1,:,:)) + abs(sarimage(2,2,:,:)));
+  \end{Verbatim}
+
+Look at the matrix dimensions:
+  \begin{Verbatim}[frame=single]
+    > size(sarimage)
+    ans =
+         2      2    256    512
+    > size(insar_phase)
+    ans =
+       256    512
+    > size(insar_coherence)
+    ans =
+       256    512
+  \end{Verbatim}
+
+\section{Not documented yet}
+
+\begin{itemize}
+\item
+\texttt{sarnlsar\_dispatch} for distributing NL-SAR on a cluster.
+\item
+\texttt{sarcat} for concatenating files.
+\item
+\texttt{sarmire} to generate a simulated SAR image with multi-scale structure.
+\item
+\texttt{sarnoise} to generate an homogeneous SAR image with noise only.
+\end{itemize}
+
+\end{document}

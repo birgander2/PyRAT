@@ -1,0 +1,2911 @@
+diff -urPp ./GUI/speckle_filter/SpeckleFilterNLSAR_S2.tcl ../polsarpro_nlsar_src/GUI/speckle_filter/SpeckleFilterNLSAR_S2.tcl
+--- ./GUI/speckle_filter/SpeckleFilterNLSAR_S2.tcl	1970-01-01 01:00:00.000000000 +0100
++++ ./GUI/speckle_filter/SpeckleFilterNLSAR_S2.tcl	2014-04-10 13:34:09.023540802 +0200
+@@ -0,0 +1,1308 @@
++#!/bin/sh
++# the next line restarts using wish\
++exec wish "$0" "$@"
++
++if {![info exists vTcl(sourcing)]} {
++
++    # Provoke name search
++    catch {package require bogus-package-name}
++    set packageNames [package names]
++
++    package require BWidget
++    switch $tcl_platform(platform) {
++	windows {
++	}
++	default {
++	    option add *ScrolledWindow.size 14
++	}
++    }
++
++    package require Tk
++    switch $tcl_platform(platform) {
++	windows {
++            option add *Button.padY 0
++	}
++	default {
++            option add *Scrollbar.width 10
++            option add *Scrollbar.highlightThickness 0
++            option add *Scrollbar.elementBorderWidth 2
++            option add *Scrollbar.borderWidth 2
++	}
++    }
++
++}
++
++#############################################################################
++# Visual Tcl v1.60 Project
++#
++
++
++
++
++#############################################################################
++## vTcl Code to Load Stock Images
++
++
++if {![info exist vTcl(sourcing)]} {
++#############################################################################
++## Procedure:  vTcl:rename
++
++proc ::vTcl:rename {name} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    regsub -all "\\." $name "_" ret
++    regsub -all "\\-" $ret "_" ret
++    regsub -all " " $ret "_" ret
++    regsub -all "/" $ret "__" ret
++    regsub -all "::" $ret "__" ret
++
++    return [string tolower $ret]
++}
++
++#############################################################################
++## Procedure:  vTcl:image:create_new_image
++
++proc ::vTcl:image:create_new_image {filename {description {no description}} {type {}} {data {}}} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    # Does the image already exist?
++    if {[info exists ::vTcl(images,files)]} {
++        if {[lsearch -exact $::vTcl(images,files) $filename] > -1} { return }
++    }
++
++    if {![info exists ::vTcl(sourcing)] && [string length $data] > 0} {
++        set object [image create  [vTcl:image:get_creation_type $filename]  -data $data]
++    } else {
++        # Wait a minute... Does the file actually exist?
++        if {! [file exists $filename] } {
++            # Try current directory
++            set script [file dirname [info script]]
++            set filename [file join $script [file tail $filename] ]
++        }
++
++        if {![file exists $filename]} {
++            set description "file not found!"
++            ## will add 'broken image' again when img is fixed, for now create empty
++            set object [image create photo -width 1 -height 1]
++        } else {
++            set object [image create  [vTcl:image:get_creation_type $filename]  -file $filename]
++        }
++    }
++
++    set reference [vTcl:rename $filename]
++    set ::vTcl(images,$reference,image)       $object
++    set ::vTcl(images,$reference,description) $description
++    set ::vTcl(images,$reference,type)        $type
++    set ::vTcl(images,filename,$object)       $filename
++
++    lappend ::vTcl(images,files) $filename
++    lappend ::vTcl(images,$type) $object
++
++    # return image name in case caller might want it
++    return $object
++}
++
++#############################################################################
++## Procedure:  vTcl:image:get_image
++
++proc ::vTcl:image:get_image {filename} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    set reference [vTcl:rename $filename]
++
++    # Let's do some checking first
++    if {![info exists ::vTcl(images,$reference,image)]} {
++        # Well, the path may be wrong; in that case check
++        # only the filename instead, without the path.
++
++        set imageTail [file tail $filename]
++
++        foreach oneFile $::vTcl(images,files) {
++            if {[file tail $oneFile] == $imageTail} {
++                set reference [vTcl:rename $oneFile]
++                break
++            }
++        }
++    }
++    return $::vTcl(images,$reference,image)
++}
++
++#############################################################################
++## Procedure:  vTcl:image:get_creation_type
++
++proc ::vTcl:image:get_creation_type {filename} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    switch [string tolower [file extension $filename]] {
++        .ppm -
++        .jpg -
++        .bmp -
++        .gif    {return photo}
++        .xbm    {return bitmap}
++        default {return photo}
++    }
++}
++
++foreach img {
++
++
++            } {
++    eval set _file [lindex $img 0]
++    vTcl:image:create_new_image\
++        $_file [lindex $img 1] [lindex $img 2] [lindex $img 3]
++}
++
++}
++#############################################################################
++## vTcl Code to Load User Images
++
++catch {package require Img}
++
++foreach img {
++
++        {{[file join . GUI Images OpenDir.gif]} {user image} user {}}
++        {{[file join . GUI Images Transparent_Button.gif]} {user image} user {}}
++        {{[file join . GUI Images help.gif]} {user image} user {}}
++        {{[file join . GUI Images up.gif]} {user image} user {}}
++        {{[file join . GUI Images down.gif]} {user image} user {}}
++
++            } {
++    eval set _file [lindex $img 0]
++    vTcl:image:create_new_image\
++        $_file [lindex $img 1] [lindex $img 2] [lindex $img 3]
++}
++
++#################################
++# VTCL LIBRARY PROCEDURES
++#
++
++if {![info exists vTcl(sourcing)]} {
++#############################################################################
++## Library Procedure:  Window
++
++proc ::Window {args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    global vTcl
++    foreach {cmd name newname} [lrange $args 0 2] {}
++    set rest    [lrange $args 3 end]
++    if {$name == "" || $cmd == ""} { return }
++    if {$newname == ""} { set newname $name }
++    if {$name == "."} { wm withdraw $name; return }
++    set exists [winfo exists $newname]
++    switch $cmd {
++        show {
++            if {$exists} {
++                wm deiconify $newname
++            } elseif {[info procs vTclWindow$name] != ""} {
++                eval "vTclWindow$name $newname $rest"
++            }
++            if {[winfo exists $newname] && [wm state $newname] == "normal"} {
++                vTcl:FireEvent $newname <<Show>>
++            }
++        }
++        hide    {
++            if {$exists} {
++                wm withdraw $newname
++                vTcl:FireEvent $newname <<Hide>>
++                return}
++        }
++        iconify { if $exists {wm iconify $newname; return} }
++        destroy { if $exists {destroy $newname; return} }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:DefineAlias
++
++proc ::vTcl:DefineAlias {target alias widgetProc top_or_alias cmdalias} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    global widget
++    set widget($alias) $target
++    set widget(rev,$target) $alias
++    if {$cmdalias} {
++        interp alias {} $alias {} $widgetProc $target
++    }
++    if {$top_or_alias != ""} {
++        set widget($top_or_alias,$alias) $target
++        if {$cmdalias} {
++            interp alias {} $top_or_alias.$alias {} $widgetProc $target
++        }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:DoCmdOption
++
++proc ::vTcl:DoCmdOption {target cmd} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    ## menus are considered toplevel windows
++    set parent $target
++    while {[winfo class $parent] == "Menu"} {
++        set parent [winfo parent $parent]
++    }
++
++    regsub -all {\%widget} $cmd $target cmd
++    regsub -all {\%top} $cmd [winfo toplevel $parent] cmd
++
++    uplevel #0 [list eval $cmd]
++}
++#############################################################################
++## Library Procedure:  vTcl:FireEvent
++
++proc ::vTcl:FireEvent {target event {params {}}} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    ## The window may have disappeared
++    if {![winfo exists $target]} return
++    ## Process each binding tag, looking for the event
++    foreach bindtag [bindtags $target] {
++        set tag_events [bind $bindtag]
++        set stop_processing 0
++        foreach tag_event $tag_events {
++            if {$tag_event == $event} {
++                set bind_code [bind $bindtag $tag_event]
++                foreach rep "\{%W $target\} $params" {
++                    regsub -all [lindex $rep 0] $bind_code [lindex $rep 1] bind_code
++                }
++                set result [catch {uplevel #0 $bind_code} errortext]
++                if {$result == 3} {
++                    ## break exception, stop processing
++                    set stop_processing 1
++                } elseif {$result != 0} {
++                    bgerror $errortext
++                }
++                break
++            }
++        }
++        if {$stop_processing} {break}
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:Toplevel:WidgetProc
++
++proc ::vTcl:Toplevel:WidgetProc {w args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    if {[llength $args] == 0} {
++        ## If no arguments, returns the path the alias points to
++        return $w
++    }
++    set command [lindex $args 0]
++    set args [lrange $args 1 end]
++    switch -- [string tolower $command] {
++        "setvar" {
++            foreach {varname value} $args {}
++            if {$value == ""} {
++                return [set ::${w}::${varname}]
++            } else {
++                return [set ::${w}::${varname} $value]
++            }
++        }
++        "hide" - "show" {
++            Window [string tolower $command] $w
++        }
++        "showmodal" {
++            ## modal dialog ends when window is destroyed
++            Window show $w; raise $w
++            grab $w; tkwait window $w; grab release $w
++        }
++        "startmodal" {
++            ## ends when endmodal called
++            Window show $w; raise $w
++            set ::${w}::_modal 1
++            grab $w; tkwait variable ::${w}::_modal; grab release $w
++        }
++        "endmodal" {
++            ## ends modal dialog started with startmodal, argument is var name
++            set ::${w}::_modal 0
++            Window hide $w
++        }
++        default {
++            uplevel $w $command $args
++        }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:WidgetProc
++
++proc ::vTcl:WidgetProc {w args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    if {[llength $args] == 0} {
++        ## If no arguments, returns the path the alias points to
++        return $w
++    }
++
++    set command [lindex $args 0]
++    set args [lrange $args 1 end]
++    uplevel $w $command $args
++}
++#############################################################################
++## Library Procedure:  vTcl:toplevel
++
++proc ::vTcl:toplevel {args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    uplevel #0 eval toplevel $args
++    set target [lindex $args 0]
++    namespace eval ::$target {set _modal 0}
++}
++}
++
++
++if {[info exists vTcl(sourcing)]} {
++
++proc vTcl:project:info {} {
++    set base .top553
++    namespace eval ::widgets::$base {
++        set set,origin 1
++        set set,size 1
++        set runvisible 1
++    }
++    namespace eval ::widgets::$base.cpd73 {
++        array set save {-height 1 -width 1}
++    }
++    set site_3_0 $base.cpd73
++    namespace eval ::widgets::$site_3_0.cpd97 {
++        array set save {-ipad 1 -text 1}
++    }
++    set site_5_0 [$site_3_0.cpd97 getframe]
++    namespace eval ::widgets::$site_5_0 {
++        array set save {}
++    }
++    set site_5_0 $site_5_0
++    namespace eval ::widgets::$site_5_0.cpd85 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -state 1 -textvariable 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd92 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd92
++    namespace eval ::widgets::$site_6_0.cpd86 {
++        array set save {-image 1 -padx 1 -pady 1 -relief 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.cpd98 {
++        array set save {-ipad 1 -text 1}
++    }
++    set site_5_0 [$site_3_0.cpd98 getframe]
++    namespace eval ::widgets::$site_5_0 {
++        array set save {}
++    }
++    set site_5_0 $site_5_0
++    namespace eval ::widgets::$site_5_0.cpd85 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd73 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd73
++    namespace eval ::widgets::$site_6_0.lab72 {
++        array set save {-text 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd75 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd91 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd91
++    namespace eval ::widgets::$site_6_0.cpd74 {
++        array set save {-_tooltip 1 -command 1 -image 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets::$base.fra29 {
++        array set save {-borderwidth 1 -height 1 -relief 1 -width 1}
++    }
++    set site_3_0 $base.fra29
++    namespace eval ::widgets::$site_3_0.lab57 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent58 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab59 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent60 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab61 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent62 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab63 {
++        array set save {-text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent64 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$base.lab77 {
++        array set save {-background 1 -disabledforeground 1 -foreground 1 -relief 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$base.tit78 {
++        array set save {-text 1}
++    }
++    set site_4_0 [$base.tit78 getframe]
++    namespace eval ::widgets::$site_4_0 {
++        array set save {}
++    }
++    set site_4_0 $site_4_0
++    namespace eval ::widgets::$site_4_0.rad81 {
++        array set save {-command 1 -text 1 -value 1 -variable 1}
++    }
++    namespace eval ::widgets::$site_4_0.rad82 {
++        array set save {-command 1 -text 1 -value 1 -variable 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd84 {
++        array set save {-command 1 -text 1 -value 1 -variable 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd85 {
++        array set save {-command 1 -text 1 -value 1 -variable 1}
++    }
++    namespace eval ::widgets::$base.fra66 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_3_0 $base.fra66
++    namespace eval ::widgets::$site_3_0.fra67 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_4_0 $site_3_0.fra67
++    namespace eval ::widgets::$site_4_0.fra69 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.fra69
++    namespace eval ::widgets::$site_5_0.cpd70 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra71 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra71
++    namespace eval ::widgets::$site_6_0.cpd72 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.but73 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd75 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd76 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.cpd76
++    namespace eval ::widgets::$site_5_0.cpd70 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra71 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra71
++    namespace eval ::widgets::$site_6_0.cpd72 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.but73 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd75 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_3_0.cpd77 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_4_0 $site_3_0.cpd77
++    namespace eval ::widgets::$site_4_0.fra69 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.fra69
++    namespace eval ::widgets::$site_5_0.cpd70 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra71 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra71
++    namespace eval ::widgets::$site_6_0.cpd72 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.but73 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd75 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd76 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.cpd76
++    namespace eval ::widgets::$site_5_0.cpd70 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra71 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra71
++    namespace eval ::widgets::$site_6_0.cpd72 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.but73 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd75 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$base.fra36 {
++        array set save {-height 1 -relief 1 -width 1}
++    }
++    set site_3_0 $base.fra36
++    namespace eval ::widgets::$site_3_0.but93 {
++        array set save {-_tooltip 1 -background 1 -command 1 -cursor 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.but23 {
++        array set save {-_tooltip 1 -background 1 -command 1 -image 1 -pady 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.but24 {
++        array set save {-_tooltip 1 -background 1 -command 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets_bindings {
++        set tagslist {_TopLevel _vTclBalloon}
++    }
++    namespace eval ::vTcl::modules::main {
++        set procs {
++            init
++            main
++            vTclWindow.
++            vTclWindow.top553
++        }
++        set compounds {
++        }
++        set projectType single
++    }
++}
++}
++
++#################################
++# USER DEFINED PROCEDURES
++#
++#############################################################################
++## Procedure:  main
++
++proc ::main {argc argv} {
++## This will clean up and call exit properly on Windows.
++#vTcl:WindowsCleanup
++}
++
++#############################################################################
++## Initialization Procedure:  init
++
++proc ::init {argc argv} {
++global tk_strictMotif MouseInitX MouseInitY MouseEndX MouseEndY BMPMouseX BMPMouseY
++
++catch {package require unsafe}
++set tk_strictMotif 1
++global TrainingAreaTool;
++global x;
++global y;
++
++set TrainingAreaTool rect
++}
++
++init $argc $argv
++
++#################################
++# VTCL GENERATED GUI PROCEDURES
++#
++
++proc vTclWindow. {base} {
++    if {$base == ""} {
++        set base .
++    }
++    ###################
++    # CREATING WIDGETS
++    ###################
++    wm focusmodel $top passive
++    wm geometry $top 200x200+242+242; update
++    wm maxsize $top 1604 1185
++    wm minsize $top 104 1
++    wm overrideredirect $top 0
++    wm resizable $top 1 1
++    wm withdraw $top
++    wm title $top "vtcl"
++    bindtags $top "$top Vtcl all"
++    vTcl:FireEvent $top <<Create>>
++    wm protocol $top WM_DELETE_WINDOW "vTcl:FireEvent $top <<>>"
++
++    ###################
++    # SETTING GEOMETRY
++    ###################
++
++    vTcl:FireEvent $base <<Ready>>
++}
++
++proc vTclWindow.top553 {base} {
++    if {$base == ""} {
++        set base .top553
++    }
++    if {[winfo exists $base]} {
++        wm deiconify $base; return
++    }
++    set top $base
++    ###################
++    # CREATING WIDGETS
++    ###################
++    vTcl:toplevel $top -class Toplevel
++    wm withdraw $top
++    wm focusmodel $top passive
++    wm geometry $top 500x350+10+100; update
++    wm maxsize $top 1604 1184
++    wm minsize $top 113 1
++    wm overrideredirect $top 0
++    wm resizable $top 1 1
++    wm title $top "Speckle Filter S2"
++    vTcl:DefineAlias "$top" "Toplevel553" vTcl:Toplevel:WidgetProc "" 1
++    bindtags $top "$top Toplevel all _TopLevel"
++    vTcl:FireEvent $top <<Create>>
++    wm protocol $top WM_DELETE_WINDOW "vTcl:FireEvent $top <<>>"
++
++    frame $top.cpd73 \
++        -height 75 -width 125
++    vTcl:DefineAlias "$top.cpd73" "Frame2" vTcl:WidgetProc "Toplevel553" 1
++    set site_3_0 $top.cpd73
++    TitleFrame $site_3_0.cpd97 \
++        -ipad 0 -text {Input Directory}
++    vTcl:DefineAlias "$site_3_0.cpd97" "TitleFrame4" vTcl:WidgetProc "Toplevel553" 1
++    bind $site_3_0.cpd97 <Destroy> {
++        Widget::destroy %W; rename %W {}
++    }
++    set site_5_0 [$site_3_0.cpd97 getframe]
++    entry $site_5_0.cpd85 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -state disabled \
++        -textvariable FilterDirInput
++    vTcl:DefineAlias "$site_5_0.cpd85" "EntryTopXXCh2" vTcl:WidgetProc "Toplevel553" 1
++    frame $site_5_0.cpd92 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd92" "Frame13" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.cpd92
++    button $site_6_0.cpd86 \
++        \
++        -image [vTcl:image:get_image [file join . GUI Images Transparent_Button.gif]] \
++        -padx 1 -pady 0 -relief flat -text {    }
++    vTcl:DefineAlias "$site_6_0.cpd86" "Button34" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.cpd86 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side top
++    pack $site_5_0.cpd85 \
++        -in $site_5_0 -anchor center -expand 1 -fill x -side left
++    pack $site_5_0.cpd92 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side top
++    TitleFrame $site_3_0.cpd98 \
++        -ipad 0 -text {Output Directory}
++    vTcl:DefineAlias "$site_3_0.cpd98" "TitleFrame5" vTcl:WidgetProc "Toplevel553" 1
++    bind $site_3_0.cpd98 <Destroy> {
++        Widget::destroy %W; rename %W {}
++    }
++    set site_5_0 [$site_3_0.cpd98 getframe]
++    entry $site_5_0.cpd85 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable FilterOutputDir
++    vTcl:DefineAlias "$site_5_0.cpd85" "EntryTopXXCh6" vTcl:WidgetProc "Toplevel553" 1
++    frame $site_5_0.cpd73 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd73" "Frame1" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.cpd73
++    label $site_6_0.lab72 \
++        -text /
++    vTcl:DefineAlias "$site_6_0.lab72" "Label2" vTcl:WidgetProc "Toplevel553" 1
++    entry $site_6_0.cpd75 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -state disabled \
++        -textvariable FilterOutputSubDir -width 3
++    vTcl:DefineAlias "$site_6_0.cpd75" "Entry1" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.lab72 \
++        -in $site_6_0 -anchor center -expand 0 -fill x -side left
++    pack $site_6_0.cpd75 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    frame $site_5_0.cpd91 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd91" "Frame14" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.cpd91
++    button $site_6_0.cpd74 \
++        \
++        -command {global DirName DataDir FilterOutputDir
++global VarWarning WarningMessage WarningMessage2
++
++set FilterDirOutputTmp $FilterOutputDir
++set DirName ""
++OpenDir $DataDir "DATA OUTPUT DIRECTORY"
++if {$DirName != ""} {
++    set VarWarning ""
++    set WarningMessage "THE MAIN DIRECTORY IS"
++    set WarningMessage2 "CHANGED TO $DirName"
++    Window show $widget(Toplevel32); TextEditorRunTrace "Open Window Warning" "b"
++    tkwait variable VarWarning
++    if {"$VarWarning"=="ok"} {
++        set FilterOutputDir $DirName
++        } else {
++        set FilterOutputDir $FilterDirOutputTmp
++        }
++    } else {
++    set FilterOutputDir $FilterDirOutputTmp
++    }} \
++        -image [vTcl:image:get_image [file join . GUI Images OpenDir.gif]] \
++        -padx 1 -pady 0 -text button
++    bindtags $site_6_0.cpd74 "$site_6_0.cpd74 Button $top all _vTclBalloon"
++    bind $site_6_0.cpd74 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Open Dir}
++    }
++    pack $site_6_0.cpd74 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side top
++    pack $site_5_0.cpd85 \
++        -in $site_5_0 -anchor center -expand 1 -fill x -side left
++    pack $site_5_0.cpd73 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd91 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_3_0.cpd97 \
++        -in $site_3_0 -anchor center -expand 0 -fill x -side top
++    pack $site_3_0.cpd98 \
++        -in $site_3_0 -anchor center -expand 0 -fill x -side top
++    frame $top.fra29 \
++        -borderwidth 2 -relief groove -height 75 -width 125
++    vTcl:DefineAlias "$top.fra29" "Frame9" vTcl:WidgetProc "Toplevel553" 1
++    set site_3_0 $top.fra29
++    label $site_3_0.lab57 \
++        -padx 1 -text {Init Row}
++    vTcl:DefineAlias "$site_3_0.lab57" "Label10" vTcl:WidgetProc "Toplevel553" 1
++    entry $site_3_0.ent58 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable NligInit -width 5
++    vTcl:DefineAlias "$site_3_0.ent58" "Entry6" vTcl:WidgetProc "Toplevel553" 1
++    label $site_3_0.lab59 \
++        -padx 1 -text {End Row}
++    vTcl:DefineAlias "$site_3_0.lab59" "Label11" vTcl:WidgetProc "Toplevel553" 1
++    entry $site_3_0.ent60 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 -textvariable NligEnd \
++        -width 5
++    vTcl:DefineAlias "$site_3_0.ent60" "Entry7" vTcl:WidgetProc "Toplevel553" 1
++    label $site_3_0.lab61 \
++        -padx 1 -text {Init Col}
++    vTcl:DefineAlias "$site_3_0.lab61" "Label12" vTcl:WidgetProc "Toplevel553" 1
++    entry $site_3_0.ent62 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable NcolInit -width 5
++    vTcl:DefineAlias "$site_3_0.ent62" "Entry8" vTcl:WidgetProc "Toplevel553" 1
++    label $site_3_0.lab63 \
++        -text {End Col}
++    vTcl:DefineAlias "$site_3_0.lab63" "Label13" vTcl:WidgetProc "Toplevel553" 1
++    entry $site_3_0.ent64 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 -textvariable NcolEnd \
++        -width 5
++    vTcl:DefineAlias "$site_3_0.ent64" "Entry9" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_3_0.lab57 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent58 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab59 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent60 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab61 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent62 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab63 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -ipadx 10 \
++        -side left
++    pack $site_3_0.ent64 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    label $top.lab77 \
++        -background #ffffff -disabledforeground #0000ff -foreground #0000ff \
++        -relief sunken -textvariable FilterFonction -width 50
++    vTcl:DefineAlias "$top.lab77" "Label1" vTcl:WidgetProc "Toplevel553" 1
++    TitleFrame $top.tit78 \
++        -text {Output Format}
++    vTcl:DefineAlias "$top.tit78" "TitleFrame1" vTcl:WidgetProc "Toplevel553" 1
++    bind $top.tit78 <Destroy> {
++        Widget::destroy %W; rename %W {}
++    }
++    set site_4_0 [$top.tit78 getframe]
++    radiobutton $site_4_0.rad81 \
++        -command {global FilterOutputSubDir
++
++set FilterOutputSubDir "T3"} \
++        -text {[S2] >> [T3]} -value T3 -variable OutputFormatFilterS2
++    vTcl:DefineAlias "$site_4_0.rad81" "Radiobutton553_1" vTcl:WidgetProc "Toplevel553" 1
++    radiobutton $site_4_0.rad82 \
++        -command {global FilterOutputSubDir
++
++set FilterOutputSubDir "C3"} \
++        -text {[S2] >> [C3]} -value C3 -variable OutputFormatFilterS2
++    vTcl:DefineAlias "$site_4_0.rad82" "Radiobutton553_2" vTcl:WidgetProc "Toplevel553" 1
++    radiobutton $site_4_0.cpd84 \
++        \
++        -command {global PolarCase FilterOutputSubDir ErrorMessage VarError
++
++set ErrorMessage ""
++if {$PolarCase == "bistatic"} {
++    set FilterOutputSubDir "T4"
++    } else {
++    set ErrorMessage "INPUT DATA MUST BE BISTATIC DATA"
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }} \
++        -text {[S2] >> [T4]} -value T4 -variable OutputFormatFilterS2
++    vTcl:DefineAlias "$site_4_0.cpd84" "Radiobutton553_3" vTcl:WidgetProc "Toplevel553" 1
++    radiobutton $site_4_0.cpd85 \
++        \
++        -command {global PolarCase FilterOutputSubDir ErrorMessage VarError
++
++set ErrorMessage ""
++if {$PolarCase == "bistatic"} {
++    set FilterOutputSubDir "C4"
++    } else {
++    set ErrorMessage "INPUT DATA MUST BE BISTATIC DATA"
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }} \
++        -text {[S2] >> [C4]} -value C4 -variable OutputFormatFilterS2
++    vTcl:DefineAlias "$site_4_0.cpd85" "Radiobutton553_4" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_4_0.rad81 \
++        -in $site_4_0 -anchor center -expand 1 -fill none -side left
++    pack $site_4_0.rad82 \
++        -in $site_4_0 -anchor center -expand 1 -fill none -side left
++    pack $site_4_0.cpd84 \
++        -in $site_4_0 -anchor center -expand 1 -fill none -side left
++    pack $site_4_0.cpd85 \
++        -in $site_4_0 -anchor center -expand 1 -fill none -side left
++    frame $top.fra66 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$top.fra66" "Frame3" vTcl:WidgetProc "Toplevel553" 1
++    set site_3_0 $top.fra66
++    frame $site_3_0.fra67 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_3_0.fra67" "Frame4" vTcl:WidgetProc "Toplevel553" 1
++    set site_4_0 $site_3_0.fra67
++    frame $site_4_0.fra69 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.fra69" "Frame6" vTcl:WidgetProc "Toplevel553" 1
++    set site_5_0 $site_4_0.fra69
++    label $site_5_0.cpd70 \
++        -padx 1 -text {Number of Looks}
++    vTcl:DefineAlias "$site_5_0.cpd70" "Label204" vTcl:WidgetProc "Toplevel204" 1
++    frame $site_5_0.fra71 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra71" "Frame7" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.fra71
++    entry $site_6_0.cpd72 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable NlookNLSAR -width 5
++    vTcl:DefineAlias "$site_6_0.cpd72" "Entry204" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.but73 \
++        \
++        -command {global NlookNLSAR
++
++set NlookNLSAR [expr $NlookNLSAR + 1]
++if {$NlookNLSAR == 101} { set NlookNLSAR 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.but73" "Button1" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.cpd75 \
++        \
++        -command {global NlookNLSAR
++
++set NlookNLSAR [expr $NlookNLSAR - 1]
++if {$NlookNLSAR == 0} { set NlookNLSAR 100 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd75" "Button2" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.cpd72 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.but73 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd75 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd70 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra71 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    frame $site_4_0.cpd76 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.cpd76" "Frame8" vTcl:WidgetProc "Toplevel553" 1
++    set site_5_0 $site_4_0.cpd76
++    label $site_5_0.cpd70 \
++        -padx 1 -text {Max window size}
++    vTcl:DefineAlias "$site_5_0.cpd70" "Label205" vTcl:WidgetProc "Toplevel553" 1
++    frame $site_5_0.fra71 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra71" "Frame10" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.fra71
++    entry $site_6_0.cpd72 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable Nwin -width 5
++    vTcl:DefineAlias "$site_6_0.cpd72" "Entry205" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.but73 \
++        \
++        -command {global Nwin
++
++set Nwin [expr $Nwin + 1]
++if {$Nwin == 21} { set Nwin 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.but73" "Button3" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.cpd75 \
++        \
++        -command {global Nwin
++
++set Nwin [expr $Nwin - 1]
++if {$Nwin == 0} { set Nwin 20 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd75" "Button4" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.cpd72 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.but73 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd75 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd70 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra71 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    pack $site_4_0.fra69 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_4_0.cpd76 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    frame $site_3_0.cpd77 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_3_0.cpd77" "Frame5" vTcl:WidgetProc "Toplevel553" 1
++    set site_4_0 $site_3_0.cpd77
++    frame $site_4_0.fra69 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.fra69" "Frame11" vTcl:WidgetProc "Toplevel553" 1
++    set site_5_0 $site_4_0.fra69
++    label $site_5_0.cpd70 \
++        -padx 1 -text {Max patch size}
++    vTcl:DefineAlias "$site_5_0.cpd70" "Label206" vTcl:WidgetProc "Toplevel553" 1
++    frame $site_5_0.fra71 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra71" "Frame12" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.fra71
++    entry $site_6_0.cpd72 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable Npatch -width 5
++    vTcl:DefineAlias "$site_6_0.cpd72" "Entry206" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.but73 \
++        \
++        -command {global Npatch
++
++set Npatch [expr $Npatch + 1]
++if {$Npatch == 11} { set Npatch 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.but73" "Button5" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.cpd75 \
++        \
++        -command {global Npatch
++
++set Npatch [expr $Npatch - 1]
++if {$Npatch == 0} { set Npatch 10 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd75" "Button6" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.cpd72 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.but73 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd75 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd70 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra71 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    frame $site_4_0.cpd76 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.cpd76" "Frame15" vTcl:WidgetProc "Toplevel553" 1
++    set site_5_0 $site_4_0.cpd76
++    label $site_5_0.cpd70 \
++        -padx 1 -text {Dummy}
++    vTcl:DefineAlias "$site_5_0.cpd70" "Label207" vTcl:WidgetProc "Toplevel553" 1
++    frame $site_5_0.fra71 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra71" "Frame16" vTcl:WidgetProc "Toplevel553" 1
++    set site_6_0 $site_5_0.fra71
++    entry $site_6_0.cpd72 \
++        -background white -disabledbackground #808080 \
++        -disabledforeground #808080 -foreground #0000ff -justify center \
++        -state disabled -textvariable NwinFilter -width 5
++    vTcl:DefineAlias "$site_6_0.cpd72" "Entry207" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.but73 \
++        \
++        -command {global NwinFilter
++
++set NwinFilter [expr $NwinFilter + 0]
++if {$NwinFilter == 13} { set NwinFilter 7 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.but73" "Button7" vTcl:WidgetProc "Toplevel553" 1
++    button $site_6_0.cpd75 \
++        \
++        -command {global NwinFilter
++
++set NwinFilter [expr $NwinFilter - 0]
++if {$NwinFilter == 5} { set NwinFilter 11 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd75" "Button8" vTcl:WidgetProc "Toplevel553" 1
++    pack $site_6_0.cpd72 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.but73 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd75 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd70 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra71 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    pack $site_4_0.fra69 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_4_0.cpd76 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_3_0.fra67 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.cpd77 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    frame $top.fra36 \
++        -relief groove -height 35 -width 125
++    vTcl:DefineAlias "$top.fra36" "Frame20" vTcl:WidgetProc "Toplevel553" 1
++    set site_3_0 $top.fra36
++    button $site_3_0.but93 \
++        -background #ffff00 \
++        -command {global DataDir DirName FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
++global FilterFonction FilterFunction OpenDirFile
++global ChannelFilter Fonction2 ProgressLine VarFunction VarWarning VarAdvice WarningMessage WarningMessage2
++global ConfigFile FinalNlig FinalNcol PolarCase PolarType OutputFormatFilterS2
++global NlookNLSAR Npatch Nwin NwinFilter
++global NligFullSize NcolFullSize
++global TestVarError TestVarName TestVarType TestVarValue TestVarMin TestVarMax
++
++if {$OpenDirFile == 0} {
++
++set FilterDirOutput $FilterOutputDir
++if {$FilterOutputSubDir != ""} {append FilterDirOutput "/$FilterOutputSubDir"}
++
++    #####################################################################
++    #Create Directory
++    set DirNameCreate $FilterDirOutput
++    set VarWarning ""
++    if [file isdirectory $DirNameCreate] {
++        set VarWarning "ok"
++        } else {
++        set WarningMessage "CREATE THE DIRECTORY ?"
++        set WarningMessage2 $DirNameCreate
++        set VarWarning ""
++        Window show $widget(Toplevel32); TextEditorRunTrace "Open Window Warning" "b"
++        tkwait variable VarWarning
++        if {"$VarWarning"=="ok"} {
++            TextEditorRunTrace "Create Directory" "k"
++            if { [catch {file mkdir $DirNameCreate} ErrorCreateDir] } {
++                set ErrorMessage $ErrorCreateDir
++                set VarError ""
++                Window show $widget(Toplevel44)
++                set VarWarning ""
++                }
++            }
++        }
++    #####################################################################
++
++if {"$VarWarning"=="ok"} {
++    set TestVarName(0) "Init Row"; set TestVarType(0) "int"; set TestVarValue(0) $NligInit; set TestVarMin(0) "0"; set TestVarMax(0) $NligFullSize
++    set TestVarName(1) "Init Col"; set TestVarType(1) "int"; set TestVarValue(1) $NcolInit; set TestVarMin(1) "0"; set TestVarMax(1) $NcolFullSize
++    set TestVarName(2) "Final Row"; set TestVarType(2) "int"; set TestVarValue(2) $NligEnd; set TestVarMin(2) $NligInit; set TestVarMax(2) $NligFullSize
++    set TestVarName(3) "Final Col"; set TestVarType(3) "int"; set TestVarValue(3) $NcolEnd; set TestVarMin(3) $NcolInit; set TestVarMax(3) $NcolFullSize
++    TestVar 4
++    if {$TestVarError == "ok"} {
++        set OffsetLig [expr $NligInit - 1]
++        set OffsetCol [expr $NcolInit - 1]
++        set FinalNlig [expr $NligEnd - $NligInit + 1]
++        set FinalNcol [expr $NcolEnd - $NcolInit + 1]
++
++        set ConfigFile "$FilterDirOutput/config.txt"
++        WriteConfig
++
++        if {$FilterFonction == "NLSAR Speckle Filter"} {
++            if {"$OutputFormatFilterS2" ==  "T3"} {
++                set FilterFunction "Soft/speckle_filter/lee_sigma_filter_S2_T3.exe"
++                }
++            if {"$OutputFormatFilterS2" ==  "C3"} {
++                set FilterFunction "Soft/speckle_filter/lee_sigma_filter_S2_C3.exe"
++                }
++            if {"$OutputFormatFilterS2" ==  "T4"} {
++                set FilterFunction "Soft/speckle_filter/lee_sigma_filter_S2_T4.exe"
++                }
++            if {"$OutputFormatFilterS2" ==  "C4"} {
++                set FilterFunction "Soft/speckle_filter/lee_sigma_filter_S2_C4.exe"
++                }
++        	}
++
++        set Fonction $FilterFonction
++        set Fonction2 ""
++        set ProgressLine "0"
++        Window show $widget(Toplevel28); TextEditorRunTrace "Open Window Message" "b"
++        update
++        TextEditorRunTrace "Process The Function $FilterFunction" "k"
++        TextEditorRunTrace "Arguments: \x22$FilterDirInput\x22 \x22$FilterDirOutput\x22 $NlookNLSAR $Nwin $Npatch $OffsetLig $OffsetCol $FinalNlig $FinalNcol" "k"
++        set f [ open "| $FilterFunction \x22$FilterDirInput\x22 \x22$FilterDirOutput\x22 $NlookNLSAR $Nwin $Npatch $OffsetLig $OffsetCol $FinalNlig $FinalNcol" r]
++        PsPprogressBar $f
++        TextEditorRunTrace "Check RunTime Errors" "r"
++        CheckRunTimeError
++        Window hide $widget(Toplevel28); TextEditorRunTrace "Close Window Message" "b"
++
++        if {"$OutputFormatFilterS2" ==  "T3"} {EnviWriteConfigT $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$OutputFormatFilterS2" ==  "C3"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$OutputFormatFilterS2" ==  "T4"} {EnviWriteConfigT $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$OutputFormatFilterS2" ==  "C4"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++
++        set DataDir $FilterOutputDir
++
++        set WarningMessage "THE DATA FORMAT TO BE PROCESSED IS NOW:"
++        if {$OutputFormatFilterS2 == "T3"} {set WarningMessage2 "3x3 COHERENCY MATRIX - T3"}
++        if {$OutputFormatFilterS2 == "C3"} {set WarningMessage2 "3x3 COVARIANCE MATRIX - C3"}
++        if {$OutputFormatFilterS2 == "T4"} {set WarningMessage2 "4x4 COHERENCY MATRIX - T4"}
++        if {$OutputFormatFilterS2 == "C4"} {set WarningMessage2 "4x4 COVARIANCE MATRIX - C4"}
++        set VarAdvice ""
++        Window show $widget(Toplevel242); TextEditorRunTrace "Open Window Advice" "b"
++        tkwait variable VarAdvice
++
++        Window hide $widget(Toplevel553); TextEditorRunTrace "Close Window Speckle Filter S2" "b"
++        }
++    } else {
++    if {"$VarWarning"=="no"} {Window hide $widget(Toplevel553); TextEditorRunTrace "Close Window Speckle Filter S2" "b"}
++    }
++}} \
++        -cursor {} -padx 4 -pady 2 -text Run
++    vTcl:DefineAlias "$site_3_0.but93" "Button13" vTcl:WidgetProc "Toplevel553" 1
++    bindtags $site_3_0.but93 "$site_3_0.but93 Button $top all _vTclBalloon"
++    bind $site_3_0.but93 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Run the Function}
++    }
++    button $site_3_0.but23 \
++        -background #ff8000 \
++        -command {global FilterFonc FilterFonction
++if {$FilterFonction == "NLSAR Speckle Filter"} {
++    if {$FilterFonc == "S2"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_S2.pdf"}
++    }
++} \
++        -image [vTcl:image:get_image [file join . GUI Images help.gif]] \
++        -pady 0 -width 20
++    vTcl:DefineAlias "$site_3_0.but23" "Button15" vTcl:WidgetProc "Toplevel553" 1
++    bindtags $site_3_0.but23 "$site_3_0.but23 Button $top all _vTclBalloon"
++    bind $site_3_0.but23 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Help File}
++    }
++    button $site_3_0.but24 \
++        -background #ffff00 \
++        -command {global OpenDirFile
++if {$OpenDirFile == 0} {
++Window hide $widget(Toplevel553); TextEditorRunTrace "Close Window Speckle Filter S2" "b"
++}} \
++        -padx 4 -pady 2 -text Exit
++    vTcl:DefineAlias "$site_3_0.but24" "Button16" vTcl:WidgetProc "Toplevel553" 1
++    bindtags $site_3_0.but24 "$site_3_0.but24 Button $top all _vTclBalloon"
++    bind $site_3_0.but24 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Exit the Function}
++    }
++    pack $site_3_0.but93 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.but23 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.but24 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    ###################
++    # SETTING GEOMETRY
++    ###################
++    pack $top.cpd73 \
++        -in $top -anchor center -expand 0 -fill x -side top
++    pack $top.fra29 \
++        -in $top -anchor center -expand 1 -fill x -side top
++    pack $top.lab77 \
++        -in $top -anchor center -expand 1 -fill none -side top
++    pack $top.tit78 \
++        -in $top -anchor center -expand 1 -fill x -side top
++    pack $top.fra66 \
++        -in $top -anchor center -expand 1 -fill x -side top
++    pack $top.fra36 \
++        -in $top -anchor center -expand 1 -fill x -side top
++
++    vTcl:FireEvent $base <<Ready>>
++}
++
++#############################################################################
++## Binding tag:  _TopLevel
++
++bind "_TopLevel" <<Create>> {
++    if {![info exists _topcount]} {set _topcount 0}; incr _topcount
++}
++bind "_TopLevel" <<DeleteWindow>> {
++    if {[set ::%W::_modal]} {
++                vTcl:Toplevel:WidgetProc %W endmodal
++            } else {
++                destroy %W; if {$_topcount == 0} {exit}
++            }
++}
++bind "_TopLevel" <Destroy> {
++    if {[winfo toplevel %W] == "%W"} {incr _topcount -1}
++}
++#############################################################################
++## Binding tag:  _vTclBalloon
++
++
++if {![info exists vTcl(sourcing)]} {
++}
++
++Window show .
++Window show .top553
++
++main $argc $argv
+diff -urPp ./GUI/speckle_filter/SpeckleFilterNLSAR.tcl ./GUI/speckle_filter/SpeckleFilterNLSAR.tcl
+--- ./GUI/speckle_filter/SpeckleFilterNLSAR.tcl	1970-01-01 01:00:00.000000000 +0100
++++ ./GUI/speckle_filter/SpeckleFilterNLSAR.tcl	2014-04-10 13:34:09.023540802 +0200
+@@ -0,0 +1,1216 @@
++#!/bin/sh
++# the next line restarts using wish\
++exec wish "$0" "$@"
++
++if {![info exists vTcl(sourcing)]} {
++
++    # Provoke name search
++    catch {package require bogus-package-name}
++    set packageNames [package names]
++
++    package require BWidget
++    switch $tcl_platform(platform) {
++	windows {
++	}
++	default {
++	    option add *ScrolledWindow.size 14
++	}
++    }
++
++    package require Tk
++    switch $tcl_platform(platform) {
++	windows {
++            option add *Button.padY 0
++	}
++	default {
++            option add *Scrollbar.width 10
++            option add *Scrollbar.highlightThickness 0
++            option add *Scrollbar.elementBorderWidth 2
++            option add *Scrollbar.borderWidth 2
++	}
++    }
++
++}
++
++#############################################################################
++# Visual Tcl v1.60 Project
++#
++
++
++
++
++#############################################################################
++## vTcl Code to Load Stock Images
++
++
++if {![info exist vTcl(sourcing)]} {
++#############################################################################
++## Procedure:  vTcl:rename
++
++proc ::vTcl:rename {name} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    regsub -all "\\." $name "_" ret
++    regsub -all "\\-" $ret "_" ret
++    regsub -all " " $ret "_" ret
++    regsub -all "/" $ret "__" ret
++    regsub -all "::" $ret "__" ret
++
++    return [string tolower $ret]
++}
++
++#############################################################################
++## Procedure:  vTcl:image:create_new_image
++
++proc ::vTcl:image:create_new_image {filename {description {no description}} {type {}} {data {}}} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    # Does the image already exist?
++    if {[info exists ::vTcl(images,files)]} {
++        if {[lsearch -exact $::vTcl(images,files) $filename] > -1} { return }
++    }
++
++    if {![info exists ::vTcl(sourcing)] && [string length $data] > 0} {
++        set object [image create  [vTcl:image:get_creation_type $filename]  -data $data]
++    } else {
++        # Wait a minute... Does the file actually exist?
++        if {! [file exists $filename] } {
++            # Try current directory
++            set script [file dirname [info script]]
++            set filename [file join $script [file tail $filename] ]
++        }
++
++        if {![file exists $filename]} {
++            set description "file not found!"
++            ## will add 'broken image' again when img is fixed, for now create empty
++            set object [image create photo -width 1 -height 1]
++        } else {
++            set object [image create  [vTcl:image:get_creation_type $filename]  -file $filename]
++        }
++    }
++
++    set reference [vTcl:rename $filename]
++    set ::vTcl(images,$reference,image)       $object
++    set ::vTcl(images,$reference,description) $description
++    set ::vTcl(images,$reference,type)        $type
++    set ::vTcl(images,filename,$object)       $filename
++
++    lappend ::vTcl(images,files) $filename
++    lappend ::vTcl(images,$type) $object
++
++    # return image name in case caller might want it
++    return $object
++}
++
++#############################################################################
++## Procedure:  vTcl:image:get_image
++
++proc ::vTcl:image:get_image {filename} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    set reference [vTcl:rename $filename]
++
++    # Let's do some checking first
++    if {![info exists ::vTcl(images,$reference,image)]} {
++        # Well, the path may be wrong; in that case check
++        # only the filename instead, without the path.
++
++        set imageTail [file tail $filename]
++
++        foreach oneFile $::vTcl(images,files) {
++            if {[file tail $oneFile] == $imageTail} {
++                set reference [vTcl:rename $oneFile]
++                break
++            }
++        }
++    }
++    return $::vTcl(images,$reference,image)
++}
++
++#############################################################################
++## Procedure:  vTcl:image:get_creation_type
++
++proc ::vTcl:image:get_creation_type {filename} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    switch [string tolower [file extension $filename]] {
++        .ppm -
++        .jpg -
++        .bmp -
++        .gif    {return photo}
++        .xbm    {return bitmap}
++        default {return photo}
++    }
++}
++
++foreach img {
++
++
++            } {
++    eval set _file [lindex $img 0]
++    vTcl:image:create_new_image\
++        $_file [lindex $img 1] [lindex $img 2] [lindex $img 3]
++}
++
++}
++#############################################################################
++## vTcl Code to Load User Images
++
++catch {package require Img}
++
++foreach img {
++
++        {{[file join . GUI Images OpenDir.gif]} {user image} user {}}
++        {{[file join . GUI Images Transparent_Button.gif]} {user image} user {}}
++        {{[file join . GUI Images help.gif]} {user image} user {}}
++        {{[file join . GUI Images up.gif]} {user image} user {}}
++        {{[file join . GUI Images down.gif]} {user image} user {}}
++
++            } {
++    eval set _file [lindex $img 0]
++    vTcl:image:create_new_image\
++        $_file [lindex $img 1] [lindex $img 2] [lindex $img 3]
++}
++
++#################################
++# VTCL LIBRARY PROCEDURES
++#
++
++if {![info exists vTcl(sourcing)]} {
++#############################################################################
++## Library Procedure:  Window
++
++proc ::Window {args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    global vTcl
++    foreach {cmd name newname} [lrange $args 0 2] {}
++    set rest    [lrange $args 3 end]
++    if {$name == "" || $cmd == ""} { return }
++    if {$newname == ""} { set newname $name }
++    if {$name == "."} { wm withdraw $name; return }
++    set exists [winfo exists $newname]
++    switch $cmd {
++        show {
++            if {$exists} {
++                wm deiconify $newname
++            } elseif {[info procs vTclWindow$name] != ""} {
++                eval "vTclWindow$name $newname $rest"
++            }
++            if {[winfo exists $newname] && [wm state $newname] == "normal"} {
++                vTcl:FireEvent $newname <<Show>>
++            }
++        }
++        hide    {
++            if {$exists} {
++                wm withdraw $newname
++                vTcl:FireEvent $newname <<Hide>>
++                return}
++        }
++        iconify { if $exists {wm iconify $newname; return} }
++        destroy { if $exists {destroy $newname; return} }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:DefineAlias
++
++proc ::vTcl:DefineAlias {target alias widgetProc top_or_alias cmdalias} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    global widget
++    set widget($alias) $target
++    set widget(rev,$target) $alias
++    if {$cmdalias} {
++        interp alias {} $alias {} $widgetProc $target
++    }
++    if {$top_or_alias != ""} {
++        set widget($top_or_alias,$alias) $target
++        if {$cmdalias} {
++            interp alias {} $top_or_alias.$alias {} $widgetProc $target
++        }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:DoCmdOption
++
++proc ::vTcl:DoCmdOption {target cmd} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    ## menus are considered toplevel windows
++    set parent $target
++    while {[winfo class $parent] == "Menu"} {
++        set parent [winfo parent $parent]
++    }
++
++    regsub -all {\%widget} $cmd $target cmd
++    regsub -all {\%top} $cmd [winfo toplevel $parent] cmd
++
++    uplevel #0 [list eval $cmd]
++}
++#############################################################################
++## Library Procedure:  vTcl:FireEvent
++
++proc ::vTcl:FireEvent {target event {params {}}} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    ## The window may have disappeared
++    if {![winfo exists $target]} return
++    ## Process each binding tag, looking for the event
++    foreach bindtag [bindtags $target] {
++        set tag_events [bind $bindtag]
++        set stop_processing 0
++        foreach tag_event $tag_events {
++            if {$tag_event == $event} {
++                set bind_code [bind $bindtag $tag_event]
++                foreach rep "\{%W $target\} $params" {
++                    regsub -all [lindex $rep 0] $bind_code [lindex $rep 1] bind_code
++                }
++                set result [catch {uplevel #0 $bind_code} errortext]
++                if {$result == 3} {
++                    ## break exception, stop processing
++                    set stop_processing 1
++                } elseif {$result != 0} {
++                    bgerror $errortext
++                }
++                break
++            }
++        }
++        if {$stop_processing} {break}
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:Toplevel:WidgetProc
++
++proc ::vTcl:Toplevel:WidgetProc {w args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    if {[llength $args] == 0} {
++        ## If no arguments, returns the path the alias points to
++        return $w
++    }
++    set command [lindex $args 0]
++    set args [lrange $args 1 end]
++    switch -- [string tolower $command] {
++        "setvar" {
++            foreach {varname value} $args {}
++            if {$value == ""} {
++                return [set ::${w}::${varname}]
++            } else {
++                return [set ::${w}::${varname} $value]
++            }
++        }
++        "hide" - "show" {
++            Window [string tolower $command] $w
++        }
++        "showmodal" {
++            ## modal dialog ends when window is destroyed
++            Window show $w; raise $w
++            grab $w; tkwait window $w; grab release $w
++        }
++        "startmodal" {
++            ## ends when endmodal called
++            Window show $w; raise $w
++            set ::${w}::_modal 1
++            grab $w; tkwait variable ::${w}::_modal; grab release $w
++        }
++        "endmodal" {
++            ## ends modal dialog started with startmodal, argument is var name
++            set ::${w}::_modal 0
++            Window hide $w
++        }
++        default {
++            uplevel $w $command $args
++        }
++    }
++}
++#############################################################################
++## Library Procedure:  vTcl:WidgetProc
++
++proc ::vTcl:WidgetProc {w args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    if {[llength $args] == 0} {
++        ## If no arguments, returns the path the alias points to
++        return $w
++    }
++
++    set command [lindex $args 0]
++    set args [lrange $args 1 end]
++    uplevel $w $command $args
++}
++#############################################################################
++## Library Procedure:  vTcl:toplevel
++
++proc ::vTcl:toplevel {args} {
++    ## This procedure may be used free of restrictions.
++    ##    Exception added by Christian Gavin on 08/08/02.
++    ## Other packages and widget toolkits have different licensing requirements.
++    ##    Please read their license agreements for details.
++
++    uplevel #0 eval toplevel $args
++    set target [lindex $args 0]
++    namespace eval ::$target {set _modal 0}
++}
++}
++
++
++if {[info exists vTcl(sourcing)]} {
++
++proc vTcl:project:info {} {
++    set base .top552
++    namespace eval ::widgets::$base {
++        set set,origin 1
++        set set,size 1
++        set runvisible 1
++    }
++    namespace eval ::widgets::$base.cpd71 {
++        array set save {-height 1 -width 1}
++    }
++    set site_3_0 $base.cpd71
++    namespace eval ::widgets::$site_3_0.cpd97 {
++        array set save {-ipad 1 -text 1}
++    }
++    set site_5_0 [$site_3_0.cpd97 getframe]
++    namespace eval ::widgets::$site_5_0 {
++        array set save {}
++    }
++    set site_5_0 $site_5_0
++    namespace eval ::widgets::$site_5_0.cpd85 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -state 1 -textvariable 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd92 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd92
++    namespace eval ::widgets::$site_6_0.cpd86 {
++        array set save {-image 1 -padx 1 -pady 1 -relief 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.cpd98 {
++        array set save {-ipad 1 -text 1}
++    }
++    set site_5_0 [$site_3_0.cpd98 getframe]
++    namespace eval ::widgets::$site_5_0 {
++        array set save {}
++    }
++    set site_5_0 $site_5_0
++    namespace eval ::widgets::$site_5_0.cpd85 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd95 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd95
++    namespace eval ::widgets::$site_6_0.cpd97 {
++        array set save {-text 1}
++    }
++    namespace eval ::widgets::$site_6_0.ent94 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_5_0.cpd91 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.cpd91
++    namespace eval ::widgets::$site_6_0.cpd72 {
++        array set save {-_tooltip 1 -command 1 -image 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets::$base.fra29 {
++        array set save {-borderwidth 1 -height 1 -relief 1 -width 1}
++    }
++    set site_3_0 $base.fra29
++    namespace eval ::widgets::$site_3_0.lab57 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent58 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab59 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent60 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab61 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent62 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.lab63 {
++        array set save {-text 1}
++    }
++    namespace eval ::widgets::$site_3_0.ent64 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$base.lab75 {
++        array set save {-activebackground 1 -background 1 -disabledforeground 1 -foreground 1 -relief 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$base.fra71 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_3_0 $base.fra71
++    namespace eval ::widgets::$site_3_0.fra72 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_4_0 $site_3_0.fra72
++    namespace eval ::widgets::$site_4_0.fra74 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.fra74
++    namespace eval ::widgets::$site_5_0.cpd76 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra77 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra77
++    namespace eval ::widgets::$site_6_0.cpd78 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd83 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd84 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd85 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.cpd85
++    namespace eval ::widgets::$site_5_0.cpd76 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra77 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra77
++    namespace eval ::widgets::$site_6_0.cpd78 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd83 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd84 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_3_0.cpd86 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_4_0 $site_3_0.cpd86
++    namespace eval ::widgets::$site_4_0.fra74 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.fra74
++    namespace eval ::widgets::$site_5_0.cpd76 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra77 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra77
++    namespace eval ::widgets::$site_6_0.cpd78 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd83 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd84 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_4_0.cpd85 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_5_0 $site_4_0.cpd85
++    namespace eval ::widgets::$site_5_0.cpd76 {
++        array set save {-padx 1 -text 1}
++    }
++    namespace eval ::widgets::$site_5_0.fra77 {
++        array set save {-borderwidth 1 -height 1 -width 1}
++    }
++    set site_6_0 $site_5_0.fra77
++    namespace eval ::widgets::$site_6_0.cpd78 {
++        array set save {-background 1 -disabledbackground 1 -disabledforeground 1 -foreground 1 -justify 1 -state 1 -textvariable 1 -width 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd83 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$site_6_0.cpd84 {
++        array set save {-command 1 -image 1 -pady 1}
++    }
++    namespace eval ::widgets::$base.fra36 {
++        array set save {-height 1 -relief 1 -width 1}
++    }
++    set site_3_0 $base.fra36
++    namespace eval ::widgets::$site_3_0.but93 {
++        array set save {-_tooltip 1 -background 1 -command 1 -cursor 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets::$site_3_0.but23 {
++        array set save {-_tooltip 1 -background 1 -command 1 -image 1 -pady 1 -width 1}
++    }
++    namespace eval ::widgets::$site_3_0.but24 {
++        array set save {-_tooltip 1 -background 1 -command 1 -padx 1 -pady 1 -text 1}
++    }
++    namespace eval ::widgets_bindings {
++        set tagslist {_TopLevel _vTclBalloon}
++    }
++    namespace eval ::vTcl::modules::main {
++        set procs {
++            init
++            main
++            vTclWindow.
++            vTclWindow.top552
++        }
++        set compounds {
++        }
++        set projectType single
++    }
++}
++}
++
++#################################
++# USER DEFINED PROCEDURES
++#
++#############################################################################
++## Procedure:  main
++
++proc ::main {argc argv} {
++## This will clean up and call exit properly on Windows.
++#vTcl:WindowsCleanup
++}
++
++#############################################################################
++## Initialization Procedure:  init
++
++proc ::init {argc argv} {
++global tk_strictMotif MouseInitX MouseInitY MouseEndX MouseEndY BMPMouseX BMPMouseY
++
++catch {package require unsafe}
++set tk_strictMotif 1
++global TrainingAreaTool;
++global x;
++global y;
++
++set TrainingAreaTool rect
++}
++
++init $argc $argv
++
++#################################
++# VTCL GENERATED GUI PROCEDURES
++#
++
++proc vTclWindow. {base} {
++    if {$base == ""} {
++        set base .
++    }
++    ###################
++    # CREATING WIDGETS
++    ###################
++    wm focusmodel $top passive
++    wm geometry $top 200x200+66+66; update
++    wm maxsize $top 1284 1009
++    wm minsize $top 104 1
++    wm overrideredirect $top 0
++    wm resizable $top 1 1
++    wm withdraw $top
++    wm title $top "vtcl"
++    bindtags $top "$top Vtcl all"
++    vTcl:FireEvent $top <<Create>>
++    wm protocol $top WM_DELETE_WINDOW "vTcl:FireEvent $top <<>>"
++
++    ###################
++    # SETTING GEOMETRY
++    ###################
++
++    vTcl:FireEvent $base <<Ready>>
++}
++
++proc vTclWindow.top552 {base} {
++    if {$base == ""} {
++        set base .top552
++    }
++    if {[winfo exists $base]} {
++        wm deiconify $base; return
++    }
++    set top $base
++    ###################
++    # CREATING WIDGETS
++    ###################
++    vTcl:toplevel $top -class Toplevel
++    wm withdraw $top
++    wm focusmodel $top passive
++    wm geometry $top 500x250+10+100; update
++    wm maxsize $top 1604 1184
++    wm minsize $top 113 1
++    wm overrideredirect $top 0
++    wm resizable $top 1 1
++    wm title $top "Speckle Filter"
++    vTcl:DefineAlias "$top" "Toplevel552" vTcl:Toplevel:WidgetProc "" 1
++    bindtags $top "$top Toplevel all _TopLevel"
++    vTcl:FireEvent $top <<Create>>
++    wm protocol $top WM_DELETE_WINDOW "vTcl:FireEvent $top <<>>"
++
++    frame $top.cpd71 \
++        -height 75 -width 125
++    vTcl:DefineAlias "$top.cpd71" "Frame2" vTcl:WidgetProc "Toplevel552" 1
++    set site_3_0 $top.cpd71
++    TitleFrame $site_3_0.cpd97 \
++        -ipad 0 -text {Input Directory}
++    vTcl:DefineAlias "$site_3_0.cpd97" "TitleFrame4" vTcl:WidgetProc "Toplevel552" 1
++    bind $site_3_0.cpd97 <Destroy> {
++        Widget::destroy %W; rename %W {}
++    }
++    set site_5_0 [$site_3_0.cpd97 getframe]
++    entry $site_5_0.cpd85 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -state disabled \
++        -textvariable FilterDirInput
++    vTcl:DefineAlias "$site_5_0.cpd85" "EntryTopXXCh2" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.cpd92 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd92" "Frame13" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.cpd92
++    button $site_6_0.cpd86 \
++        \
++        -image [vTcl:image:get_image [file join . GUI Images Transparent_Button.gif]] \
++        -padx 1 -pady 0 -relief flat -text {    }
++    vTcl:DefineAlias "$site_6_0.cpd86" "Button34" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd86 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side top
++    pack $site_5_0.cpd85 \
++        -in $site_5_0 -anchor center -expand 1 -fill x -side left
++    pack $site_5_0.cpd92 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side top
++    TitleFrame $site_3_0.cpd98 \
++        -ipad 0 -text {Output Directory}
++    vTcl:DefineAlias "$site_3_0.cpd98" "TitleFrame5" vTcl:WidgetProc "Toplevel552" 1
++    bind $site_3_0.cpd98 <Destroy> {
++        Widget::destroy %W; rename %W {}
++    }
++    set site_5_0 [$site_3_0.cpd98 getframe]
++    entry $site_5_0.cpd85 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable FilterOutputDir
++    vTcl:DefineAlias "$site_5_0.cpd85" "EntryTopXXCh6" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.cpd95 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd95" "Frame1" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.cpd95
++    label $site_6_0.cpd97 \
++        -text /
++    vTcl:DefineAlias "$site_6_0.cpd97" "Label2" vTcl:WidgetProc "Toplevel552" 1
++    entry $site_6_0.ent94 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -state disabled \
++        -textvariable FilterOutputSubDir -width 3
++    vTcl:DefineAlias "$site_6_0.ent94" "Entry1" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd97 \
++        -in $site_6_0 -anchor center -expand 1 -fill x -side left
++    pack $site_6_0.ent94 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side top
++    frame $site_5_0.cpd91 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.cpd91" "Frame14" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.cpd91
++    button $site_6_0.cpd72 \
++        \
++        -command {global DirName DataDir FilterDirOutput FilterOutputDir FilterOutputSubDir
++global VarWarning WarningMessage WarningMessage2
++
++set FilterDirOutputTmp $FilterDirOutput
++set DirName ""
++OpenDir $DataDir "DATA OUTPUT DIRECTORY"
++if {$DirName != ""} {
++    set VarWarning ""
++    set WarningMessage "THE MAIN DIRECTORY IS"
++    set WarningMessage2 "CHANGED TO $DirName"
++    Window show $widget(Toplevel32); TextEditorRunTrace "Open Window Warning" "b"
++    tkwait variable VarWarning
++    if {"$VarWarning"=="ok"} {
++        set FilterOutputDir $DirName
++        set FilterDirOutput $FilterOutputDir
++        } else {
++        set FilterDirOutput $FilterDirOutputTmp
++        }
++    } else {
++    set FilterDirOutput $FilterDirOutputTmp
++    }} \
++        -image [vTcl:image:get_image [file join . GUI Images OpenDir.gif]] \
++        -padx 1 -pady 0 -text button
++    bindtags $site_6_0.cpd72 "$site_6_0.cpd72 Button $top all _vTclBalloon"
++    bind $site_6_0.cpd72 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Open Dir}
++    }
++    pack $site_6_0.cpd72 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side top
++    pack $site_5_0.cpd85 \
++        -in $site_5_0 -anchor center -expand 1 -fill x -side left
++    pack $site_5_0.cpd95 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd91 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_3_0.cpd97 \
++        -in $site_3_0 -anchor center -expand 0 -fill x -side top
++    pack $site_3_0.cpd98 \
++        -in $site_3_0 -anchor center -expand 0 -fill x -side top
++    frame $top.fra29 \
++        -borderwidth 2 -relief groove -height 75 -width 125
++    vTcl:DefineAlias "$top.fra29" "Frame9" vTcl:WidgetProc "Toplevel552" 1
++    set site_3_0 $top.fra29
++    label $site_3_0.lab57 \
++        -padx 1 -text {Init Row}
++    vTcl:DefineAlias "$site_3_0.lab57" "Label10" vTcl:WidgetProc "Toplevel552" 1
++    entry $site_3_0.ent58 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable NligInit -width 5
++    vTcl:DefineAlias "$site_3_0.ent58" "Entry6" vTcl:WidgetProc "Toplevel552" 1
++    label $site_3_0.lab59 \
++        -padx 1 -text {End Row}
++    vTcl:DefineAlias "$site_3_0.lab59" "Label11" vTcl:WidgetProc "Toplevel552" 1
++    entry $site_3_0.ent60 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 -textvariable NligEnd \
++        -width 5
++    vTcl:DefineAlias "$site_3_0.ent60" "Entry7" vTcl:WidgetProc "Toplevel552" 1
++    label $site_3_0.lab61 \
++        -padx 1 -text {Init Col}
++    vTcl:DefineAlias "$site_3_0.lab61" "Label12" vTcl:WidgetProc "Toplevel552" 1
++    entry $site_3_0.ent62 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 \
++        -textvariable NcolInit -width 5
++    vTcl:DefineAlias "$site_3_0.ent62" "Entry8" vTcl:WidgetProc "Toplevel552" 1
++    label $site_3_0.lab63 \
++        -text {End Col}
++    vTcl:DefineAlias "$site_3_0.lab63" "Label13" vTcl:WidgetProc "Toplevel552" 1
++    entry $site_3_0.ent64 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #ff0000 -foreground #ff0000 -textvariable NcolEnd \
++        -width 5
++    vTcl:DefineAlias "$site_3_0.ent64" "Entry9" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_3_0.lab57 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent58 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab59 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent60 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab61 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -padx 10 -side left
++    pack $site_3_0.ent62 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.lab63 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -ipadx 10 \
++        -side left
++    pack $site_3_0.ent64 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    label $top.lab75 \
++        -activebackground #ffffff -background #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -relief sunken \
++        -state disabled -textvariable FilterFonction -width 50
++    vTcl:DefineAlias "$top.lab75" "Label1" vTcl:WidgetProc "Toplevel552" 1
++    frame $top.fra71 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$top.fra71" "Frame3" vTcl:WidgetProc "Toplevel552" 1
++    set site_3_0 $top.fra71
++    frame $site_3_0.fra72 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_3_0.fra72" "Frame4" vTcl:WidgetProc "Toplevel552" 1
++    set site_4_0 $site_3_0.fra72
++    frame $site_4_0.fra74 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.fra74" "Frame6" vTcl:WidgetProc "Toplevel552" 1
++    set site_5_0 $site_4_0.fra74
++    label $site_5_0.cpd76 \
++        -padx 1 -text {Number of Looks}
++    vTcl:DefineAlias "$site_5_0.cpd76" "Label552" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.fra77 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra77" "Frame8" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.fra77
++    entry $site_6_0.cpd78 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable NlookNLSAR -width 5
++    vTcl:DefineAlias "$site_6_0.cpd78" "Entry552" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd83 \
++        \
++        -command {global NlookNLSAR
++
++set NlookNLSAR [expr $NlookNLSAR + 1]
++if {$NlookNLSAR == 101} { set NlookNLSAR 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd83" "Button3" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd84 \
++        \
++        -command {global NlookNLSAR
++
++set NlookNLSAR [expr $NlookNLSAR - 1]
++if {$NlookNLSAR == 0} { set NlookNLSAR 100 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd84" "Button4" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd78 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side left
++    pack $site_6_0.cpd83 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd84 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd76 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra77 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    frame $site_4_0.cpd85 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.cpd85" "Frame7" vTcl:WidgetProc "Toplevel552" 1
++    set site_5_0 $site_4_0.cpd85
++    label $site_5_0.cpd76 \
++        -padx 1 -text {Max window size}
++    vTcl:DefineAlias "$site_5_0.cpd76" "Label353" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.fra77 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra77" "Frame11" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.fra77
++    entry $site_6_0.cpd78 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable Nwin -width 5
++    vTcl:DefineAlias "$site_6_0.cpd78" "Entry353" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd83 \
++        \
++        -command {global Nwin
++
++set Nwin [expr $Nwin + 1]
++if {$Nwin == 21} { set Nwin 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd83" "Button5" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd84 \
++        \
++        -command {global Nwin
++
++set Nwin [expr $Nwin - 1]
++if {$Nwin == 0} { set Nwin 20 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd84" "Button6" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd78 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side left
++    pack $site_6_0.cpd83 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd84 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd76 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra77 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    pack $site_4_0.fra74 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_4_0.cpd85 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    frame $site_3_0.cpd86 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_3_0.cpd86" "Frame5" vTcl:WidgetProc "Toplevel552" 1
++    set site_4_0 $site_3_0.cpd86
++    frame $site_4_0.fra74 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.fra74" "Frame10" vTcl:WidgetProc "Toplevel552" 1
++    set site_5_0 $site_4_0.fra74
++    label $site_5_0.cpd76 \
++        -padx 1 -text {Max patch size}
++    vTcl:DefineAlias "$site_5_0.cpd76" "Label354" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.fra77 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra77" "Frame12" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.fra77
++    entry $site_6_0.cpd78 \
++        -background white -disabledbackground #ffffff \
++        -disabledforeground #0000ff -foreground #0000ff -justify center \
++        -state disabled -textvariable Npatch -width 5
++    vTcl:DefineAlias "$site_6_0.cpd78" "Entry354" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd83 \
++        \
++        -command {global Npatch
++
++set Npatch [expr $Npatch + 1]
++if {$Npatch == 11} { set Npatch 1 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd83" "Button7" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd84 \
++        \
++        -command {global Npatch
++
++set Npatch [expr $Npatch - 1]
++if {$Npatch == 0} { set Npatch 10 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd84" "Button8" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd78 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side left
++    pack $site_6_0.cpd83 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd84 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd76 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra77 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    frame $site_4_0.cpd85 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_4_0.cpd85" "Frame15" vTcl:WidgetProc "Toplevel552" 1
++    set site_5_0 $site_4_0.cpd85
++    label $site_5_0.cpd76 \
++        -padx 1 -text {Dummy}
++    vTcl:DefineAlias "$site_5_0.cpd76" "Label355" vTcl:WidgetProc "Toplevel552" 1
++    frame $site_5_0.fra77 \
++        -borderwidth 2 -height 75 -width 125
++    vTcl:DefineAlias "$site_5_0.fra77" "Frame16" vTcl:WidgetProc "Toplevel552" 1
++    set site_6_0 $site_5_0.fra77
++    entry $site_6_0.cpd78 \
++        -background white -disabledbackground #808080 \
++        -disabledforeground #808080 -foreground #0000ff -justify center \
++        -state disabled -textvariable NwinFilter -width 5
++    vTcl:DefineAlias "$site_6_0.cpd78" "Entry355" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd83 \
++        \
++        -command {global NwinFilter
++
++set NwinFilter [expr $NwinFilter + 0]
++if {$NwinFilter == 13} { set NwinFilter 7 }} \
++        -image [vTcl:image:get_image [file join . GUI Images up.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd83" "Button9" vTcl:WidgetProc "Toplevel552" 1
++    button $site_6_0.cpd84 \
++        \
++        -command {global NwinFilter
++
++set NwinFilter [expr $NwinFilter + 0]
++if {$NwinFilter == 5} { set NwinFilter 11 }} \
++        -image [vTcl:image:get_image [file join . GUI Images down.gif]] \
++        -pady 0
++    vTcl:DefineAlias "$site_6_0.cpd84" "Button10" vTcl:WidgetProc "Toplevel552" 1
++    pack $site_6_0.cpd78 \
++        -in $site_6_0 -anchor center -expand 1 -fill none -side left
++    pack $site_6_0.cpd83 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_6_0.cpd84 \
++        -in $site_6_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.cpd76 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side left
++    pack $site_5_0.fra77 \
++        -in $site_5_0 -anchor center -expand 0 -fill none -side right
++    pack $site_4_0.fra74 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_4_0.cpd85 \
++        -in $site_4_0 -anchor center -expand 0 -fill x -side top
++    pack $site_3_0.fra72 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.cpd86 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    frame $top.fra36 \
++        -relief groove -height 35 -width 125
++    vTcl:DefineAlias "$top.fra36" "Frame20" vTcl:WidgetProc "Toplevel552" 1
++    set site_3_0 $top.fra36
++    button $site_3_0.but93 \
++        -background #ffff00 \
++        -command {global DataDir DirName FilterDirInput FilterDirOutput FilterOutputDir
++global FilterOutputSubDir FilterFonction FilterFunction
++global Fonction2 ProgressLine VarFunction VarWarning WarningMessage WarningMessage2
++global ConfigFile FinalNlig FinalNcol PolarCase PolarType
++global NligFullSize NcolFullSize
++global OpenDirFile FilterFonc NlookNLSAR Npatch Nwin NwinFilter
++global TestVarError TestVarName TestVarType TestVarValue TestVarMin TestVarMax
++
++if {$OpenDirFile == 0} {
++
++set FilterDirOutput $FilterOutputDir
++if {$FilterOutputSubDir != ""} {append FilterDirOutput "/$FilterOutputSubDir"}
++
++    #####################################################################
++    #Create Directory
++    set DirNameCreate $FilterDirOutput
++    set VarWarning ""
++    if [file isdirectory $DirNameCreate] {
++        set VarWarning "ok"
++        } else {
++        set WarningMessage "CREATE THE DIRECTORY ?"
++        set WarningMessage2 $DirNameCreate
++        set VarWarning ""
++        Window show $widget(Toplevel32); TextEditorRunTrace "Open Window Warning" "b"
++        tkwait variable VarWarning
++        if {"$VarWarning"=="ok"} {
++            TextEditorRunTrace "Create Directory" "k"
++            if { [catch {file mkdir $DirNameCreate} ErrorCreateDir] } {
++                set ErrorMessage $ErrorCreateDir
++                set VarError ""
++                Window show $widget(Toplevel44)
++                set VarWarning ""
++                }
++            } else {
++            set FilterDirOutput $FilterOutputDir
++            }
++        }
++    #####################################################################
++
++if {"$VarWarning"=="ok"} {
++    set TestVarName(0) "Init Row"; set TestVarType(0) "int"; set TestVarValue(0) $NligInit; set TestVarMin(0) "0"; set TestVarMax(0) $NligFullSize
++    set TestVarName(1) "Init Col"; set TestVarType(1) "int"; set TestVarValue(1) $NcolInit; set TestVarMin(1) "0"; set TestVarMax(1) $NcolFullSize
++    set TestVarName(2) "Final Row"; set TestVarType(2) "int"; set TestVarValue(2) $NligEnd; set TestVarMin(2) $NligInit; set TestVarMax(2) $NligFullSize
++    set TestVarName(3) "Final Col"; set TestVarType(3) "int"; set TestVarValue(3) $NcolEnd; set TestVarMin(3) $NcolInit; set TestVarMax(3) $NcolFullSize
++    TestVar 4
++    if {$TestVarError == "ok"} {
++        set OffsetLig [expr $NligInit - 1]
++        set OffsetCol [expr $NcolInit - 1]
++        set FinalNlig [expr $NligEnd - $NligInit + 1]
++        set FinalNcol [expr $NcolEnd - $NcolInit + 1]
++
++        set ConfigFile "$FilterDirOutput/config.txt"
++        WriteConfig
++
++        set Fonction $FilterFonction
++        set Fonction2 ""
++        set ProgressLine "0"
++        Window show $widget(Toplevel28); TextEditorRunTrace "Open Window Message" "b"
++        update
++        TextEditorRunTrace "Process The Function $FilterFunction" "k"
++        TextEditorRunTrace "Arguments: \x22$FilterDirInput\x22 \x22$FilterDirOutput\x22 $NlookNLSAR $Nwin $Npatch $OffsetLig $OffsetCol $FinalNlig $FinalNcol" "k"
++        set f [ open "| $FilterFunction \x22$FilterDirInput\x22 \x22$FilterDirOutput\x22 $NlookNLSAR $Nwin $Npatch $OffsetLig $OffsetCol $FinalNlig $FinalNcol" r]
++        PsPprogressBar $f
++        TextEditorRunTrace "Check RunTime Errors" "r"
++        CheckRunTimeError
++        Window hide $widget(Toplevel28); TextEditorRunTrace "Close Window Message" "b"
++
++        if {"$FilterFonc" ==  "T3"} {EnviWriteConfigT $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$FilterFonc" ==  "C3"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$FilterFonc" ==  "T4"} {EnviWriteConfigT $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$FilterFonc" ==  "C4"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$FilterFonc" ==  "C2"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++        if {"$FilterFonc" ==  "SPP"} {EnviWriteConfigC $FilterDirOutput $FinalNlig $FinalNcol}
++
++        set DataDir $FilterOutputDir
++        }
++    } else {
++    if {"$VarWarning"=="no"} {Window hide $widget(Toplevel552); TextEditorRunTrace "Close Window Speckle Filter" "b"}
++    }
++}} \
++        -cursor {} -padx 4 -pady 2 -text Run
++    vTcl:DefineAlias "$site_3_0.but93" "Button13" vTcl:WidgetProc "Toplevel552" 1
++    bindtags $site_3_0.but93 "$site_3_0.but93 Button $top all _vTclBalloon"
++    bind $site_3_0.but93 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Run the Function}
++    }
++    button $site_3_0.but23 \
++        -background #ff8000 \
++        -command {global FilterFonc FilterFonction
++
++if {$FilterFonction == "NLSAR Speckle Filter"} {
++    if {$FilterFonc == "C2"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_C2.pdf"}
++    if {$FilterFonc == "T3"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_T3.pdf"}
++    if {$FilterFonc == "C3"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_C3.pdf"}
++    if {$FilterFonc == "T4"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_T4.pdf"}
++    if {$FilterFonc == "C4"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_C4.pdf"}
++    if {$FilterFonc == "SPP"} {HelpPdfEdit "Help/speckle_filter/Speckle_Filter_NLSAR_Spp.pdf"}
++    }} \
++        -image [vTcl:image:get_image [file join . GUI Images help.gif]] \
++        -pady 0 -width 20
++    vTcl:DefineAlias "$site_3_0.but23" "Button15" vTcl:WidgetProc "Toplevel552" 1
++    bindtags $site_3_0.but23 "$site_3_0.but23 Button $top all _vTclBalloon"
++    bind $site_3_0.but23 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Help File}
++    }
++    button $site_3_0.but24 \
++        -background #ffff00 \
++        -command {global OpenDirFile
++if {$OpenDirFile == 0} {
++Window hide $widget(Toplevel552); TextEditorRunTrace "Close Window Speckle Filter" "b"
++}} \
++        -padx 4 -pady 2 -text Exit
++    vTcl:DefineAlias "$site_3_0.but24" "Button16" vTcl:WidgetProc "Toplevel552" 1
++    bindtags $site_3_0.but24 "$site_3_0.but24 Button $top all _vTclBalloon"
++    bind $site_3_0.but24 <<SetBalloon>> {
++        set ::vTcl::balloon::%W {Exit the Function}
++    }
++    pack $site_3_0.but93 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.but23 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    pack $site_3_0.but24 \
++        -in $site_3_0 -anchor center -expand 1 -fill none -side left
++    ###################
++    # SETTING GEOMETRY
++    ###################
++    pack $top.cpd71 \
++        -in $top -anchor center -expand 0 -fill x -side top
++    pack $top.fra29 \
++        -in $top -anchor center -expand 1 -fill x -side top
++    pack $top.lab75 \
++        -in $top -anchor center -expand 1 -fill none -side top
++    pack $top.fra71 \
++        -in $top -anchor center -expand 1 -fill x -side top
++    pack $top.fra36 \
++        -in $top -anchor center -expand 1 -fill x -side top
++
++    vTcl:FireEvent $base <<Ready>>
++}
++
++#############################################################################
++## Binding tag:  _TopLevel
++
++bind "_TopLevel" <<Create>> {
++    if {![info exists _topcount]} {set _topcount 0}; incr _topcount
++}
++bind "_TopLevel" <<DeleteWindow>> {
++    if {[set ::%W::_modal]} {
++                vTcl:Toplevel:WidgetProc %W endmodal
++            } else {
++                destroy %W; if {$_topcount == 0} {exit}
++            }
++}
++bind "_TopLevel" <Destroy> {
++    if {[winfo toplevel %W] == "%W"} {incr _topcount -1}
++}
++#############################################################################
++## Binding tag:  _vTclBalloon
++
++
++if {![info exists vTcl(sourcing)]} {
++}
++
++Window show .
++Window show .top552
++
++main $argc $argv
+Seulement dans .: polsarpro_v4.2.0.patch
+diff -urPp ./PolSARpro_v4.2.0.tcl ./PolSARpro_v4.2.0.tcl
+--- ./PolSARpro_v4.2.0.tcl	2014-04-10 13:34:27.603541631 +0200
++++ ./PolSARpro_v4.2.0.tcl	2014-04-10 13:34:09.039540803 +0200
+@@ -5508,6 +5508,7 @@ global Load_ParametersMult Load_Paramete
+ #SPECKLE FILTER
+ global Load_SpeckleFilter Load_SpeckleFilter_S2 Load_SpeckleFilterSigma Load_SpeckleFilterSigma_S2
+ global Load_SpeckleFilterEdge Load_SpeckleFilterEdge_S2 Load_SpeckleFilterLopez Load_SpeckleFilterLopez_S2
++global Load_SpeckleFilterNLSAR Load_SpeckleFilterNLSAR_S2
+ #SPECKLE FILTER DUAL
+ global Load_SpeckleFilterDual Load_SpeckleFilterDualEdge Load_SpeckleFilterDualSigma
+ #SPECKLE FILTER MULT
+@@ -5721,6 +5722,8 @@ if {$Load_SpeckleFilter == 1} { Window h
+ if {$Load_SpeckleFilter_S2 == 1} { Window hide .top204 }
+ if {$Load_SpeckleFilterSigma == 1} { Window hide .top352 }
+ if {$Load_SpeckleFilterSigma_S2 == 1} { Window hide .top353 }
++if {$Load_SpeckleFilterNLSAR == 1} { Window hide .top552 }
++if {$Load_SpeckleFilterNLSAR_S2 == 1} { Window hide .top553 }
+ if {$Load_SpeckleFilterEdge == 1} { Window hide .top362 }
+ if {$Load_SpeckleFilterEdge_S2 == 1} { Window hide .top363 }
+ if {$Load_SpeckleFilterLopez == 1} { Window hide .top365 }
+@@ -11893,6 +11896,7 @@ global Load_ParametersMult Load_Paramete
+ #SPECKLE FILTER
+ global Load_SpeckleFilter Load_SpeckleFilter_S2 Load_SpeckleFilterSigma Load_SpeckleFilterSigma_S2
+ global Load_SpeckleFilterEdge Load_SpeckleFilterEdge_S2 Load_SpeckleFilterLopez Load_SpeckleFilterLopez_S2
++global Load_SpeckleFilterNLSAR Load_SpeckleFilterNLSAR_S2
+ #SPECKLE FILTER DUAL
+ global Load_SpeckleFilterDual Load_SpeckleFilterDualEdge Load_SpeckleFilterDualSigma
+ #SPECKLE FILTER MULT
+@@ -12250,6 +12254,8 @@ set Load_SpeckleFilter 0
+ set Load_SpeckleFilter_S2 0
+ set Load_SpeckleFilterSigma 0
+ set Load_SpeckleFilterSigma_S2 0
++set Load_SpeckleFilterNLSAR 0
++set Load_SpeckleFilterNLSAR_S2 0
+ set Load_SpeckleFilterEdge 0
+ set Load_SpeckleFilterEdge_S2 0
+ set Load_SpeckleFilterLopez 0
+@@ -22411,8 +22417,178 @@ global VarError ErrorMessage VarWarning
+ global ConfigFile Fonction Fonction2
+ global FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
+ global FilterFonction FilterFunction BestHVFilter FilterFonc OutputFormatFilterS2 ChannelFilter
++global NlookNLSAR Nwin Npatch
++
++
++#SPECKLE FILTER
++global Load_SpeckleFilterNLSAR_S2 Load_SpeckleFilterNLSAR
++global PSPTopLevel
++
++set BestHVFilter "0"
++set FilterDirInput ""
++set FilterDirOutput ""
++set FilterOutputDir ""
++set FilterOutputSubDir ""
++set ConfigFile ""
++set ChannelFilter "0"
++
++set NlookNLSAR "1"
++set Nwin "12"
++set Npatch "5"
++set FilterFonction "NLSAR Speckle Filter"
++
++if {$DataFormatActive == "---"} {
++    set ErrorMessage "INPUT POLARIMETRIC DATA FORMAT NOT DEFINED"
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    set ErrorMessage ""
++    }    
++
++if {$DataFormatActive == "S2"} {
++    if {$Load_SpeckleFilterNLSAR_S2 == 0} {
++        source "GUI/speckle_filter/SpeckleFilterNLSAR_S2.tcl"
++        set Load_SpeckleFilterNLSAR_S2 1
++        wm transient $widget(Toplevel553) $PSPTopLevel
++        }
++    set FilterDirInput $DataDir
++    set FilterDirOutput $DataDir
++    set FilterOutputDir $DataDir
++    append FilterOutputDir "_NLSAR"
++    set FilterOutputSubDir "T3"
++    set ConfigFile "$FilterDirInput/config.txt"
++    set ErrorMessage ""
++    LoadConfig
++    if {"$ErrorMessage" == ""} {
++        if { "$PolarType" != "full"} {
++            set ErrorMessage "INPUT DATA MUST BE FULL POLAR"
++            Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++            tkwait variable VarError
++            Window hide $widget(Toplevel553); TextEditorRunTrace "Close Window Speckle Filter S2" "b"
++            } else {
++            set FilterFonc "S2"
++            set OutputFormatFilterS2 "T3"
++            set FilterFunction "Soft/speckle_filter/lee_sigma_filter_S2_T3.exe"
++            $widget(Radiobutton553_1) configure -state normal
++            $widget(Radiobutton553_2) configure -state normal
++            if { "$PolarCase" == "monostatic"} {
++                $widget(Radiobutton553_3) configure -state disable
++                $widget(Radiobutton553_4) configure -state disable
++                }
++            if { "$PolarCase" == "bistatic"} {
++                $widget(Radiobutton553_3) configure -state normal
++                $widget(Radiobutton553_4) configure -state normal
++                }
++            Window show $widget(Toplevel553); TextEditorRunTrace "Open Window Speckle Filter S2" "b"
++            }
++        } else {
++        Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++        tkwait variable VarError
++        Window hide $widget(Toplevel553); TextEditorRunTrace "Close Window Speckle Filter S2" "b"
++        }
++    }       
++
++if {$DataFormatActive == "C2" || $DataFormatActive == "C3" || $DataFormatActive == "T3" || $DataFormatActive == "C4" || $DataFormatActive == "T4" } {
++    if {$Load_SpeckleFilterNLSAR == 0} {
++        source "GUI/speckle_filter/SpeckleFilterNLSAR.tcl"
++        set Load_SpeckleFilterNLSAR 1
++        wm transient $widget(Toplevel552) $PSPTopLevel
++        }
++    if { $DataFormatActive == "C2" } {
++        set FilterDirInput "$DataDir/C2"
++        set FilterOutputSubDir "C2"
++        set FilterFonc "C2"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        }
++    if { $DataFormatActive == "C3" } {
++        set FilterDirInput "$DataDir/C3"
++        set FilterOutputSubDir "C3"
++        set FilterFonc "C3"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        }
++    if { $DataFormatActive == "T3" } {
++        set FilterDirInput "$DataDir/T3"
++        set FilterOutputSubDir "T3"
++        set FilterFonc "T3"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        }
++    if { $DataFormatActive == "C4" } {
++        set FilterDirInput "$DataDir/C4"
++        set FilterOutputSubDir "C4"
++        set FilterFonc "C4"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        }
++    if { $DataFormatActive == "T4" } {
++        set FilterDirInput "$DataDir/T4"
++        set FilterOutputSubDir "T4"
++        set FilterFonc "T4"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        }
++    set FilterDirOutput $DataDir
++    set FilterOutputDir $DataDir
++    append FilterOutputDir "_NLSAR"
++    set ConfigFile "$FilterDirInput/config.txt"
++    set ErrorMessage ""
++    LoadConfig
++    if {"$ErrorMessage" == ""} {
++        Window show $widget(Toplevel552); TextEditorRunTrace "Open Window Speckle Filter" "b"
++        } else {
++        Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++        tkwait variable VarError
++        Window hide $widget(Toplevel552); TextEditorRunTrace "Close Window Speckle Filter" "b"
++        }
++    }    
++
++if {$DataFormatActive == "SPP"} {
++    if {$Load_SpeckleFilterNLSAR == 0} {
++        source "GUI/speckle_filter/SpeckleFilterNLSAR.tcl"
++        set Load_SpeckleFilterNLSAR 1
++        wm transient $widget(Toplevel552) $PSPTopLevel
++        }
++    set FilterDirInput $DataDir
++    set FilterDirOutput $DataDir
++    set FilterOutputDir $DataDir
++    append FilterOutputDir "_NLSAR"
++    set FilterOutputSubDir "C2"
++    set ConfigFile "$FilterDirInput/config.txt"
++    set ErrorMessage ""
++    LoadConfig
++    if {"$ErrorMessage" == ""} {
++        if { "$PolarType" == "full"} {
++            set ErrorMessage "INPUT DATA MUST BE PARTIAL POLAR"
++            Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++            tkwait variable VarError
++            Window hide $widget(Toplevel552); TextEditorRunTrace "Close Window Speckle Filter" "b"
++            } else {
++            set FilterFonc "SPP"
++            set FilterFunction "Soft/speckle_filter/lee_sigma_filter_SPP.exe"
++            Window show $widget(Toplevel552); TextEditorRunTrace "Open Window Speckle Filter" "b"
++            }
++        } else {
++        Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++        tkwait variable VarError
++        Window hide $widget(Toplevel552); TextEditorRunTrace "Close Window Speckle Filter" "b"
++        }
++    }    
++
++if {$DataFormatActive == "IPP"} {
++    set WarningMessage "FUNCTIONALITY NOT AVAILABLE FOR THIS"
++    set WarningMessage2 "INPUT POLARIMETRIC DATA FORMAT"
++    set VarWarning ""
++    Window show $widget(Toplevel388); TextEditorRunTrace "Open Window Advice Warning" "b"
++    tkwait variable VarWarning
++    set VarWarning ""
++    }} \
++        -label {NLSAR Speckle Filter} 
++    $site_6_0.men68 add command \
++        \
++        -command {global DataDir FileName DataFormatActive
++global VarError ErrorMessage VarWarning WarningMessage WarningMessage2
++global ConfigFile Fonction Fonction2
++global FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
++global FilterFonction FilterFunction BestHVFilter FilterFonc FilterFoncPWF OutputFormatFilterS2 ChannelFilter
+ global Nlook NwinFilter
+ 
++
+ #SPECKLE FILTER
+ global Load_SpeckleFilter_S2 Load_SpeckleFilter 
+ global PSPTopLevel
+@@ -32268,6 +32444,7 @@ if [file exists "$DataDir/T3/T11.bin"] {
+         \
+         -command {global Fonction DataDir FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
+ global FilterFonction FilterFunction ConfigFile VarError ErrorMessage BestHVFilter FilterFonc
++
+ #SPECKLE FILTER
+ global Load_SpeckleFilter PSPTopLevel
+ 
+@@ -32337,6 +32514,75 @@ if [file exists "$DataDir/T3/T11.bin"] {
+         \
+         -command {global Fonction DataDir FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
+ global FilterFonction FilterFunction ConfigFile VarError ErrorMessage BestHVFilter FilterFonc
++global NlookNLSAR Nwin Npatch
++
++#SPECKLE FILTER
++global Load_SpeckleFilterNLSAR PSPTopLevel
++
++if {$Load_SpeckleFilterNLSAR == 0} {
++    source "GUI/speckle_filter/SpeckleFilterNLSAR.tcl"
++    set Load_SpeckleFilterNLSAR 1
++    wm transient $widget(Toplevel552) $PSPTopLevel
++    }
++
++set FilterDirInput ""
++set FilterDirOutput ""
++set FilterOutputDir ""
++set FilterOutputSubDir ""
++set ConfigFile ""
++
++if [file isdirectory "$DataDir/T3"] {
++if [file exists "$DataDir/T3/config.txt"] {
++if [file exists "$DataDir/T3/T11.bin"] {
++    set FilterDirInput "$DataDir/T3"
++    set FilterDirOutput $DataDir
++    set FilterOutputDir $DataDir
++    append FilterOutputDir "_SIG"
++    set FilterOutputSubDir "T3"
++    set ConfigFile "$FilterDirInput/config.txt"
++    set ErrorMessage ""
++    LoadConfig
++    if {"$ErrorMessage" == ""} {
++        set NlookNLSAR "1"
++        set Nwin "12"
++        set Npatch "5"
++        set FilterFonction "NLSAR Speckle Filter"
++        set FilterFonc "T3"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter.exe"
++        Window show $widget(Toplevel552); TextEditorRunTrace "Open Window Speckle Filter" "b"
++        } else {
++        Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++        tkwait variable VarError
++        set FilterDirInput ""
++        set FilterDirOutput ""
++        set FilterOutputDir ""
++        set FilterOutputSubDir ""
++        set ConfigFile ""
++        }
++    } else {
++    set ErrorMessage "CHANGE THE DATA INPUT DIRECTORY" 
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }
++    } else {
++    set ErrorMessage "ENTER A VALID DIRECTORY"
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }
++    } else {
++    set ErrorMessage "THE DIRECTORY T3 DOES NOT EXIST" 
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"    
++    tkwait variable VarError
++    }
++} \
++        -label {NLSAR Speckle Filter} 
++    $site_6_0.men71 add separator \
++        
++    $site_6_0.men71 add command \
++        \
++        -command {global Fonction DataDir EdgeDirInput EdgeDirOutput EdgeFileInput EdgeFileOutput
++global EdgeDetector EdgeCoeff InputFormat OutputFormat
++
+ #SPECKLE FILTER
+ global Load_SpeckleFilter PSPTopLevel
+ 
+@@ -34550,6 +34796,77 @@ if [file exists "$DataDir/C2/C11.bin"] {
+         -command {global Fonction DataDir
+ global FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
+ global FilterFonction FilterFunction ConfigFile VarError ErrorMessage BestHVFilter FilterFonc
++
++global NlookSigma Sigma NwinTgt NwinFilter
++
++#SPECKLE FILTER
++global Load_SpeckleFilterNLSAR PSPTopLevel
++
++if {$Load_SpeckleFilterNLSAR == 0} {
++    source "GUI/speckle_filter/SpeckleFilterNLSAR.tcl"
++    set Load_SpeckleFilterNLSAR 1
++    wm transient $widget(Toplevel552) $PSPTopLevel
++    }
++
++set FilterDirInput ""
++set FilterDirOutput ""
++set FilterOutputDir ""
++set FilterOutputSubDir ""
++set ConfigFile ""
++
++if [file isdirectory "$DataDir/C2"] {
++if [file exists "$DataDir/C2/config.txt"] {
++if [file exists "$DataDir/C2/C11.bin"] {
++    set FilterDirInput "$DataDir/C2"
++    set FilterDirOutput $DataDir
++    set FilterOutputDir $DataDir
++    append FilterOutputDir "_SIG"
++    set FilterOutputSubDir "C2"
++    set ConfigFile "$FilterDirInput/config.txt"
++    set ErrorMessage ""
++    LoadConfig
++    if {"$ErrorMessage" == ""} {
++        set NlookNLSAR "1"
++        set NLSAR "0.9"
++        set NwinTgt "3"
++        set NwinFilter "9"
++        set FilterFonction "NLSAR Speckle Filter"
++        set FilterFonc "C2"
++        set FilterFunction "Soft/speckle_filter/nlsar_filter_C2.exe"
++        Window show $widget(Toplevel552); TextEditorRunTrace "Open Window Speckle Filter" "b"
++        } else {
++        Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++        tkwait variable VarError
++        set FilterDirInput ""
++        set FilterDirOutput ""
++        set FilterOutputDir ""
++        set FilterOutputSubDir ""
++        set ConfigFile ""
++        }
++    } else {
++    set ErrorMessage "CHANGE THE DATA INPUT DIRECTORY" 
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }
++    } else {
++    set ErrorMessage "ENTER A VALID DIRECTORY"
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"
++    tkwait variable VarError
++    }
++    } else {
++    set ErrorMessage "THE DIRECTORY C2 DOES NOT EXIST" 
++    Window show $widget(Toplevel44); TextEditorRunTrace "Open Window Error" "b"    
++    tkwait variable VarError
++    }
++} \
++        -label {NLSAR Speckle Filter} 
++    $site_6_0.men71 add separator \
++        
++    $site_6_0.men71 add command \
++        \
++        -command {global Fonction DataDir FilterDirInput FilterDirOutput FilterOutputDir FilterOutputSubDir
++global FilterFonction FilterFunction ConfigFile VarError ErrorMessage BestHVFilter FilterFonc FilterFoncPWF
++
+ #SPECKLE FILTER
+ global Load_SpeckleFilter PSPTopLevel
+ 

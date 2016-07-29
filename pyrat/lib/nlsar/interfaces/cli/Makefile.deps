@@ -1,0 +1,134 @@
+sarprintf.o: sarprintf.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+sarwaitbar.o: sarwaitbar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarwaitbar.h
+sar2ppm.o: sar2ppm.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/ionetpbm.h
+sarconvert.o: sarconvert.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarinfo.o: sarinfo.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarextract.o: sarextract.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarhist.o: sarhist.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarnoise.o: sarnoise.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/noisegen/noisegen.h
+sarmire.o: sarmire.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarboxcar.o: sarboxcar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sardiskcar.o: sardiskcar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sargausscar.o: sargausscar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h
+sarnlsar.o: sarnlsar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/ionetpbm.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/nlsar/nlsar.h
+sarjoin.o: sarjoin.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sarcat.o: sarcat.c /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h
+sar2ppm: sar2ppm.o sarprintf.o sarwaitbar.o
+	gcc -o sar2ppm sarprintf.o sarwaitbar.o sar2ppm.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarconvert: sarconvert.o sarprintf.o sarwaitbar.o
+	gcc -o sarconvert sarprintf.o sarwaitbar.o sarconvert.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarinfo: sarinfo.o sarprintf.o sarwaitbar.o
+	gcc -o sarinfo sarprintf.o sarwaitbar.o sarinfo.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarextract: sarextract.o sarprintf.o sarwaitbar.o
+	gcc -o sarextract sarprintf.o sarwaitbar.o sarextract.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarhist: sarhist.o sarprintf.o sarwaitbar.o
+	gcc -o sarhist sarprintf.o sarwaitbar.o sarhist.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarnoise: sarnoise.o sarprintf.o sarwaitbar.o
+	gcc -o sarnoise sarprintf.o sarwaitbar.o sarnoise.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarmire: sarmire.o sarprintf.o sarwaitbar.o
+	gcc -o sarmire sarprintf.o sarwaitbar.o sarmire.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarboxcar: sarboxcar.o sarprintf.o sarwaitbar.o
+	gcc -o sarboxcar sarprintf.o sarwaitbar.o sarboxcar.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sardiskcar: sardiskcar.o sarprintf.o sarwaitbar.o
+	gcc -o sardiskcar sarprintf.o sarwaitbar.o sardiskcar.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sargausscar: sargausscar.o sarprintf.o sarwaitbar.o
+	gcc -o sargausscar sarprintf.o sarwaitbar.o sargausscar.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarnlsar: sarnlsar.o sarprintf.o sarwaitbar.o
+	gcc -o sarnlsar sarprintf.o sarwaitbar.o sarnlsar.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarjoin: sarjoin.o sarprintf.o sarwaitbar.o
+	gcc -o sarjoin sarprintf.o sarwaitbar.o sarjoin.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+
+sarcat: sarcat.o sarprintf.o sarwaitbar.o
+	gcc -o sarcat sarprintf.o sarwaitbar.o sarcat.o -lnlsartoolbox -L../../lib  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp  
+

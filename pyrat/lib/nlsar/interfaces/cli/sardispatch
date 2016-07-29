@@ -1,0 +1,184 @@
+#!/bin/sh
+## sardispatch: CLI for distributing a filter on a cluster
+##
+## This file is part of NL-SAR Toolbox version 0.6.
+##
+## Copyright Charles-Alban Deledalle (2013)
+## Email charles-alban.deledalle@math.u-bordeaux1.fr
+##
+## This software is a computer program whose purpose is to provide a
+## suite of tools to manipulate SAR images.
+##
+## This software is governed by the CeCILL license under French law and
+## abiding by the rules of distribution of free software. You can use,
+## modify and/ or redistribute the software under the terms of the CeCILL
+## license as circulated by CEA, CNRS and INRIA at the following URL
+## "http://www.cecill.info".
+##
+## As a counterpart to the access to the source code and rights to copy,
+## modify and redistribute granted by the license, users are provided only
+## with a limited warranty and the software's author, the holder of the
+## economic rights, and the successive licensors have only limited
+## liability.
+##
+## In this respect, the user's attention is drawn to the risks associated
+## with loading, using, modifying and/or developing or reproducing the
+## software by the user in light of its specific status of free software,
+## that may mean that it is complicated to manipulate, and that also
+## therefore means that it is reserved for developers and experienced
+## professionals having in-depth computer knowledge. Users are therefore
+## encouraged to load and test the software's suitability as regards their
+## requirements in conditions enabling the security of their systems and/or
+## data to be ensured and, more generally, to use and operate it in the
+## same conditions as regards security.
+##
+## The fact that you are presently reading this means that you have had
+## knowledge of the CeCILL license and that you accept its terms.
+##
+##
+## Started on  Wed Jul 24 14:51:48 2013 Charles-Alban Deledalle
+## Last update Wed Jul 24 14:51:52 2013 Charles-Alban Deledalle
+##
+
+if [ $# -lt 3 ] ; then
+   echo "Usage:" `basename $0` "nb_nodes nb_cpu margin command filein.rat fileout.rat [options]"
+   exit 1
+fi
+
+S=$1
+shift
+nb_cpu=$1
+shift
+ext=$1
+shift
+command=$1
+shift
+filein=`readlink -f $1`
+shift
+fileout=`readlink -f $1`
+shift
+options=$*
+
+M=`sarinfo $filein | sed -n 's/.*M = \([[:digit:]]*\)/\1/p'`
+N=`sarinfo $filein | sed -n 's/.*N = \([[:digit:]]*\)/\1/p'`
+
+sqrtS1=`echo "sqrt($S)" | bc`
+sqrtS2=$((S / $sqrtS1))
+if [ $((M % $sqrtS1)) -ne 0 ] ; then
+    sM=`echo $M / $sqrtS1 + 1 | bc`
+    nx=`echo $M / $sM + 1 | bc`
+else
+    sM=$((M / $sqrtS1))
+    nx=$((M / $sM))
+fi
+if [ $((N % $sqrtS2)) -ne 0 ] ; then
+    sN=`echo $N / $sqrtS2 + 1 | bc`
+    ny=`echo $N / $sN + 1 | bc`
+else
+    sN=$((N / $sqrtS2))
+    ny=$((M / $sN))
+fi
+
+k=1
+
+prefixout=$(dirname $fileout)/$(basename $fileout)_
+rm -f ${prefixout}_*
+
+i=0
+while [ $i -lt $M ] ; do
+    j=0
+    while [ $j -lt $N ] ; do
+	width=$sM
+	height=$sN
+	if [ $((i + $width)) -gt $M ] ; then
+	    width=$((width - (($i + $width) - $M)))
+	fi
+	if [ $((j + $height)) -gt $N ] ; then
+	    height=$((height - (($j + $height) - $N)))
+	fi
+	iext=$((i - $ext))
+	jext=$((j - $ext))
+	if [ $iext -lt 0 ] ; then
+	    iext=0
+	fi
+	if [ $jext -lt 0 ] ; then
+	    jext=0
+	fi
+	widthext=$((width + $ext + $i - $iext))
+	heightext=$((height + $ext + $j - $jext))
+	if [ $((iext + $widthext)) -gt $M ] ; then
+	    widthext=$((widthext - (($iext + $widthext) - $M)))
+	fi
+	if [ $((jext + $heightext)) -gt $N ] ; then
+	    heightext=$((heightext - (($jext + $heightext) - $N)))
+	fi
+
+	subfileout=${prefixout}_temp_$(printf '%05d' $k).rat
+
+	rm -f ${prefixout}_temp_$k.done
+	cat <<EOF > ${prefixout}_temp_$k.sh
+#!/bin/sh
+
+filein_ext=\`mktemp -t XXXX\`
+fileout_ext=\`mktemp -t XXXX\`
+mv -f \$filein_ext \$filein_ext.rat
+mv -f \$fileout_ext \$fileout_ext.rat
+filein_ext=\$filein_ext.rat
+fileout_ext=\$fileout_ext.rat
+sarextract $filein \$filein_ext $iext $jext $widthext $heightext
+$command \$filein_ext \$fileout_ext $options
+rm -f \$filein_ext
+sarextract \$fileout_ext $subfileout $((i - iext)) $((j - jext)) $width $height
+rm -f \$fileout_ext
+touch ${prefixout}_temp_$k.done
+EOF
+
+	cat <<EOF > ${prefixout}_temp_$k.pbs
+#!/bin/sh
+
+#PBS -l walltime=9:00:00
+#PBS -l nodes=1:ppn=$nb_cpu
+
+LD_PRELOAD=$LD_PRELOAD /usr/bin/time -f '%e' -o ${prefixout}_temp_$k.time sh ${prefixout}_temp_$k.sh
+EOF
+	j=$((j + $sN))
+	k=$((k + 1))
+    done
+    i=$((i + $sM))
+done
+
+for k in `seq $((nx * $ny))` ; do
+    if which qsub > /dev/null ; then
+	qsub ${prefixout}_temp_$k.pbs -o ${prefixout}_temp_$k.o -e ${prefixout}_temp_$k.e
+    else
+	sh ${prefixout}_temp_$k.sh &
+    fi
+done
+
+while true ; do
+    for k in `seq $((nx * $ny))` ; do
+	if ! [ -f ${prefixout}_temp_$k.done ] ; then
+	    sleep 1
+	    continue 2
+	fi
+    done
+    break
+done
+
+/usr/bin/time -f '%e' -o ${prefixout}_temp_cat.time sarcat ${prefixout}_temp_*.rat $fileout $nx $ny
+
+dtmax=0
+for k in `seq $((nx * $ny))` ; do
+    file=${prefixout}_temp_$k.time
+    dt=`cat $file`
+    if [ `echo "$dt > $dtmax" | bc` = '1' ] ; then
+	dtmax=$dt
+    fi
+done
+dt=`cat ${prefixout}_temp_cat.time`
+t=`echo $dt + $dtmax | bc`
+
+echo Elapsed time: $t
+
+rm -f ${prefixout}_*
+

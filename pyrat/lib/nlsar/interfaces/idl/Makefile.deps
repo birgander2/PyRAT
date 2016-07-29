@@ -1,0 +1,17 @@
+sarprintf.o: sarprintf.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarprintf.h
+sarwaitbar.o: sarwaitbar.c \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarwaitbar.h
+libnlsartoolbox.o: libnlsartoolbox.c \
+ /opt/itt/idl82/external/include/idl_export.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./tools/sarerror.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/rgbdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/fltdata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/iosar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./data/sardata.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/nlsar/nlsar.h \
+ /home/reig_an/Work/PyRat/lib/nlsar/./algos/carfilter/carfilter.h
+libnlsartoolbox.so: libnlsartoolbox.o sarprintf.o sarwaitbar.o ../../lib/libnlsartoolbox.a
+	gcc -o libnlsartoolbox.so sarprintf.o sarwaitbar.o libnlsartoolbox.o ../../lib/libnlsartoolbox.a   -shared -Wall  -lm -lpthread -lfftw3f -L/usr/lib64 -llapack -L/usr/lib64 -fopenmp 
+
