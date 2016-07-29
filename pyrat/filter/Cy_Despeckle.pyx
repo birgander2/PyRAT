@@ -5,7 +5,7 @@ import scipy as sp
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport sqrt, abs, exp
+from libc.math cimport sqrt, abs, exp, lgamma, tgamma
 
 ctypedef fused fltcpl_t:
     cython.float
@@ -431,6 +431,93 @@ def cy_srad(float [:, :] span, fltcpl_t [:, :, :, :] array, float looks=1.0, flo
                     out[v, z, i, j] = array[v, z, i, j] + step/4.0*(cip*(aip-array[v, z, i, j])
                         + ci[i, j]*(aim-array[v, z, i, j]) + cjp*(ajp-array[v, z, i, j])
                         + ci[i, j]*(ajm-array[v, z, i, j]))
+
+    return np.asarray(out)
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_emdes(float [:, :] span, fltcpl_t [:, :, :, :] array, float looks=1.0, win=(7,7)):
+    cdef fltcpl_t [:, :, :, :] out = np.empty_like(array)
+    cdef float sig2 = 1.0 / looks
+    cdef float sfak = 1.0 + sig2
+    cdef int ny = array.shape[2]
+    cdef int nx = array.shape[3]
+    cdef int nv = array.shape[0]
+    cdef int nz = array.shape[1]
+    cdef int ym = win[0]/2
+    cdef int xm = win[1]/2
+    cdef int limit = (xm + ym)  # //4
+    cdef int k, l, x, y, v, z
+    if cython.float is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float32')
+    elif cython.floatcomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex64')
+    elif cython.double is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float64')
+    elif cython.doublecomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex128')
+    cdef fltcpl_t [:, :] res = foo
+    cdef float p, pi, fl, p1, p2
+
+    for k in range(ym, ny-ym):
+        for l in range(xm, nx-xm):
+
+            # --------------- estimate centre pixel intensity ---------------------------
+
+            m2arr = 0.0
+            marr = 0.0
+            for y in range(-1, 2):                          # check 3x3 neighbourhood
+                for x in range(-1, 2):
+                    m2arr += span[k+y, l+x]**2
+                    marr += span[k+y, l+x]
+            m2arr /= 9.0
+            marr /= 9.0
+            vary = (m2arr - marr**2)
+            if vary < 1e-10: vary = 1e-10
+            varx = ((vary - marr ** 2 * sig2) / sfak)
+            if varx < 0: varx = 0
+            kfac = varx / vary
+            xtilde = (span[k, l] - marr) * kfac + marr
+
+            xtilde = span[k, l]
+            # --------------- estimate centre pixel intensity ---------------------------
+            for v in range(nv):
+                for z in range(nz):
+                    res[v, z] = 0.0
+            pi = 0.0
+
+            for y in range(-ym, ym+1):
+                for x in range(-xm, xm+1):
+
+#                    fl = looks - (span[k+y, l+x] - xtilde)/(span[k+y, l+x] + xtilde)
+#                    if fl <= 1.0:
+#                        fl = 1.0
+#                    p1 = (span[k+y, l+x]**fl * xtilde**fl)
+#                    p2 = ((span[k+y, l+x] + xtilde)/2)**(2*fl)
+#                    if p2 != 0.0:
+#                        p = (p1 / p2)
+#                    else:
+#                        p = 0.0
+
+                    if xtilde != 0.0:
+                        p = (looks**looks * xtilde**(looks-1.0))/(tgamma(looks)*span[k+y, l+x]**looks)*exp(-looks*xtilde/span[k+y, l+x])
+                        # p = (looks**looks * span[k+y, l+x]**(looks-1.0))/(tgamma(looks)*xtilde**looks)*exp(-looks*span[k+y, l+x]/xtilde)
+                    else:
+                        p = 0.0
+
+                    pi  += p
+                    for v in range(nv):
+                        for z in range(nz):
+                            res[v, z] = res[v, z] + p * array[v, z, k+y, l+x]
+
+            for v in range(nv):
+                for z in range(nz):
+                    if pi != 0.0:
+                        out[v, z, k, l] = res[v, z] / pi
 
     return np.asarray(out)
 

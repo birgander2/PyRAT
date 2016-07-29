@@ -1,7 +1,6 @@
-from __future__ import print_function
-import pyrat
 import logging
-from PyQt4 import QtGui, QtCore
+
+import pyrat
 
 
 class ExportWorker(pyrat.Worker):
@@ -18,7 +17,10 @@ class ExportWorker(pyrat.Worker):
 
         foo = self.open(*args, **kwargs)
         if foo is None:                        # open not overloaded -> use full image import
-            self.writer(pyrat.data.getData(), *args, **kwargs)
+            if 'layer' in kwargs:
+                self.writer(pyrat.data.getData(layer=kwargs['layer']), *args, **kwargs)
+            else:
+                self.writer(pyrat.data.getData(), *args, **kwargs)
             return self.layer
         elif foo is False:                     # open failed in some sense -> return False
             return False

@@ -24,6 +24,11 @@ class Coherence(pyrat.FilterWorker):
         return np.clip(np.nan_to_num(coh), 0.0, 1.0)  # get rid of numerical inaccuracies!
 
 
+@pyrat.docstringfrom(Coherence)
+def coherence(*args, **kwargs):
+    return Coherence(*args, **kwargs).run(**kwargs)
+
+
 class CoherenceMat(pyrat.FilterWorker):
     """
     Calc coherency matrix
@@ -51,6 +56,12 @@ class CoherenceMat(pyrat.FilterWorker):
         return np.clip(np.nan_to_num(coh), 0.0, 1.0)  # get rid of numerical inaccuracies!
 
 
+@pyrat.docstringfrom(CoherenceMat)
+def coherencemat(*args, **kwargs):
+    return CoherenceMat(*args, **kwargs).run(**kwargs)
+
+
+
 class InterfMat(pyrat.FilterWorker):
     """
     Calc matrix with all interferometers
@@ -76,3 +87,11 @@ class InterfMat(pyrat.FilterWorker):
                                         np.sqrt(smooth(array[trk1] * np.conj(array[trk1]), self.win) *
                                                   smooth(array[trk2] * np.conj(array[trk2]), self.win)))
         return np.nan_to_num(coh)  # get rid of numerical inaccuracies!
+
+
+@pyrat.docstringfrom(InterfMat)
+def interfmat(*args, **kwargs):
+    return InterfMat(*args, **kwargs).run(**kwargs)
+
+
+

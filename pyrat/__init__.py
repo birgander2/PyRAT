@@ -1,6 +1,56 @@
-# PyRat __init__
+__version__ = '0.35'
+
 import logging
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
+import scipy.misc                           # workaround for problems with pillow / gdal not working nicely together
+
+# # extract svn version number
+# try:
+#     import subprocess
+#     subprocess.check_output(['svnversion', '-n']).decode()
+# except:
+#     __svnversion__ = 'unknown'
+
+
+def docstringfrom(fromclass):
+    def _decorator(func):
+        func.__doc__ = fromclass.__doc__
+        return func
+    return _decorator
+
+
+def pyrat_help(modulename, docstring):
+    def f():
+        import sys
+        from inspect import getmembers, isclass, isfunction
+        if 'plugins' in modulename:
+            current_module = pyrat.plugins
+            modules = getmembers(current_module, isclass)
+            for mod in modules:
+                mod[1].__module__ = 'pyrat.plugins.' + mod[1].__module__
+        else:
+            current_module = sys.modules[modulename]
+            modules = getmembers(current_module, isclass)
+        logging.info("")
+        logging.info("Functions within the module " + modulename + ":")
+        logging.info("")
+        for mod in modules:
+            if 'pyrat' in mod[1].__module__ and hasattr(current_module, mod[1].__name__.lower()):
+                doc = str(getattr(current_module, mod[1].__name__.lower()).__doc__)
+                if doc != 'None':
+                    doc = doc.split('\n')[1].lstrip()
+                else:
+                    doc = "-"
+                logging.info((mod[0].lower() + "()").ljust(30) + doc)
+        logging.info("")
+        logging.info(
+            "Use info(" + modulename.split(".", 1)[-1] + ".function_name) for further documentation "
+                                                         "on individual functions")
+        logging.info("")
+
+    f.__doc__ = docstring
+    return f
+
 
 from .cli import *
 from .Worker import *
@@ -8,7 +58,7 @@ from .LayerData import *
 from .FilterWorker import *
 from .ImportWorker import *
 from .ExportWorker import *
-from .WizardWorker import *
+from .GroupWorker import *
 from .LayerWorker import *
 from . import layer
 from . import filter
@@ -18,7 +68,6 @@ from . import transform
 from . import polar
 from . import insar
 from . import viewer
-from . import tomo
 
 from .tools import bcolors
 import os, logging, atexit, tempfile, sys
@@ -29,7 +78,6 @@ import json
 data = False
 pool = False
 _debug = False
-version = 0.3
 
 
 def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
@@ -38,9 +86,18 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     global _debug
     _debug = debug
 
+    # read config file (~/.pyratrc or the win version)
+    cfg = read_config_file()
+
+    # import plugins
+    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=True)
+    pyrat.plugins.__name__ = "pyrat.plugins"
+    pyrat.plugins.__module__ = "pyrat.plugins"
+    pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
+
     pool = multiprocessing.Pool(nthreads)
     if sys.platform.startswith('win'):
-        for res in pool.imap(foo, [None]*nthreads):      # Workaround for delayed worker initialisation on Windows
+        for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
             pass
 
     for handler in logging.root.handlers[:]:
@@ -51,21 +108,19 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
         logging.basicConfig(format='  %(message)s', level=logging.INFO)
 
     if sys.version < "3":
-        logging.warning("You are running Python "+sys.version[0:3]+": Python 3.x is recommended to run PyRat!!!")
+        logging.warning("You are running Python " + sys.version[0:3] + ": Python 3.x is recommended to run PyRat!!!")
         logging.warning("Under Python2, funny things might happen. You have been warned!")
 
-    logging.info('\n  Welcome to PyRAT (v%s)' % (version))
+    logging.info('\n  Welcome to PyRAT (v%s)' % (__version__))
     logging.info('OS detected : ' + sys.platform)
-
-    # read config file (~/.pyratrc or the win version)
-    cfg = read_config_file()
 
     # set up tmp dir
     if cfg["tmpdir"] is not None:
         tmpdir = cfg["tmpdir"]
     else:
         tmpdir = tempfile.gettempdir()
-        logging.warning(bcolors.FAIL+bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
+        logging.warning(
+            bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
         logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
@@ -77,10 +132,8 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     data = LayerData(tmpdir)
     # pool = multiprocessing.Pool(nthreads)
     logging.info("Pool with " + str(nthreads) + " workers initialised" + '\n')
-
-    # import plugins
-    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=True)
-
+    logging.info("help() will show a list of available commands!")
+    logging.info("")
     atexit.register(pyrat_exit)
 
 
@@ -112,25 +165,25 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
         if verbose:
             logging.debug('Found config file : ' + config_file)
 
-        if config_type == 'json':   # load json config file
+        if config_type == 'json':  # load json config file
             with open(config_file) as fid:
                 try:
                     cfg = json.load(fid)
                 except ValueError:  # probably old-time plain ascii file
                     cfg = read_config_file(config_file, verbose=False,
                                            config_type='ini')
-        if config_type == 'ini':   # load .ini config file
+        if config_type == 'ini':  # load .ini config file
             try:
                 cfgp = ConfigParser()
                 cfgp.read(config_file)
-                cfgp = {k.lower(): v for k, v in cfgp.items()}                 # make case-insensitive
+                cfgp = {k.lower(): v for k, v in cfgp.items()}  # make case-insensitive
                 cfg = dict(cfgp["pyrat"])
                 if "plugin_paths" in cfgp:
                     cfg["plugin_paths"] = [v for k, v in cfgp["plugin_paths"].items()]
             except:  # probably old-time plain ascii file
                 cfg = read_config_file(config_file, verbose=False,
                                        config_type='plain')
-        elif config_type == 'plain':                                           # load initial single line config file
+        elif config_type == 'plain':  # load initial single line config file
             lun = open(config_file, 'rb')
             tmpdir = lun.read().rstrip().decode()
             lun.close()
@@ -147,15 +200,17 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
 class Plugins:
     """Will contain imported plugins, similar to previous module plugins"""
     pass
+
+
 plugins = Plugins()
 
 
 def import_plugins(plugin_paths=[], verbose=False):
     import pyrat
     pyrat_path = pyrat.__path__[0]
-    default_plugin_path = os.path.dirname(pyrat_path) + "/plugins"
+    default_plugin_path = os.path.dirname(pyrat_path) + "/pyrat/plugins"
 
-    imported = []                                                               # to import only the first occurence
+    imported = []  # to import only the first occurence
     for directory in plugin_paths + [default_plugin_path]:
         if verbose:
             logging.info("Scanning for plugins: {}".format(directory))
@@ -174,7 +229,7 @@ def import_plugins(plugin_paths=[], verbose=False):
                 candidate = os.path.join(dirpath, filename)
 
                 if filename in imported:
-                    continue                                                  # don't import if another version imported
+                    continue  # don't import if another version imported
                 else:
                     imported.append(filename)
 
@@ -198,6 +253,18 @@ def foo(bar):
     pass
 
 
+def pyrat_reset():
+    global data
+    logging.info('Deleting PyRat Data:')
+    for layer in data.layers.values():
+        if layer.attrs['_type'] == 'Disc':
+            if os.path.exists(layer.fn):
+                layer.group.close()
+                os.remove(layer.fn)
+            logging.info('   ' + layer.fn)
+    data = LayerData(data.tmpdir)
+
+
 def pyrat_exit():
     global data, pool
     logging.info('  Exiting PyRat')
@@ -205,12 +272,14 @@ def pyrat_exit():
     for layer in data.layers.values():
         if layer.attrs['_type'] == 'Disc':
             if os.path.exists(layer.fn):
-                layer.group.close()
+                layer.file.close()
                 os.remove(layer.fn)
             logging.info('Deleting temporary file: ' + layer.fn)
 
+
 interpreter = False
 import inspect
+
 inp = [s[1] for s in inspect.stack()]
 try:
     if sys.ps1: interpreter = True

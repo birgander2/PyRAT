@@ -4,6 +4,12 @@ import os
 import string
 import numpy as np
 import xml.etree.ElementTree as ET
+from lxml import etree as xml_tools
+import argparse
+import glob
+import logging
+import shutil
+
 
 
 def rrat(filename, **kwargs):
@@ -178,8 +184,8 @@ class RatFile():
         self.dtype = arr.dtype
         self.var = self.dtype2var(self.dtype)
         self.dim = arr.shape[::-1]
-        self.deshape()
         self.ndim = arr.ndim
+        self.deshape()
         self.Header.Rat.ndim = self.ndim
         self.Header.Rat.dim = self.dim
         self.Header.Rat.var = self.var
@@ -201,7 +207,7 @@ class RatFile():
         return lun
 
     def dtype2var(self, dtype):
-        if dtype == 'uint8':
+        if dtype == 'uint8' or dtype == 'bool':
             var = 1
         elif dtype == 'int16':
             var = 2
@@ -406,7 +412,7 @@ class Xml2Py:
         if dLen > 1:
             val = val.strip('[]').split(',')
 
-        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'string': lambda s: s}
+        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'bool': np.bool, 'string': lambda s: s}
         try:
             if (dLen > 1):
                 val = np.asarray([conv[dType](v) for v in val]).reshape(dDim)
@@ -417,3 +423,5 @@ class Xml2Py:
             return
 
         setattr(self, name, val)
+
+

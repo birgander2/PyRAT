@@ -16,10 +16,10 @@ class RotateLeft(pyrat.FilterWorker):
         super(RotateLeft, self).__init__(*args, **kwargs)
         self.name = "ROTATE LEFT"
         self.blockprocess = False
-        
+
     def filter(self, array, *args, **kwargs):
         if array.ndim > 2:
-            for k in range(array.ndim-2):
+            for k in range(array.ndim - 2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 1)
         if array.ndim > 2:
@@ -45,7 +45,7 @@ class RotateRight(pyrat.FilterWorker):
 
     def filter(self, array, *args, **kwargs):
         if array.ndim > 2:
-            for k in range(array.ndim-2):
+            for k in range(array.ndim - 2):
                 array = np.rollaxis(array, axis=0, start=array.ndim)
         array = np.rot90(array, 3)
         if array.ndim > 2:
@@ -71,7 +71,7 @@ class Transpose(pyrat.FilterWorker):
 
     def filter(self, array, *args, **kwargs):
         # array = np.transpose(array, axes=list(range(array.ndim-2, array.ndim)))
-        array = np.swapaxes(array, array.ndim-2, array.ndim-1)
+        array = np.swapaxes(array, array.ndim - 2, array.ndim - 1)
         return array
 
 
@@ -91,7 +91,7 @@ class MirrorHorizontal(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
-        array = array[...,::-1]
+        array = array[..., ::-1]
         return array
 
 
@@ -111,21 +111,30 @@ class MirrorVertical(pyrat.FilterWorker):
         self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
-        array = array[...,::-1,:]
+        array = array[..., ::-1, :]
         return array
 
 
+@pyrat.docstringfrom(RotateLeft)
 def rotateleft(*args, **kwargs):
-    return RotateLeft(*args, **kwargs).run(**kwargs)
+    return RotateLeft(*args, **kwargs).run(*args, **kwargs)
 
 
+@pyrat.docstringfrom(RotateRight)
 def rotateright(*args, **kwargs):
-    return RotateRight(*args, **kwargs).run(**kwargs)
+    return RotateRight(*args, **kwargs).run(*args, **kwargs)
 
 
+@pyrat.docstringfrom(Transpose)
 def transpose(*args, **kwargs):
-    return Transpose(*args, **kwargs).run(**kwargs)
+    return Transpose(*args, **kwargs).run(*args, **kwargs)
 
 
+@pyrat.docstringfrom(MirrorHorizontal)
 def mirrorhorizonal(*args, **kwargs):
-    return MirrorHorizontal(*args, **kwargs).run(**kwargs)
+    return MirrorHorizontal(*args, **kwargs).run(*args, **kwargs)
+
+
+@pyrat.docstringfrom(MirrorVertical)
+def mirrorvertical(*args, **kwargs):
+    return MirrorVertical(*args, **kwargs).run(*args, **kwargs)

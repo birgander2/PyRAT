@@ -1,9 +1,14 @@
-import sys
+import atexit
+import code
 import logging
-import code, readline, atexit, os
-import scipy as sp
+import os
+import readline
+
 import numpy as np
+import scipy as sp
+
 import pyrat
+
 
 class ProgressBar():
     """
@@ -205,7 +210,7 @@ def interpol_lin2d(x, y, z, xout, yout):
         return f(xout, yout)
 
 
-def interpol_cc1d(y, xi):
+def interpol_cubic(y, xi, **kwargs):
     """
     1D cubic convolution interpolation on regularly gridded input (who wants to translate to cython?)
 
@@ -256,7 +261,7 @@ def interpol_cc1d(y, xi):
     return yi
 
 
-def interpol_cc1d_irr(x, y, xi, sort=True):
+def interpol_cubic_irr(x, y, xi, sort=True, **kwargs):
     """
     1D cubic convolution interpolation on irregularly gridded input (who wants to translate to cython?)
 
@@ -371,6 +376,18 @@ def combinations_generation(arrays, out=None):
         for j in range(1, arrays[0].size):
             out[j * m:(j + 1) * m, 1:] = out[0:m, 1:]
     return out
+  
+  
+def cart2pol(x, y):
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return rho, phi
+
+
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return x, y
 
 
 class bcolors:

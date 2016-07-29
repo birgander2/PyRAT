@@ -1,6 +1,7 @@
 import pyrat
 import numpy as np
 
+
 class SVA(pyrat.FilterWorker):
     """
     Spatial Variant Apodisation (SVA) filter: Removes SINC function sidelobes
@@ -128,7 +129,8 @@ class SVA(pyrat.FilterWorker):
 
         return a
 
-        
+
+@pyrat.docstringfrom(SVA)
 def sva(*args, **kwargs):
     return SVA(*args, **kwargs).run(**kwargs)
         

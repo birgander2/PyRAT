@@ -17,7 +17,7 @@ class About(pyrat.Worker):
         PyRat version: v%s
         running on: %s / python %s
         ---
-        """ % (str(pyrat.version), sys.platform, sys.version[0:3])
+        """ % (str(pyrat.__version__), sys.platform, sys.version[0:3])
         foo = QtGui.QMessageBox(parent=viewer)
         foo.setIcon(1)
         foo.setText(message)

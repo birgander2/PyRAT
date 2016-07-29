@@ -27,6 +27,9 @@ class FilterWorker(pyrat.Worker):
             newlayer = self.layer_process(self.filter, silent=False, **kwargs)
             pyrat.data.activateLayer(newlayer)
             self.post(*args, **kwargs)
+
+            if self.delete is True:
+                pyrat.delete(self.input)
             return newlayer
         else:
             return False
@@ -52,3 +55,5 @@ class FilterWorker(pyrat.Worker):
 
     def info(self):
         print(self.__doc__)
+
+

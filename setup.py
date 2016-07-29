@@ -3,12 +3,33 @@ from distutils.core import setup
 from Cython.Build import cythonize
 import numpy
 
-setup(name='PyRAT', 
-      version='0.2',
+# # write svn version number (if possible)
+# try:
+#     import subprocess
+#     __svnversion__ = subprocess.check_output(['svnversion', '-n']).decode()
+# except:
+#     __svnversion__ = 'unknown'
+# with open('pyrat/VERSION', 'w') as f:
+#     f.write(__svnversion__)
+
+# extract internal version number (hehe, what a trick!)
+
+pyrat_version = 'unknown'
+with open('pyrat/__init__.py') as f:
+    for line in f:
+        if line.startswith('__version__'):
+            _, _, pyrat_version = line.replace("'", '').split()
+            break
+
+# the actual setup process
+setup(name='PyRAT',
+      version=pyrat_version,
       description='PyRAT - Radar Tools',
-      ext_modules=cythonize(["pyrat/filter/*.pyx", "pyrat/viewer/*.pyx"]),
+      ext_modules=cythonize(["pyrat/lib/*.pyx", "pyrat/filter/*.pyx", "pyrat/viewer/*.pyx"]),
       include_dirs=[numpy.get_include()],
-      packages=['pyrat', 'pyrat.save', 'pyrat.filter', 'pyrat.load', 'pyrat.filter', 'pyrat.viewer',
-                'pyrat.layer', 'pyrat.insar', 'pyrat.transform', 'pyrat.polar', 'pyrat.plugins', 'plugins'],
-      scripts=['PyRat'],
-      data_files=[('.', ['README.txt', 'requirements.txt', 'MANIFEST.in'])])
+      packages=['pyrat', 'pyrat.save', 'pyrat.filter', 'pyrat.load', 'pyrat.filter', 'pyrat.tomo', 'pyrat.viewer',
+                'pyrat.layer', 'pyrat.insar', 'pyrat.transform', 'pyrat.polar', 'pyrat.geo', 'pyrat.plugins'],
+      scripts=['PyRat', 'scripts/change_det/nlpcd.py', 'scripts/fsar2pretty/fsar2pretty.py',
+               'scripts/geomosaic/geomosaic.py'],
+      data_files=[('.', ['README.txt', 'requirements.txt', 'MANIFEST.in'])]
+      )

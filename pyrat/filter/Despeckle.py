@@ -9,7 +9,7 @@ from scipy.ndimage import filters
 
 class Boxcar(pyrat.FilterWorker):
     """
-    Simple Boxcar filter...
+    Boxcar / Moving average (speckle) filter.
 
     :author: Andreas Reigber
     """
@@ -24,7 +24,6 @@ class Boxcar(pyrat.FilterWorker):
         super(Boxcar, self).__init__(*args, **kwargs)
         self.name = "BOXCAR FILTER"
         self.blockprocess = True
-        self.blocksize = 30
         self.blockoverlap = self.win[0] // 2 + 1
 
     def filter(self, array, *args, **kwargs):
@@ -44,12 +43,10 @@ class Boxcar(pyrat.FilterWorker):
             return filters.uniform_filter(array.real, win)
 
 
+@pyrat.docstringfrom(Boxcar)
 def boxcar(*args, **kwargs):
     return Boxcar(*args, **kwargs).run(**kwargs)
 
-######################################################################################################################
-######################################################################################################################
-######################################################################################################################
 
 class Lee(pyrat.FilterWorker):
     """
@@ -111,13 +108,14 @@ class Lee(pyrat.FilterWorker):
         return np.squeeze(out)
 
 
+@pyrat.docstringfrom(Lee)
 def lee(*args, **kwargs):
     return Lee(*args, **kwargs).run(**kwargs)
 
 
 class Gauss(pyrat.FilterWorker):
     """
-    Simple Gaussian filter...
+    Gaussian (speckle) filter...
 
     :author: Andreas Reigber
     """
@@ -151,13 +149,9 @@ class Gauss(pyrat.FilterWorker):
             return filters.gaussian_filter(array.real, win)
 
 
+@pyrat.docstringfrom(Gauss)
 def gauss(*args, **kwargs):
     return Gauss(*args, **kwargs).run(**kwargs)
-
-
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
 
 
 class RefinedLee(pyrat.FilterWorker):
@@ -305,7 +299,8 @@ class RefinedLee(pyrat.FilterWorker):
         return out
 
 
-def reflee(*args, **kwargs):
+@pyrat.docstringfrom(RefinedLee)
+def refinedlee(*args, **kwargs):
     return RefinedLee(*args, **kwargs).run(**kwargs)
 
 # #---------------------------------------------------------------------------------------------------------------
@@ -415,6 +410,7 @@ try:
             return np.squeeze(array)
 
 
+    @pyrat.docstringfrom(LeeSigma)
     def leesigma(*args, **kwargs):
         return LeeSigma(*args, **kwargs).run(**kwargs)
 
@@ -428,7 +424,7 @@ except ImportError:
 try:
     from .Cy_Despeckle import cy_leeimproved
 
-    class LeeSigmaImproved(pyrat.Worker):
+    class LeeSigma2(pyrat.Worker):
         """
         Lee's improved sigma speckle filter...
 
@@ -547,7 +543,8 @@ try:
             return (self.sigmarange(i[0], i[1], looks) - sigr)**2 + (self.intmean(i[0], i[1], looks) - 1.0)**2
 
 
-    def leesigmaimp(*args, **kwargs):
+    @pyrat.docstringfrom(LeeSigma2)
+    def leesigma2(*args, **kwargs):
         return LeeSigmaImproved(*args, **kwargs).run(**kwargs)
 
 except ImportError:
@@ -757,6 +754,7 @@ try:
             return array
 
 
+    @pyrat.docstringfrom(Bilateral)
     def bilateral(*args, **kwargs):
         return Bilateral(*args, **kwargs).run(**kwargs)
 
@@ -770,7 +768,7 @@ except ImportError:
 
 class BilateralFilter(pyrat.FilterWorker):
     """
-    Bilateral filter
+    Bilateral speckle filter
 
     further information:
     D'Hondt, O., Guillaso, S., & Hellwich, O. (2013).
@@ -889,6 +887,7 @@ class BilateralFilter(pyrat.FilterWorker):
         return out
 
 
+@pyrat.docstringfrom(BilateralFilter)
 def bilateralfilter(*args, **kwargs):
     return BilateralFilter(*args, **kwargs).run(**kwargs)
 
@@ -969,6 +968,8 @@ try:
                 array = np.sqrt(array)
             return np.squeeze(array)
 
+
+    @pyrat.docstringfrom(SRAD)
     def srad(*args, **kwargs):
         return SRAD(*args, **kwargs).run(**kwargs)
 
@@ -1048,3 +1049,63 @@ except ImportError:
 # except ImportError:
 #     logging.info("SRAD cython module not found. (run build process?)")
 #
+#---------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------
+
+try:
+    from .Cy_Despeckle import cy_emdes as cy_emdes
+    class EMDES(pyrat.FilterWorker):
+        """
+        Test filter
+
+        :author: Andreas Reigber
+        """
+        gui = {'menu': 'SAR|Speckle filter', 'entry': 'EMDES'}
+        para = [
+            {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+            {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'], 'text': 'SAR data type'}
+            ]
+
+        def __init__(self, *args, **kwargs):
+            super(EMDES, self).__init__(*args, **kwargs)
+            self.name = "EMDES SPECKLE FILTER"
+            self.blockprocess = True
+            self.blockoverlap = self.win[0] // 2 + 1
+
+        def filter(self, array, *args, **kwargs):
+            if array.ndim == 3:                                                # polarimetric vector
+                if np.iscomplexobj(array) or self.type == "amplitude":
+                    array = np.abs(array)**2
+                    self.type = "amplitude"
+                else:
+                    array = np.abs(array)
+                span = np.sum(array, axis=0)
+                array = array[np.newaxis, ...]
+                self.type = "amplitude"
+            elif array.ndim == 4:                                              # covariance data
+                span = np.abs(np.trace(array, axis1=0, axis2=1))
+                self.type = "intensity"
+            else:                                                              # single channel data
+                if np.iscomplexobj(array) or self.type == "amplitude":
+                    array = np.abs(array)**2
+                    self.type = "amplitude"
+                else:
+                    array = np.abs(array)
+                span = array.copy()
+                array = array[np.newaxis, np.newaxis, ...]
+            array = cy_emdes(span, array, looks=self.looks, win=self.win)
+            array[~np.isfinite(array)] = 0.0
+            if self.type == "amplitude":
+                array[array < 0] = 0.0
+                array = np.sqrt(array)
+            return np.squeeze(array)
+
+    @pyrat.docstringfrom(EMDES)
+    def emdes(*args, **kwargs):
+        return EMDES(*args, **kwargs).run(**kwargs)
+
+except ImportError:
+    logging.info("EMDES cython module not found. (run build process?)")
+

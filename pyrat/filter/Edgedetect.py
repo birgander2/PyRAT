@@ -3,6 +3,8 @@ import pyrat
 import numpy as np
 from scipy import ndimage
 
+import logging
+
 
 class Sobel(pyrat.FilterWorker):
     """
@@ -22,26 +24,25 @@ class Sobel(pyrat.FilterWorker):
 
     def filter(self, array, *args, **kwargs):
         shp = array.shape
-        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])   # reshape to (nch, ny, nx)
+        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])  # reshape to (nch, ny, nx)
 
-        for k, arr in enumerate(np.abs(array)): # loop over channels
+        for k, arr in enumerate(np.abs(array)):  # loop over channels
             dx = ndimage.sobel(arr, 0)  # horizontal derivative
             dy = ndimage.sobel(arr, 1)  # vertical derivative
             array[k, ...] = np.hypot(dx, dy)  # magnitude
 
-        array = array.reshape(shp)      # back to original shape
+        array = array.reshape(shp)  # back to original shape
         return array
 
 
+@pyrat.docstringfrom(Sobel)
 def sobel(*args, **kwargs):
     return Sobel(*args, **kwargs).run(**kwargs)
 
-############################################################################################
-############################################################################################
-############################################################################################
 
 try:
     from skimage import filters
+
 
     class Roberts(pyrat.FilterWorker):
         """
@@ -58,24 +59,21 @@ try:
 
         def filter(self, array, *args, **kwargs):
             shp = array.shape
-            array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:]) # reshape to (nch, ny, nx)
+            array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])  # reshape to (nch, ny, nx)
 
-            for k, arr in enumerate(np.abs(array)):   # loop over channels
+            for k, arr in enumerate(np.abs(array)):  # loop over channels
                 array[k, ...] = filter.roberts(arr)
 
             array = array.reshape(shp)  # back to original shape
             return array
 
+
+    @pyrat.docstringfrom(Roberts)
     def roberts(*args, **kwargs):
         return Roberts(*args, **kwargs).run(**kwargs)
 
 except ImportError:
     logging.info("Roberts module requires skimage library (install?)")
-
-
-############################################################################################
-############################################################################################
-############################################################################################
 
 
 class RoA(pyrat.FilterWorker):
@@ -100,20 +98,20 @@ class RoA(pyrat.FilterWorker):
 
     def filter(self, array, *args, **kwargs):
         shp = array.shape
-        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])   # reshape to (nch, ny, nx)
+        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])  # reshape to (nch, ny, nx)
 
         for k, arr in enumerate(np.abs(array)):  # loop over channels
             array[k, ...] = self.roa(arr, self.win)
 
-        array = array.reshape(shp)      # back to original shape
+        array = array.reshape(shp)  # back to original shape
         return array
 
     @staticmethod
     def roa(amp, win):
         shp = amp.shape
-        dsh = (win+1)//2
+        dsh = (win + 1) // 2
         samp = ndimage.filters.uniform_filter(amp, size=win)
-        grad = np.empty(((4, )+shp), dtype='f4')
+        grad = np.empty(((4,) + shp), dtype='f4')
 
         samp_p0 = np.roll(samp, dsh, axis=0)
         samp_0p = np.roll(samp, dsh, axis=1)
@@ -130,14 +128,16 @@ class RoA(pyrat.FilterWorker):
         grad[2, ...] = (samp_p0 + samp_pp + samp_pm) / (samp_m0 + samp_mm + samp_mp)  # horizotal
         grad[3, ...] = (samp_mp + samp_0p + samp_m0) / (samp_pm + samp_p0 + samp_0m)  # diagonal 2
         grad = np.maximum(grad, 1.0 / grad)
-        grad = np.sqrt(grad[0, ...]**2 + grad[1, ...]**2 + grad[2, ...]**2 + grad[3, ...]**2)
+        grad = np.sqrt(grad[0, ...] ** 2 + grad[1, ...] ** 2 + grad[2, ...] ** 2 + grad[3, ...] ** 2)
         np.seterr(divide='warn', invalid='warn')
         grad[~np.isfinite(grad)] = 0.0
         return grad
 
 
+@pyrat.docstringfrom(RoA)
 def roa(*args, **kwargs):
     return RoA(*args, **kwargs).run(**kwargs)
+
 
 ############################################################################################
 ############################################################################################
@@ -166,31 +166,32 @@ class LeeRoA(pyrat.FilterWorker):
 
     def filter(self, array, *args, **kwargs):
         shp = array.shape
-        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])   # reshape to (nch, ny, nx)
+        array = array.reshape((np.prod(shp[0:-2]),) + shp[-2:])  # reshape to (nch, ny, nx)
 
         for k, arr in enumerate(np.abs(array)):  # loop over channels
             array[k, ...] = self.leeroa(arr, self.win)
 
-        array = array.reshape(shp)      # back to original shape
+        array = array.reshape(shp)  # back to original shape
         return array
 
     @staticmethod
     def leeroa(amp, win):
         shp = amp.shape
-        dsh = (win+1)//2
+        dsh = (win + 1) // 2
         samp = ndimage.filters.uniform_filter(amp, size=win)
-        grad = np.empty(((8, )+shp), dtype='f4')
+        grad = np.empty(((8,) + shp), dtype='f4')
         xs = [dsh, dsh, 0, -dsh, -dsh, dsh, 0, -dsh]
         ys = [0, dsh, dsh, dsh, 0, -dsh, -dsh, -dsh]
 
         np.seterr(divide='ignore', invalid='ignore')
         for k in range(8):
-            grad[k, ...] = np.abs(np.roll(np.roll(samp, ys[k], axis=0),xs[k], axis=1)/samp-1.0)
+            grad[k, ...] = np.abs(np.roll(np.roll(samp, ys[k], axis=0), xs[k], axis=1) / samp - 1.0)
         grad = np.amax(np.abs(grad), axis=0)
         np.seterr(divide='warn', invalid='warn')
         grad[~np.isfinite(grad)] = 0.0
         return grad
 
 
+@pyrat.docstringfrom(LeeRoA)
 def leeroa(*args, **kwargs):
     return LeeRoA(*args, **kwargs).run(**kwargs)

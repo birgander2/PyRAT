@@ -41,6 +41,7 @@ class CoVar(pyrat.FilterWorker):
         return samp
 
 
+@pyrat.docstringfrom(CoVar)
 def covar(*args, **kwargs):
     return CoVar(*args, **kwargs).run(**kwargs)
 
@@ -95,6 +96,7 @@ class Inhomogenity(pyrat.FilterWorker):
         return kfac
 
 
+@pyrat.docstringfrom(Inhomogenity)
 def inhomgenenity(*args, **kwargs):
     return Inhomogenity(*args, **kwargs).run(**kwargs)
 
@@ -131,6 +133,7 @@ try:
             array = array.reshape(shp)      # back to original shape
             return array
 
+    @pyrat.docstringfrom(Entropy)
     def entropy(*args, **kwargs):
         return Entropy(*args, **kwargs).run(**kwargs)
 
@@ -195,6 +198,8 @@ try:
             array = array.reshape(shp)      # back to original shape
             return array
 
+
+    @pyrat.docstringfrom(GLCM)
     def glcm(*args, **kwargs):
         return GLCM(*args, **kwargs).run(**kwargs)
 

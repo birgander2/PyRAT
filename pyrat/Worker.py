@@ -22,30 +22,33 @@ def exec_out(args):
 class Worker(object):
 
     para = {}
+    blocksize = 128
+    blockprocess = True
+    delete = False
 
     def __init__(self, *args, **kwargs):
         super(Worker, self).__init__()
+
+        self.nthreads = pyrat.pool._processes                                  # number of threads for processing
+        # self.blockprocess = True                                               # blockprocessing on/off
+        # self.blocksize = 128                                                   # size of single block
 
         for para in self.para:                                                 # copy defaults to self
             setattr(self, para['var'], para['value'])
         for (k, v) in kwargs.items():                                          # copy keywords to self
             setattr(self, k, v)                                                # eventually overwriting defaults
-
         if not hasattr(self, 'layer'):                                         # if no keyword was used
             self.layer = pyrat.data.active                                     # use active layer
 # --------------------------------------------------
 
         self.name = self.__class__.__name__                                    # name of worker class (string)
-        self.nthreads = pyrat.pool._processes                                  # number of threads for processing
         self.input = ''                                                        # input layer(s)
         self.output = ''                                                       # output layer(s)
-        self.blockprocess = True                                               # blockprocessing on/off
-        self.blocksize = 128                                                   # size of single block
         self.blockoverlap = 0                                                  # block overlap
         self.vblock = False                                                    # vertical blocks on/off
         self.blocks = []                                                       # list of block boundaries
         self.valid = []                                                        # valid part of each block
-        self.block = False                                                     # actual block range / validity
+        # self.block = False                                                     # actual block range / validity
         self.allowed_ndim = False
         self.require_para = False
         self.allowed_dtype = False
@@ -407,8 +410,9 @@ class Worker(object):
 
     def checkpara(self, kwargs, para):
         wrong_keys = []
+        allowed = ['layer', 'nthreads', 'blockprocess', 'blocksize', 'delete']
         for (key, val) in kwargs.items():
-            if key not in para and key != 'layer':     # keyword layer is always allowed!
+            if key not in para and key not in allowed:          # some keywords are always allowed!
                 logging.warning("WARNING: Parameter '"+key+"' not valid. Removing it!")
                 wrong_keys.append(key)
         for key in wrong_keys:
@@ -454,7 +458,6 @@ class Worker(object):
                             "' is not present in the PyRat menue!\n")
             return
 
-
         before = viewer.exitAct
         if 'before' in cls.gui:                                           # if there is a "before" specified,
             entries = viewer.menue[cls.gui['menu']].actions()             # put new menu entry there
@@ -475,7 +478,34 @@ class Worker(object):
             plugin = cls()                                   # instance with new parameters
             setattr(cls, 'para', para_backup)                # copy back the defaults
             viewer.statusBar.setMessage(message=' '+plugin.name+' ', colour = 'R')
-            layers = plugin.run()
-            del plugin
+            if pyrat._debug is False:
+                try:
+                    layers = plugin.run()
+                    del plugin
+                    viewer.updateViewer(layer=layers)
+                except Exception as ex:
+                    import traceback, os.path, sys, textwrap
+                    tb = sys.exc_info()[2]
+                    tbinfo = traceback.extract_tb(tb)[-1]
+                    print()
+                    if hasattr(pyrat, "app"):
+                        pyrat.app.statusBar.progressbar.setValue(0)
+                        message = """
+                        Ooops, this was not planned!
+                        You either found a bug, or are using a module in the wrong way!
+                        PyRAT will try to continue ignoring this error...
+
+                        Error : %s
+                        Module: %s
+                        Line  : %s
+                        """ % (str(type(ex).__name__), os.path.basename(tbinfo[0]), str(tbinfo[1]))
+                        foo = QtGui.QMessageBox(parent=pyrat.app)
+                        foo.setIcon(1)
+                        foo.setText(textwrap.dedent(message))
+                        foo.exec_()
+                    logging.error(str(type(ex).__name__)+" in "+os.path.basename(tbinfo[0])+" (line "+str(tbinfo[1])+")")
+            else:
+                layers = plugin.run()
+                del plugin
+                viewer.updateViewer(layer=layers)
             viewer.statusBar.setMessage(message=' Ready ', colour='G')
-            viewer.updateViewer(layer=layers)

@@ -269,6 +269,7 @@ class Unweight(pyrat.FilterWorker):
         return y[window_len:-window_len+1]
 
 
+@pyrat.docstringfrom(Unweight)
 def unweight(*args, **kwargs):
     return Unweight(*args, **kwargs).run(**kwargs)
         

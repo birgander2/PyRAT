@@ -7,10 +7,16 @@ from pyrat.tools import colortables
 
 
 class Pixmap(pyrat.ExportWorker):
+    """
+    Export to various pixmap formats.
+
+    For possible parameters see source code ;-)
+    """
     para = [
-        {'var': 'filename', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
+        {'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
         {'var': 'chscl', 'value': True, 'type': 'bool', 'text': 'Scale channels indiviually'},
-        {'var': 'method', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity', 'phase', 'coherence'], 'text': 'Method'},
+        {'var': 'method', 'value': 'amplitude', 'type': 'list',
+         'range': ['amplitude', 'intensity', 'phase', 'coherence'], 'text': 'Method'},
         {'var': 'scaling', 'value': 2.5, 'type': 'float', 'range': [0.1, 20.0], 'text': 'SAR scaling factor'},
         {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'}
     ]
@@ -19,6 +25,8 @@ class Pixmap(pyrat.ExportWorker):
     def __init__(self, *args, **kwargs):
         super(Pixmap, self).__init__(*args, **kwargs)
         self.name = "EXPORT TO PIXMAP"
+        if len(args) == 1:
+            self.file = args[0]
         if 'order' not in self.__dict__:
             self.order = [0, 1, 2]
 
@@ -37,7 +45,6 @@ class Pixmap(pyrat.ExportWorker):
                 array **= 0.7
             if self.method == 'intensity':
                 array **= 0.35
-            print(self.scaling)
             out = sarscale(array, factor=self.scaling)
         elif self.method == 'phase':
             out = phascale(array)
@@ -50,63 +57,84 @@ class Pixmap(pyrat.ExportWorker):
         if array.ndim == 3:
             out = out[self.order, ...]
         else:
-            if self.palette != 'bw linear':                                   # apply color palette
-                out = colortables(self.palette)[1][out]
+            out = colortables(self.palette)[1][out]
 
         try:
-            misc.imsave(self.filename, out, format=self.key)
+            misc.imsave(self.file, out, format=self.key)
             return True
         except IOError as err:
-            logging.error("ERROR:"+str(err))
+            logging.error("ERROR:" + str(err))
             return False
         else:
             logging.error("UNKNOWN ERROR")
             return False
 
+
+@pyrat.docstringfrom(Pixmap)
 def pixmap(*args, **kwargs):
-    Pixmap(*args, **kwargs).run(**kwargs)
+    Pixmap(*args, **kwargs).run(*args, **kwargs)
 
 
 class JPG(Pixmap):
+    """
+    JPG format writer
+    """
     gui = {'menu': 'File|Save pixmap', 'entry': 'JPEG'}
     key = "JPEG"
 
 
+@pyrat.docstringfrom(JPG)
 def jpg(*args, **kwargs):
-    JPG(*args, **kwargs).run(**kwargs)
+    JPG(*args, **kwargs).run(*args, **kwargs)
 
 
 class PNG(Pixmap):
+    """
+    PNG format writer
+    """
     gui = {'menu': 'File|Save pixmap', 'entry': 'PNG'}
     key = "PNG"
 
 
+@pyrat.docstringfrom(PNG)
 def png(*args, **kwargs):
-    PNG(*args, **kwargs).run(**kwargs)
+    PNG(*args, **kwargs).run(*args, **kwargs)
 
 
 class TIFF(Pixmap):
+    """
+    TIFF format writer
+    """
     gui = {'menu': 'File|Save pixmap', 'entry': 'TIFF'}
     key = "TIFF"
 
 
+@pyrat.docstringfrom(TIFF)
 def tiff(*args, **kwargs):
-    TIFF(*args, **kwargs).run(**kwargs)
+    TIFF(*args, **kwargs).run(*args, **kwargs)
 
 
 class PDF(Pixmap):
+    """
+    PDF format writer
+    """
     gui = {'menu': 'File|Save pixmap', 'entry': 'PDF'}
     key = "PDF"
 
 
+@pyrat.docstringfrom(PDF)
 def pdf(*args, **kwargs):
-    PDF(*args, **kwargs).run(**kwargs)
+    PDF(*args, **kwargs).run(*args, **kwargs)
 
 
 class EPS(Pixmap):
+    """
+    EPS format writer
+    """
     gui = {'menu': 'File|Save pixmap', 'entry': 'EPS'}
     key = "EPS"
 
 
+@pyrat.docstringfrom(EPS)
 def eps(*args, **kwargs):
-    EPS(*args, **kwargs).run(**kwargs)
+    EPS(*args, **kwargs).run(*args, **kwargs)

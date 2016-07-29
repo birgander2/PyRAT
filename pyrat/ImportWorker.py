@@ -28,7 +28,7 @@ class ImportWorker(pyrat.Worker):
                 logging.warning("No image data imported")
             if meta is None:
                 logging.warning("No meta data imported")
-            newlayer = pyrat.data.addLayer(data, block=self.block, *args, **kwargs)
+            newlayer = pyrat.data.addLayer(array=data, block=self.block)
             pyrat.data.setAnnotation(meta, layer=newlayer)
             pyrat.data.activateLayer(newlayer)
             return newlayer

@@ -47,13 +47,16 @@ class Amp2Int(pyrat.FilterWorker):
         return array**2
 
 
+@pyrat.docstringfrom(Complex2Abs)
 def complex2abs(*args, **kwargs):
     return Complex2Abs(*args, **kwargs).run(**kwargs)
 
 
+@pyrat.docstringfrom(Amp2Int)
 def amp2int(*args, **kwargs):
     return Amp2Int(*args, **kwargs).run(**kwargs)
 
 
+@pyrat.docstringfrom(Int2Amp)
 def int2amp(*args, **kwargs):
     return Int2Amp(*args, **kwargs).run(**kwargs)

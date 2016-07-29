@@ -1,6 +1,8 @@
 numpy
+numexpr
 scipy
 h5py
 gdal
-PyQt4
+pyqt
+pillow
 cython

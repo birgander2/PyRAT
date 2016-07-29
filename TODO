@@ -19,7 +19,6 @@ TODO CLI:
 - FSAR Import blockweise!!!
 
 TODO GUI:
-- Pyramide auch in Memory Layer
 - Recalculate Pyramid nur wenn noetig (e.g. amplitude -> phase)
 [- Metadateneditor...]
 

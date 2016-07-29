@@ -20,6 +20,8 @@ class TSX(pyrat.ImportWorker):
     def __init__(self, *args, **kwargs):
         super(TSX, self).__init__(*args, **kwargs)
         self.name = "TSX / TDX IMPORT"
+        if len(args) == 1:
+            self.dir = args[0]
 
     def getsize(self, *args, **kwargs):
         files = glob.glob(self.dir+"/*SAR*xml")
@@ -69,3 +71,9 @@ class TSX(pyrat.ImportWorker):
         meta['antdir'] = -1 if foo == 'RIGHT' else +1
 
         return meta
+
+@pyrat.docstringfrom(TSX)
+def tsx(*args, **kwargs):
+    return TSX(*args, **kwargs).run(*args, **kwargs)
+
+

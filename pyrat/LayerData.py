@@ -4,7 +4,7 @@ import numpy as np
 from pyrat.tools import deshape
 
 
-class LayerData():
+class LayerData(object):
     def __init__(self, dir, *args):
         self.tmpdir = dir
         self.laynam = 1  # actual (unique) internal layer name
@@ -16,7 +16,7 @@ class LayerData():
         self.dshape = None  # 2D data set shape, e.g. (2000,3000)
         self.ndim = None  # of dimensions, 2=image, 3=vector data, 4= matrix data
 
-    def addLayer(self, array=None, shape=None, dtype='float32', memory=False, block='D', **kwargs):
+    def addLayer(self, array=None, shape=None, dtype='float32', file=None, memory=False, block='D', **kwargs):
         """
         Adds a new layer to the existing PyRat Data object. One can
         add one or multiple existing ndarrays (as list), or specify the 
@@ -31,25 +31,31 @@ class LayerData():
             array = list(array)
 
         addedgroups = []
-        for arr in array:  # Loop over all arrays in list
-            if arr is not None:
-                shape = np.squeeze(arr).shape
-                dtype = arr.dtype
+        if file is not None:   # this is for adding an existing DiscLayer file
             group = '/L' + str(self.laynam)
-            if memory is False:
-                logging.debug('Creating disc layer ' + group + ' = ' + str(dtype) + ' ' + str(shape))
-                filename = tempfile.mktemp(suffix='.hd5', prefix='pyrat_', dir=self.tmpdir)
-                self.layers[group] = DiscLayer(filename, group, shape, dtype, block=block)
-            else:
-                logging.debug('Creating memory layer ' + group + ' = ' + str(dtype) + ' ' + str(shape))
-                self.layers[group] = MemoryLayer(group, shape, dtype, block=block)
-            if arr is not None:
-                lshape, dshape = deshape(shape)
-                nchannels = np.prod(lshape)
-                arr = arr.reshape((nchannels,) + dshape)
-                self.layers[group].setData(arr)  # write data
+            self.layers[group] = DiscLayer(file, group, None, None, block=block)
             addedgroups.append(group)
             self.laynam += 1
+        else:
+            for arr in array:  # Loop over all arrays in list
+                if arr is not None:
+                    shape = np.squeeze(arr).shape
+                    dtype = arr.dtype
+                group = '/L' + str(self.laynam)
+                if memory is False:
+                    logging.debug('Creating disc layer ' + group + ' = ' + str(dtype) + ' ' + str(shape))
+                    filename = tempfile.mktemp(suffix='.hd5', prefix='pyrat_', dir=self.tmpdir)
+                    self.layers[group] = DiscLayer(filename, group, shape, dtype, block=block)
+                else:
+                    logging.debug('Creating memory layer ' + group + ' = ' + str(dtype) + ' ' + str(shape))
+                    self.layers[group] = MemoryLayer(group, shape, dtype, block=block)
+                if arr is not None:
+                    lshape, dshape = deshape(shape)
+                    nchannels = np.prod(lshape)
+                    arr = arr.reshape((nchannels,) + dshape)
+                    self.layers[group].setData(arr)  # write data
+                addedgroups.append(group)
+                self.laynam += 1
 
         if len(addedgroups) == 1:
             return addedgroups[0]
@@ -190,6 +196,25 @@ class LayerData():
                     logging.error('array dimensions not compatible for layer ' + layer)
                     return
                 self.layers[group].setData(arr, block=block, layer=layer)
+
+    def exposeRaw(self, layer=None):
+        if layer is None:
+            layer = self.active
+        if isinstance(layer, str):
+            layers = [layer, ]
+        else:
+            layers = layer
+
+        dsets = []
+        for layer in layers:
+            valid = self.existLayer(layer)
+            if valid is True:
+                group = '/' + layer.split('/')[1]
+                dsets.append(self.layers[group].exposeRaw())
+        if len(dsets) == 1:
+            return dsets[0]
+        else:
+            return dsets
 
     def getData(self, block=(0, 0, 0, 0), layer=None):
         if layer is None:
@@ -367,12 +392,15 @@ class LayerData():
         else:
             return valid
 
-    def info(self):
+    def listLayer(self):
+        """
+        Prints a list of existing layers. The active layers are marked with a star.
+        """
         for group in ['/L' + str(l) for l in sorted([int(k[2:]) for k in self.layers.keys()])]:
             active = ' *' if self.active is not None and group in self.active else ''
             print((self.layers[group].name + active).ljust(9), self.layers[group].attrs['_type'].ljust(15),
                   self.layers[group].attrs['_block'], self.layers[group].attrs['_dtype'].ljust(10),
-                  self.layers[group].attrs['_shape'])
+                  tuple(self.layers[group].attrs['_shape']))
 
     def delLayer(self, layer, silent=False):
         """
@@ -391,7 +419,8 @@ class LayerData():
                         logging.debug('Deleting layer ' + layer)
 
                     if self.layers[layer].attrs['_type'] == 'Disc':
-                        self.layers[layer].group.close()
+                        self.layers[layer].file.close()
+                        del self.layers[layer].file
                         del self.layers[layer].group
                         os.remove(self.layers[layer].fn)
 
@@ -415,18 +444,25 @@ class DiscLayer():
     def __init__(self, filename, group, shape, dtype, block='D', *args, **kwargs):
         self.fn = filename
         self.name = group
-        self.group = h5py.File(self.fn, 'a')
-        self.attrs = {}
-        self.attrs['_type'] = 'Disc'
-        lshape, dshape = deshape(shape)
-        self.attrs['_shape'] = shape
-        self.attrs['_lshape'] = lshape
-        self.attrs['_dshape'] = dshape
-        self.attrs['_offset'] = (0, 0)
-        self.attrs['_dtype'] = str(dtype)
-        self.attrs['_block'] = block
-        self.group.create_group("P")  # Preview subgroup * not yet there
-        self.group.create_dataset("D", (np.prod(lshape),) + dshape, dtype=dtype)  # create 2D Data layer
+        if os.path.isfile(self.fn):                                            # import existing layer file
+            self.file = h5py.File(self.fn, 'a')
+            self.group = self.file['D']
+            self.attrs = {'_type':  'Disc'}
+            self.attrs.update(self.file.attrs)
+        else:                                                                  # new layer file
+            self.file = h5py.File(self.fn, 'a')
+            self.group = self.file.create_group("D")
+            self.attrs = {'_type':  'Disc'}
+            lshape, dshape = deshape(shape)
+            self.file.attrs['_shape'] = shape
+            self.file.attrs['_lshape'] = lshape
+            self.file.attrs['_dshape'] = dshape
+            self.file.attrs['_offset'] = (0, 0)
+            self.file.attrs['_dtype'] = str(dtype)
+            self.file.attrs['_block'] = block
+            self.attrs.update(self.file.attrs)
+            self.group.create_group("P")                                              # Preview subgroup
+            self.group.create_dataset("D", (np.prod(lshape),) + dshape, dtype=dtype)  # create data layer
 
     def setCrop(self, block, reset=False):
         block = list(block)
@@ -467,7 +503,7 @@ class DiscLayer():
             ch_meta = [k for k in meta.keys() if 'CH_' in k]
             for key in ch_meta:
                 meta[key] = meta[key][channel]
-        for k in meta.keys():
+        for k in list(meta.keys()):
             if k[0] == '_':
                 del meta[k]
         return meta
@@ -489,20 +525,20 @@ class DiscLayer():
         if layer is None or layer == self.name:
             nchannels = np.prod(self.attrs["_lshape"])
             if self.attrs['_block'] == 'D':
-                self.group["/D"][..., block[0]:block[1], block[2]:block[3]] = array.reshape(
+                self.group["D"][..., block[0]:block[1], block[2]:block[3]] = array.reshape(
                     (nchannels,) + array.shape[-2:])
             elif self.attrs['_block'] == 'T':
-                self.group["/D"][..., block[0]:block[1], :] = array.reshape((nchannels,) + array.shape[-2:])
+                self.group["D"][..., block[0]:block[1], :] = array.reshape((nchannels,) + array.shape[-2:])
             elif self.attrs['_block'] == 'O':
-                self.group["/D"][...] = array.reshape((nchannels,) + array.shape[-2:])
+                self.group["D"][...] = array.reshape((nchannels,) + array.shape[-2:])
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
             if self.attrs['_block'] == 'D':
-                self.group["/D"][channel, block[0]:block[1], block[2]:block[3]] = array
+                self.group["D"][channel, block[0]:block[1], block[2]:block[3]] = array
             elif self.attrs['_block'] == 'T':
-                self.group["/D"][channel, block[0]:block[1], :] = array
+                self.group["D"][channel, block[0]:block[1], :] = array
             elif self.attrs['_block'] == 'O':
-                self.group["/D"][channel, ...] = array
+                self.group["D"][channel, ...] = array
         else:
             logging.error('Layer name unknown')
             stop()
@@ -527,24 +563,30 @@ class DiscLayer():
                 bshape = (block[1] - block[0], block[3] - block[2])
                 # print(block,lshape+bshape)
                 return np.squeeze(
-                    np.reshape(self.group["/D"][..., block[0]:block[1], block[2]:block[3]], lshape + bshape))
+                    np.reshape(self.group["D"][..., block[0]:block[1], block[2]:block[3]], lshape + bshape))
             elif self.attrs['_block'] == 'T':
                 bshape = (block[1] - block[0], dshape[-1])
-                return np.squeeze(np.reshape(self.group["/D"][..., block[0]:block[1], :], lshape + bshape))
+                return np.squeeze(np.reshape(self.group["D"][..., block[0]:block[1], :], lshape + bshape))
             elif self.attrs['_block'] == 'O':
                 bshape = tuple(self.attrs["_dshape"])
-                return np.squeeze(np.reshape(self.group["/D"][...], lshape + bshape))
+                return np.squeeze(np.reshape(self.group["D"][...], lshape + bshape))
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
             if self.attrs['_block'] == 'D':
-                return np.squeeze(self.group["/D"][channel, block[0]:block[1], block[2]:block[3]])
+                return np.squeeze(self.group["D"][channel, block[0]:block[1], block[2]:block[3]])
             elif self.attrs['_block'] == 'T':
-                return np.squeeze(self.group["/D"][channel, block[0]:block[1], :])
+                return np.squeeze(self.group["D"][channel, block[0]:block[1], :])
             elif self.attrs['_block'] == 'O':
-                return np.squeeze(self.group["/D"][channel, ...])
+                return np.squeeze(self.group["D"][channel, ...])
         else:
             logging.error('Layer name unknown')
             stop()
+
+    def exposeRaw(self, layer=None):
+        if layer is None or layer == self.name:
+            return self.group["D"]
+        elif 'D' in layer:
+            logging.error('Only support for entire layers: '+layer)
 
 
 class MemoryLayer():
@@ -589,7 +631,7 @@ class MemoryLayer():
             ch_meta = [k for k in meta.keys() if 'CH_' in k]
             for key in ch_meta:
                 meta[key] = meta[key][channel]
-        for k in meta.keys():
+        for k in list(meta.keys()):
             if k[0] == '_':
                 del meta[k]
         return meta
@@ -642,4 +684,10 @@ class MemoryLayer():
             return np.squeeze(self.data[channel, block[0]:block[1], block[2]:block[3]])
         else:
             logging.error('Layer name unknown') 
+
+    def exposeRaw(self, layer=None):
+        if layer is None or layer == self.name:
+            return self.data
+        elif 'D' in layer:
+            logging.error('Only support for entire layers: '+layer)
 

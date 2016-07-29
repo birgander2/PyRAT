@@ -39,5 +39,6 @@ class FFT(pyrat.FilterWorker):
         return oarray
 
 
-
-
+@pyrat.docstringfrom(FFT)
+def fft(*args, **kwargs):
+    return FFT(*args, **kwargs).run(**kwargs)

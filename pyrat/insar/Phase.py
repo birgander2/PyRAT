@@ -15,3 +15,7 @@ class Phase(pyrat.FilterWorker):
         
     def filter(self, array, *args, **kwargs):
         return np.angle(array[0] * np.conj(array[1]))
+
+@pyrat.docstringfrom(Phase)
+def phase(*args, **kwargs):
+    return Phase(*args, **kwargs).run(**kwargs)

@@ -1,21 +1,8 @@
-# Export __init__
-import logging
-from .RatFormat import *
+from pyrat import pyrat_help
+help = pyrat_help(__name__, "\n  Data import")
+
+from .Rat import *
 from .HDF5 import *
 from .Pixmap import *
 
 
-def info():
-    import sys
-    from inspect import getmembers, isclass
-    current_module = sys.modules[__name__]
-    modules = getmembers(current_module, isclass)
-    logging.info('')
-    logging.info("Content of module "+__name__+":")
-    logging.info('')
-    for mod in modules:
-        if 'pyrat' in mod[1].__module__:
-            doc = str(mod[1].__doc__)
-            if doc != 'None':
-                doc = doc.split('\n')[1]
-            logging.info(mod[0].ljust(20)+doc)

@@ -31,14 +31,16 @@ class Presum(pyrat.FilterWorker):
 
         return array
 
+
+@pyrat.docstringfrom(Presum)
 def presum(*args, **kwargs):
     return Presum(*args, **kwargs).run(**kwargs)
-
 
 
 class Lanczos(pyrat.FilterWorker):
     """
     Lanczos-based presumming of data arrays.
+    Lanczos is a sinc-type resampling method and should provide better quality than simple rebinning.
     WARNING: Only for float32 arrays & not for matrix images!!!!
 
     :author: Andreas Reigber
@@ -90,6 +92,8 @@ class Lanczos(pyrat.FilterWorker):
 
         return np.squeeze(oarr)
 
+
+@pyrat.docstringfrom(Lanczos)
 def lanczos(*args, **kwargs):
     return Lanczos(*args, **kwargs).run(**kwargs)
 
