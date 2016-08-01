@@ -11,28 +11,46 @@ It is expandable by plugins without deep knowledge of framework itself.
 
 ## Installation
 
-Compile / build:
+**Compile / build:** This is needed if you want to benefit from some fast cython modules. However,
+most functionality will be there without compiling. You can run pyrat directly from the installation / download
+directory.
     
     python setup.py build_ext --inplace
 
-Install (with root rights)
+**Install (with root rights):** Installs pyrat in the system's python site-packages.
 
     python setup.py install
 
-Install (as user)
+**Install (as user):** Installs pyrat in the users's python site-packages.
 
     python setup.py install --user
+
+**Configuration:** Pyrat searches at startup for a file _$HOME/.pyratrc_. It should contain the name of a 
+directory used for storing temporary files (ideally on a large, fast harddisc). As default _/tmp_ is used.
+All this might not work on Windows.
+
+## Documentation
+
+The folder _doc_ contains a powerpoint file, explaing the basic usage of pyrat (German language,
+translation needed...). Apart from that, the pyrat CLI interface contains an internal help system:
+    
+    >>> help()      		[Liste of available commands and modules]       
+    >>> help(function)              [Help for a particular function]       
+    >>> help(modul.function)    	[Help for a particular function out of a modul]       
+
+The content of the internal help system is based on the docstrings in the source code. Their
+quality might vary ;-)
 
 ## Usage
 
 CLI Interface:
 
-    ./pyrat.py -b [rat filename]
-    ./pyrat.py --batch [rat filename]
+    ./pyrat.run -b [rat filename]
+    ./pyrat.run --batch [rat filename]
     
 GUI Interface:
 
-    ./pyrat.py [rat filename]
+    ./pyrat.run [rat filename]
 
 Current modules:
 * load:      Importing of data
@@ -44,15 +62,15 @@ Current modules:
 
 More information about modules and contents (replace 'module' by correct name, e.g. 'filter):
     
-    >>> module.info()
+    >>> help(module)
 
 ## Example batch usage
 
     ./ pyrat.py -b
-    >>> x1 = load.rat(filename='abc.rat')
+    >>> x1 = load.rat('abc.rat')
     >>> x2 = filter.lee(looks=3)
     >>> x3 = filter.boxcar(layer=x1)
-    >>> save.pixmap(filename='abc.jpg', layer=x2)
+    >>> save.pixmap('abc.jpg', layer=x2)
     >>> var = getdata(layer=x1)
     >>> show()
 
