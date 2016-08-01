@@ -9,6 +9,19 @@ disc containers for temporary storage. It features automatic multithreaded block
 processing for speed and memory efficiency, a powerful batch system and a Qt-based GUI. 
 It is expandable by plugins without deep knowledge of framework itself.
 
+## Requirements
+
+Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
+file _requirements.txt_. We recommend using the Anaconda Python distribution. With Anaconda, 
+you can create and activate a pyrat-compatible virtual environment with the commands:
+
+    conda env create -f requirements.txt -n pyrat
+    source activate pyrat
+
+Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
+Windows and OSX, but this is genuinely untested. 
+
+
 ## Installation
 
 **Compile / build:** This is needed if you want to benefit from some fast cython modules. However,
@@ -25,14 +38,14 @@ directory.
 
     python setup.py install --user
 
-**Configuration:** Pyrat searches at startup for a file _$HOME/.pyratrc_. It should contain the name of a 
-directory used for storing temporary files (ideally on a large, fast harddisc). As default _/tmp_ is used.
-All this might not work on Windows.
+**Configuration:** At startup, pyrat searches for a file _$HOME/.pyratrc_. It should contain the name of a 
+directory used for storing temporary files (ideally on a large, fast harddisc). As default _/tmp_ is used, which
+is often not a good choice. All this might not work on Windows.
 
 ## Documentation
 
-The folder _doc_ contains a powerpoint file, explaing the basic usage of pyrat (German language,
-translation needed...). Apart from that, the pyrat CLI interface contains an internal help system:
+The folder _doc_ contains a powerpoint file, explaing the basic usage of pyrat (it might happen
+that it is a bit outdated...). Apart from that, the pyrat CLI interface contains an internal help system:
     
     >>> help()      		[Liste of available commands and modules]       
     >>> help(function)              [Help for a particular function]       
@@ -76,7 +89,7 @@ More information about modules and contents (replace 'module' by correct name, e
 
 ## Implementing your own modules
 
-PyRat has a quite simple programming interface. Have a look at the file 'pyrat/filter/Template.py',
+PyRat has a very simple programming interface. Have a look at the file 'pyrat/filter/Template.py',
 this should explain at least the basics of programming own modules. Put your own code
 in the 'plugins' directory, it is automatically scanned at startup. PyRat will automatically
 attach your code to the GUI and run it using parallel processing.

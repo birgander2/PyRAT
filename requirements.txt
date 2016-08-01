@@ -6,3 +6,6 @@ gdal
 pyqt
 pillow
 cython
+matplotlib
+lxml
+scikit-image
