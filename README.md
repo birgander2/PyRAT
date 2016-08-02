@@ -21,6 +21,9 @@ you can create and activate a pyrat-compatible virtual environment with the comm
 Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
 Windows and OSX, but this is genuinely untested. 
 
+## Download
+
+    git clone https://github.com/birgander2/PyRAT
 
 ## Installation
 
