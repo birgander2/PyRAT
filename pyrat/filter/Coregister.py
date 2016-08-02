@@ -53,8 +53,11 @@ class Coregister(pyrat.FilterWorker):
         py = polyval2d(yy, xx, cy)
         #px = polyval2d(xx, yy, cx)
         #py = polyval2d(xx, yy, cy)
-
-        arr2 = ndimage.map_coordinates(arr2, np.rollaxis(np.dstack([yy - py, xx - px]), 2))
+        if np.iscomplex(arr2):
+            arr2 = ndimage.map_coordinates(arr2.real, np.rollaxis(np.dstack([yy - py, xx - px]), 2)) + \
+                   1j * ndimage.map_coordinates(arr2.imag, np.rollaxis(np.dstack([yy - py, xx - px]), 2))
+        else:
+            arr2 = ndimage.map_coordinates(arr2, np.rollaxis(np.dstack([yy - py, xx - px]), 2))
         #pdb.set_trace()
         #arr2 = np.roll(np.roll(arr2, int(offset[0]), axis=0), int(offset[1]), axis=1)
 
