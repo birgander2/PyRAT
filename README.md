@@ -64,7 +64,7 @@ CLI Interface:
     ./pyrat.run -b [rat filename]
     ./pyrat.run --batch [rat filename]
     
-GUI Interface:
+GUI Interface (currently not working under Windows, reasons unclear!?):
 
     ./pyrat.run [rat filename]
 

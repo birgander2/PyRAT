@@ -94,11 +94,11 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
-
     pool = multiprocessing.Pool(nthreads)
-    if sys.platform.startswith('win'):
-        for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
-            pass
+
+   # if sys.platform.startswith('win'):
+   #      for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
+   #          pass                                       # COMMENT: seems not to be necessary anymore !?
 
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
