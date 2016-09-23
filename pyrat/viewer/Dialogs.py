@@ -114,11 +114,11 @@ class FlexFilesel(QtGui.QWidget):
 
     def filesel(self):
         if self.type == 'openfile':
-            self.value = str(QtGui.QFileDialog(self).getOpenFileName())
+            self.value = str(QtGui.QFileDialog.getOpenFileName())
         elif self.type == 'opendir':
-            self.value = str(QtGui.QFileDialog(self).getExistingDirectory())
+            self.value = str(QtGui.QFileDialog.getExistingDirectory())
         elif self.type == 'savefile':
-            self.value = str(QtGui.QFileDialog(self).getSaveFileName())
+            self.value = str(QtGui.QFileDialog.getSaveFileName())
         self.wid.setText(self.value)
 
     def text(self):

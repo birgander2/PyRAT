@@ -12,14 +12,16 @@ It is expandable by plugins without deep knowledge of framework itself.
 ## Requirements
 
 Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
-file _requirements.txt_. We recommend using the Anaconda Python distribution. With Anaconda, 
-you can create and activate a pyrat-compatible virtual environment with the commands:
+file _requirements.txt_. Currently, it is required to use python 3.4 (and not python >=3.5)
+since some packages have not yet been updated to python >=3.5. We recommend using the Anaconda Python 
+distribution. With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands:
 
     conda env create -f requirements.txt -n pyrat
     source activate pyrat
 
 Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
-Windows and OSX, but this is genuinely untested. 
+Windows and OSX, but this is genuinely untested. **A known issue of Anaconda Python on  Windows is a buggy 
+pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup.** 
 
 ## Download
 
@@ -64,7 +66,7 @@ CLI Interface:
     ./pyrat.run -b [rat filename]
     ./pyrat.run --batch [rat filename]
     
-GUI Interface (currently not working under Windows, reasons unclear!?):
+GUI Interface:
 
     ./pyrat.run [rat filename]
 
