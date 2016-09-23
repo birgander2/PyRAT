@@ -17,11 +17,15 @@ since some packages have not yet been updated to python >=3.5. We recommend usin
 distribution. With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands:
 
     conda env create -f requirements.txt -n pyrat
-    source activate pyrat
+    source activate pyrat   [on Linux]  
+    activate pyrat          [on Windows]
 
 Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
-Windows and OSX, but this is genuinely untested. **A known issue of Anaconda Python on  Windows is a buggy 
-pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup.** 
+Windows and OSX, but this is genuinely untested. 
+
+**A known issue of Anaconda Python on  Windows is a buggy 
+pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup using the command
+"conda install pyqt=4.10.4".** 
 
 ## Download
 
@@ -29,23 +33,28 @@ pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup.**
 
 ## Installation
 
-**Compile / build:** This is needed if you want to benefit from some fast cython modules. However,
-most functionality will be there without compiling. You can run pyrat directly from the installation / download
-directory.
+You can run PyRAT directly from its source / download directory without further installation. Most functionality will be 
+there without compiling. However, compiling will add accelerated versions of some modules (by using cython) and 
+some additional fuctionality. **We did not succeed yet to compile correctly on Windows (help needed!). If pyrat keeps
+on crashing at startup on Windows after compiling, please move back to a pure source version!**
+
+**Compile / build:** This is only needed if you want to benefit from some fast cython and C modules. 
     
     python setup.py build_ext --inplace
 
-**Install (with root rights):** Installs pyrat in the system's python site-packages.
+**Install (with root rights):** Installs pyrat in the system's python site-packages. This command will also
+compile the cython and C modules.
 
     python setup.py install
 
-**Install (as user):** Installs pyrat in the users's python site-packages.
+**Install (as user):** Installs pyrat in the users's python site-packages. This command will also
+compile the cython and C modules.
 
     python setup.py install --user
 
 **Configuration:** At startup, pyrat searches for a file _$HOME/.pyratrc_. It should contain the name of a 
 directory used for storing temporary files (ideally on a large, fast harddisc). As default _/tmp_ is used, which
-is often not a good choice. All this might not work on Windows.
+is often not a good choice. All this might not work on Windows (help wanted!).
 
 ## Documentation
 

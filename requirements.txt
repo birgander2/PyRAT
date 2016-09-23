@@ -1,3 +1,4 @@
+python==3.4.5
 numpy
 numexpr
 scipy
@@ -9,3 +10,4 @@ cython
 matplotlib
 lxml
 scikit-image
+pyreadline
