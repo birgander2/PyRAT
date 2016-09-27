@@ -33,21 +33,21 @@ pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup using th
 
 ## Installation
 
-You can run PyRAT directly from its source / download directory without further installation. Most functionality will be 
+**You can run PyRAT directly from its source / download directory without further installation.** Most functionality will be 
 there without compiling. However, compiling will add accelerated versions of some modules (by using cython) and 
-some additional fuctionality. **We did not succeed yet to compile correctly on Windows (help needed!).** If pyrat keeps
+some additional fuctionality. We did not succeed yet to compile correctly on Windows (help needed!). If pyrat keeps
 on crashing at startup on Windows after compiling, please move back to a pure source version.
 
 **Compile / build:** This is only needed if you want to benefit from some fast cython and C modules. 
     
     python setup.py build_ext --inplace
 
-**Install (with root rights):** Installs pyrat in the system's python site-packages. This command will also
+**Install (with root rights):** This is only needed if you want to install pyrat in the system's python site-packages. This command will also
 compile the cython and C modules.
 
     python setup.py install
 
-**Install (as user):** Installs pyrat in the users's python site-packages. This command will also
+**Install (as user):** This is only needed if you want to install pyrat in the users's python site-packages. This command will also
 compile the cython and C modules.
 
     python setup.py install --user
@@ -61,7 +61,7 @@ is often not a good choice. All this might not work on Windows (help wanted!).
 The folder _doc_ contains a powerpoint file, explaing the basic usage of pyrat (it might happen
 that it is a bit outdated...). Apart from that, the pyrat CLI interface contains an internal help system:
     
-    >>> help()      		[Liste of available commands and modules]       
+    >>> help()      		        [Liste of available commands and modules]       
     >>> help(function)              [Help for a particular function]       
     >>> help(modul.function)    	[Help for a particular function out of a modul]       
 
@@ -93,7 +93,7 @@ More information about modules and contents (replace 'module' by correct name, e
 
 ## Example batch usage
 
-    ./ pyrat.py -b
+    ./pyrat.py -b
     >>> x1 = load.rat('abc.rat')
     >>> x2 = filter.lee(looks=3)
     >>> x3 = filter.boxcar(layer=x1)
