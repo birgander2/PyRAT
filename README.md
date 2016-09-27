@@ -13,12 +13,12 @@ It is expandable by plugins without deep knowledge of framework itself.
 
 Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
 file _requirements.txt_. Currently, it is required to use python 3.4 (and not python >=3.5)
-since some packages have not yet been updated to python >=3.5. We recommend using the Anaconda Python 
-distribution. With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands:
+since some packages have not yet been updated to python >=3.5. We recommend using the free [Anaconda Python 
+distribution](https://docs.continuum.io/anaconda). With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands:
 
-    conda env create -f requirements.txt -n pyrat
-    source activate pyrat   [on Linux]  
-    activate pyrat          [on Windows]
+    conda env create -f requirements.txt -n ve4pyrat
+    source activate ve4pyrat   [on Linux]  
+    activate ve4pyrat          [on Windows]
 
 Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
 Windows and OSX, but this is genuinely untested. 
@@ -35,8 +35,8 @@ pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup using th
 
 You can run PyRAT directly from its source / download directory without further installation. Most functionality will be 
 there without compiling. However, compiling will add accelerated versions of some modules (by using cython) and 
-some additional fuctionality. **We did not succeed yet to compile correctly on Windows (help needed!). If pyrat keeps
-on crashing at startup on Windows after compiling, please move back to a pure source version!**
+some additional fuctionality. **We did not succeed yet to compile correctly on Windows (help needed!).** If pyrat keeps
+on crashing at startup on Windows after compiling, please move back to a pure source version.
 
 **Compile / build:** This is only needed if you want to benefit from some fast cython and C modules. 
     
