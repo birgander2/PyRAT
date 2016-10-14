@@ -1,5 +1,5 @@
-from __future__ import print_function
 import numexpr as ne
+import numpy as np
 import pyrat
 
 
@@ -13,7 +13,8 @@ class MathExpr(pyrat.FilterWorker):
     filter.mathexpr(expr="A+B*B", layer=[lay1, lay2])
     """
     para = [
-        {'var': 'expr', 'value': '', 'type': 'str', 'text': 'Expression'}
+        {'var': 'expr', 'value': '', 'type': 'str', 'text': 'Expression'},
+        {'var': 'dtype', 'value': None, 'type': 'str', 'text': 'Output dtype'}
     ]
 
     def __init__(self, *args, **kwargs):
@@ -27,6 +28,8 @@ class MathExpr(pyrat.FilterWorker):
             vars()[letter] = var
             letter = chr(ord(letter) + 1)
         out = ne.evaluate(self.expr)
+        if self.dtype:
+            out = out.astype(self.dtype)
         return out
 
 

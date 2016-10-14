@@ -5,6 +5,9 @@ from pyrat.load.tools import RatFile, srat
 import logging
 import numpy as np
 
+from  pkg_resources import resource_string
+from mako.template import Template
+
 
 class Rat(pyrat.ExportWorker):
     """
@@ -37,7 +40,7 @@ class Rat(pyrat.ExportWorker):
             if self.header is not None:
                 self.rat.Header = self.header
             self.rat.Header.Rat.ndim = data['ndim']
-            self.rat.Header.Rat.dim = data['shape'][::-1]
+            self.rat.Header.Rat.dim[:data['ndim']] = data['shape'][::-1]
             self.rat.Header.Rat.var = var
             # todo: missing nchannels
             # todo: missing info string
@@ -46,6 +49,15 @@ class Rat(pyrat.ExportWorker):
 
     def close(self, *args, **kwargs):
         self.lun.close()
+
+        if 'geo_envi_hdr' in self.__dict__ and self.geo_envi_hdr:
+            logging.info(self.name + '  Writing GEO ENVI Header (.hdr)...')
+            hdr = RatFile(self.file).Header
+            tmpl = Template(resource_string('pyrat.templates', 'envi_geo_hdr.tpl'))
+            envi_hdr = tmpl.render(file=self.file, hdr=hdr)
+            with open(self.file+'.hdr','w') as f:
+                f.write(envi_hdr)
+
         return True
 
     def block_writer(self, array, *args, **kwargs):

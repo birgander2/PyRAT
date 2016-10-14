@@ -150,7 +150,7 @@ class LayerData(object):
                 s_lshape = (1, 0)
                 s_shape = s_dshape
             s_ndim = 3
-            if s_lshape[0] == 1:
+            if s_lshape[0] == 1 and len(s_lshape) == 1:       # TODO: This is probably wrong!
                 s_ndim = 2
             elif len(s_lshape) == 2:
                 s_ndim = 4

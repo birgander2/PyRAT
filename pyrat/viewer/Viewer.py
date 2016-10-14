@@ -268,12 +268,13 @@ class MainWindow(QtGui.QMainWindow):
         if isinstance(current, list):
             current = current[-1]
 
-        self.undolist.append((list(pyrat.data.getLayerNames()), pyrat.data.active))
-        self.current = '/'+current.split('/')[1]
-        self.updateDisplayList()
-        self.config = self.display[self.current]
-        self.tree.redraw()
-        self.showCurrentLayer()
+        if current is not None:
+            self.undolist.append((list(pyrat.data.getLayerNames()), pyrat.data.active))
+            self.current = '/'+current.split('/')[1]
+            self.updateDisplayList()
+            self.config = self.display[self.current]
+            self.tree.redraw()
+            self.showCurrentLayer()
 
     def showCurrentLayer(self, force=False):
         layer = self.current

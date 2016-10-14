@@ -57,7 +57,10 @@ class ChangeDet(PolsarWorker):
             c2 = data[1]
             n2 = self.n2
 
-        p = c1.shape[0]
+        if c1.ndim > 2:
+            p = c1.shape[0]
+        else:
+            p = 1
 
         lnq = p * ((n1 + n2) * np.log(n1 + n2) - n1 * np.log(n1) - n2 * np.log(n2)) + \
               n1 * np.log(self.block_det(c1)) + \

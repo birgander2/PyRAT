@@ -5,7 +5,7 @@ import copy
 import numpy as np
 from PyQt4 import QtGui, QtCore
 
-from pyrat.load import RatFile
+# from pyrat.load import RatFile
 from pyrat.load.tools import RatFile, Xml2Py
 from pyrat.viewer.Dialogs import FlexFilesel
 from pyrat.viewer.Widgets import HLine, CropBoxWidget, FileselWidget, ProductContentWidget
@@ -326,6 +326,152 @@ def fsar_dem(*args, **kwargs):
     return FSAR_dem(*args, **kwargs).run(*args, **kwargs)
 
 
+class FSAR_phadem(pyrat.ImportWorker):
+    """
+    Import of DLR F-SAR DEM PHASE product
+
+    :param dir: The F-SAR product directory.
+    :type dir: str
+    :param match: A matching string to select subset of files
+    :type match: string
+    :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
+    :type crop: tuple
+    :author: Andreas Reigber
+    """
+
+    para = [
+        {'var': 'dir', 'value': ''},
+        {'var': 'bands', 'value': '*'},
+        {'var': 'product', 'value': 'RGI-SLC'},
+        {'var': 'crop', 'value': [0, 0, 0, 0]}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(FSAR_phadem, self).__init__(*args, **kwargs)
+        self.name = "FSAR DEM PHASE IMPORT"
+        if len(args) == 1:
+            self.dir = args[0]
+
+    def reader(self, *args, **kwargs):
+
+        head = 'pha_dem'
+        src = ('INF', 'INF-SR')
+
+        files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper() + '*.rat'))
+        bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
+
+        array = []
+        meta = [{}]
+        for band in bands:
+            if hasattr(self, 'band') and band not in self.band:
+                logging.warning(band + '-band data not found in specified directory')
+            else:
+                bandfiles = [f for f in files if '_' + band in f]
+                fil = RatFile(bandfiles[0])
+                naz = fil.dim[1]
+                nrg = fil.dim[0]
+                block = list(self.crop)
+                if block[1] == 0:
+                    block[1] = naz
+                if block[3] == 0:
+                    block[3] = nrg
+                daz = block[1] - block[0]
+                drg = block[3] - block[2]
+
+                barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
+                for k, f in enumerate(bandfiles):
+                    logging.info("Found " + f)
+                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                array.append(barr)
+
+        if len(array) == 0:
+            return None, None
+        elif len(array) == 1:
+            return array[0], meta[0]
+        else:
+            return array, meta
+
+
+@pyrat.docstringfrom(FSAR_phadem)
+def fsar_phadem(*args, **kwargs):
+    return FSAR_phadem(*args, **kwargs).run(*args, **kwargs)
+
+
+class FSAR_kz(pyrat.ImportWorker):
+    """
+    Import of DLR F-SAR KZ interferometric product
+
+    :param dir: The F-SAR product directory.
+    :type dir: str
+    :param match: A matching string to select subset of files
+    :type match: string
+    :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
+    :type crop: tuple
+    :author: Andreas Reigber
+    """
+
+    para = [
+        {'var': 'dir', 'value': ''},
+        {'var': 'bands', 'value': '*'},
+        {'var': 'polarisations', 'value': '*'},
+        {'var': 'crop', 'value': [0, 0, 0, 0]}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(FSAR_kz, self).__init__(*args, **kwargs)
+        self.name = "FSAR KZ IMPORT"
+        if len(args) == 1:
+            self.dir = args[0]
+
+    def reader(self, *args, **kwargs):
+
+        head = 'kz'
+        src = ('INF', 'INF-SR')
+
+        files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*'
+                                       + self.bands.upper() + self.polarisations.lower() + '*.rat'))
+        bands = list(set([os.path.basename(slc).split('_')[3][0] for slc in files]))
+        pols = list(set([os.path.basename(slc).split('_')[3][1:3] for slc in files]))
+
+        array = []
+        meta = []
+        meta.append({})
+
+        for band in bands:
+            if hasattr(self, 'band') and band not in self.band:
+                logging.warning(band + '-band data not found in specified directory')
+            else:
+                bandfiles = [f for f in files if '_' + band in f]
+                fil = RatFile(bandfiles[0])
+                naz = fil.dim[1]
+                nrg = fil.dim[0]
+                block = list(self.crop)
+                if block[1] == 0:
+                    block[1] = naz
+                if block[3] == 0:
+                    block[3] = nrg
+                daz = block[1] - block[0]
+                drg = block[3] - block[2]
+
+                barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
+                for k, f in enumerate(bandfiles):
+                    logging.info("Found " + f)
+                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                array.append(barr)
+
+        if len(array) == 0:
+            return None, None
+        elif len(array) == 1:
+            return array[0], meta[0]
+        else:
+            return array, meta
+
+
+@pyrat.docstringfrom(FSAR_dem)
+def fsar_kz(*args, **kwargs):
+    return FSAR_kz(*args, **kwargs).run(*args, **kwargs)
+
+
 class FSAR_track(pyrat.ImportWorker):
     """
     Import of DLR E-SAR REF/REALTRACK products
@@ -403,7 +549,6 @@ class FSAR_track(pyrat.ImportWorker):
                 drg = block[3] - block[2]
 
                 barr = np.empty((len(bandfiles) / 2, sys['pre_az'] * daz, 7))
-
                 for k, pol in enumerate(pols):
                     polfiles = [f for f in bandfiles if pol + '_' in f]
                     for i, f in enumerate(polfiles):
@@ -413,7 +558,6 @@ class FSAR_track(pyrat.ImportWorker):
                             barr[k, :, 6] = RatFile(f).read(block=(pre_az * block[0], 0, pre_az * daz, 1))
                         elif 'track' in f:
                             barr[k, :, 3:6] = RatFile(f).read(block=(pre_az * block[0], 1, pre_az * daz, 3)).T
-
                             if self.product == 'INF-SLC':  # read multisquit if existing
                                 dir = f.split('INF/INF-TRACK/track_sar_resa')[0] + 'INF/INF-AUX/'
                                 master = f.split('_')[-3]
@@ -435,6 +579,7 @@ class FSAR_track(pyrat.ImportWorker):
                                         barr[k, :, 5] += np.resize(dz, pre_az * daz)
 
                 array.append(barr[:, 0:pre_az * daz:pre_az, :])
+
         if len(array) == 0:
             return None, None
         elif len(array) == 1:

@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import pyrat
+import numpy as np
 
 try:
     from pyrat.lib.nlsar import sarnlsar
@@ -55,11 +56,17 @@ class NLPolSAR(pyrat.FilterWorker):
 
         try:
             if isinstance(array,list):
+                if array[0].ndim == 2:
+                    array[0] = array[0][np.newaxis,np.newaxis,...]
                 result = sarnlsar(array[0].T, self.enl, 1, self.hW, self.hP, array[1].T)
             else:
+                if array.ndim == 2:
+                    array = array[np.newaxis,np.newaxis,...]
                 result = sarnlsar(array.T, self.enl, 1, self.hW, self.hP)
         except Warning:
             print(str(Warning))
 
+        if result[0].ndim == 2:
+            result[0] = result[0][...,np.newaxis,np.newaxis]
 
         return [result[0].T,result[1].T]

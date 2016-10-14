@@ -351,8 +351,8 @@ class RatFile():
         return version, xdrflag
 
 
-class Xml2Py:
-    """Turns a FSAR XML document (e.g. processing parameters) into a structure.
+class Xml2Py(object):
+    """Turns a STEP XML document (e.g. processing parameters) into a structure.
 
     Example usage:
     pp = Xml2Py(<path to pp file>)
@@ -377,51 +377,164 @@ class Xml2Py:
     """
 
     def __init__(self, fileName, elem=None):
-        if elem is None:
+        if (elem == None):
             tree = ET.parse(fileName)
             root = tree.getroot()
             elem = root[0]
 
         self.xml2struct(elem)
 
+
     def xml2struct(self, elem):
         for f in elem:
             self.xml2field(f)
 
-    def xml2field(self, elem, name=None):
+
+    @staticmethod
+    def xml2val(elem):
         typElem = elem.find('datatype')
         dType = typElem.text
         dDim = typElem.attrib['length']
         dDim = np.asarray([np.long(d) for d in dDim.split()])[::-1]
         dLen = np.prod(dDim)
 
-        if name is None:
-            name = elem.attrib['name']
-
         valElem = elem.find('value')
-        if dType == 'pointer':
-            self.xml2field(valElem.find('parameter'), elem.attrib['name'])
-            return
+        if (dType == 'pointer'):
+            return Xml2Py.xml2val(valElem.find('parameter'))
 
-        if dType == 'struct':
-            o = Xml2Py(None, valElem[0])
-            setattr(self, name, o)
-            return
+        if (dType == 'struct'):
+            return Xml2Py(None, valElem[0])
 
         val = elem.find('value').text
-        if dLen > 1:
+        if (dLen > 1):
             val = val.strip('[]').split(',')
 
-        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'bool': np.bool, 'string': lambda s: s}
+        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'string': lambda s:s}
         try:
             if (dLen > 1):
                 val = np.asarray([conv[dType](v) for v in val]).reshape(dDim)
             else:
                 val = conv[dType](val)
         except KeyError:
-            print('WARNING: Unsupported data type {} in field {}! Ignoring...'.format(dType, name))
+            print('WARNING: Unsupported data type {} in field {}! Ignoring...'.format(dType, 'n.a.'))
+            return None
+
+        return val
+
+
+
+    def xml2field(self, elem):
+        name = elem.attrib['name']
+        setattr(self,name,self.xml2val(elem))
+
+
+
+
+class Py2Xml(object):
+    def __init__(self, template):
+        self.__dict__['tree'] = ET.parse(template)
+        self.__dict__['attrs'] = {}
+
+        obj = self.tree.getroot().find('object')
+        if (obj == None):
+            raise ValueError('Expected an "object" element below the root!')
+
+        self.get_attrs(obj)
+
+
+    def get_attrs(self, obj, prefix=[]):
+        for f in obj.iter('parameter'):
+            name = prefix+[f.attrib['name']]
+
+            while (f.find('./value/parameter') is not None):
+                f = f.find('./value/parameter')
+
+            v = f.find('value')
+            t = f.find('datatype')
+
+            if (v.find('object') is not None):
+                self.get_attrs(v.find('object'),name)
+                continue
+
+            self.attrs['_'.join(name)] = (v,t,f)
+
+
+    def __getattr__(self,name):
+        if (name in self.__dict__):
+            return self.__dict__[name]
+        v,t,f = self.__dict__['attrs'][name]
+        return Xml2Py.xml2val(f)
+
+
+    def __setattr__(self,name,value):
+        if (name in self.__dict__):
+            self.__dict__[name] = value
+        v,t,f = self.attrs[name]
+        return self.val2xml(v,t,value)
+
+#,long: (str,'long')
+    @staticmethod
+    def val2xml(v, t, value):
+        cdict = {str: (str, 'string'),float:(str,'double'),int: (str,'long'),complex:(lambda z:'({},{})'.format(z.real,z.imag),'complex')}
+
+        cdict[np.int32] = cdict[int]
+        cdict[np.int64] = cdict[int]
+        cdict[np.float32] = (str,'float')
+        cdict[np.float64] = cdict[float]
+        cdict[np.complex64] = cdict[complex]
+
+        # arrays with this shape in xml, e.g. [x1,y1,...,xN,yN] :
+        # <datatype length="2 4">double</datatype>
+        # have this shape (4, 2) in python/numpy
+        # therefore value.shape is reversed : value.shape[::-1]
+        if (isinstance(value, np.ndarray)):
+            t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
+            vtype = type(value.flat[0])
+            t.text = cdict[vtype][1]
+            v.text = '['+', '.join([cdict[vtype][0](val) for val in value.flat])+']'
+        else:
+            try:
+                if isinstance(value,str):
+                    raise ValueError()
+                t.attrib['length'] = str(len(value))
+                t.text = cdict[type(value[0])][1]
+                v.text = '['+', '.join([cdict[type(value[0])][0](val) for val in value])+']'
+            except:
+                t.attrib['length'] = '1'
+                t.text = cdict[type(value)][1]
+                v.text = cdict[type(value)][0](value)
+
+
+    def set_attr(self, name, value, prefix=[]):
+
+        if isinstance(value,dict):
+            for k in value:
+                self.set_attr(k,value[k],prefix+[name])
             return
 
-        setattr(self, name, val)
+        try:
+            v,t,f = self.attrs['_'.join(prefix+[name])]
+            self.val2xml(v, t, value)
+        except KeyError:
+            pass
 
 
+    def update(self, obj):
+        d = obj
+        if (hasattr(obj,'__dict__')):
+            d = obj.__dict__
+
+        if not isinstance(d,dict):
+            raise ValueError('Expected a dictionary or an object with a __dict__ attribute!')
+
+        for k in d:
+            self.set_attr(k,d[k])
+
+    def write(self, filename, overwrite=False):
+        if not overwrite:
+            if os.path.isfile(filename):
+                raise FileExistsError
+        self.tree.write(filename)
+
+    def __str__(self):
+        return str(self.__dict__)

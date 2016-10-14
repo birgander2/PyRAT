@@ -61,6 +61,7 @@ class OrientationAngle(pyrat.FilterWorker):
         Srr = (array[idx_hh, ...] - array[idx_vv, ...] + 1j * 2.0 * array[idx_xx, ...]) / 2.0
         Sll = (array[idx_vv, ...] - array[idx_hh, ...] + 1j * 2.0 * array[idx_xx, ...]) / 2.0
         a1 = Srr * np.conj(Sll)
+        a1 = filters.uniform_filter(a1.real, self.win) + 1j * filters.uniform_filter(a1.imag, self.win)
         return np.angle(a1) / 4
 
 

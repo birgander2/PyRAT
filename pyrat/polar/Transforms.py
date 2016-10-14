@@ -104,3 +104,29 @@ class Rotate(pyrat.FilterWorker):
 @pyrat.docstringfrom(Rotate)
 def rotate(*args, **kwargs):
     return Rotate(*args, **kwargs).run(*args, **kwargs)
+
+
+
+class PolExtract(pyrat.FilterWorker):
+    """
+    Extract a single polarimetric channel
+
+    :author: Marc Jaeger
+    """
+    gui = {'menu': 'PolSAR|Transform', 'entry': 'Extract Channel'}
+    para = [
+        {'var': 'pol', 'value': 'HH', 'type': 'list', 'range': ['HH','HV','VH','VV','XX'], 'text': 'Polarisation'}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(PolExtract, self).__init__(*args, **kwargs)
+        self.name = "Extract Channel"
+        self.allowed_ndim = [3]
+        self.blockprocess = True
+
+    def filter(self, array, *args, **kwargs):
+        attrs = kwargs['meta']
+        ch_idx = attrs['CH_pol'].index(self.pol)
+        attrs['CH_pol'] = self.pol
+        return array[ch_idx,...]
+
