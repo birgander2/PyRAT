@@ -2,6 +2,96 @@ import pyrat
 import numpy as np
 
 
+class FreemanDurden(pyrat.FilterWorker):
+    """
+    Freeman Durden decomposition into surface, double bounce and volume component. Expects
+    as input a C3 or C4 polarimetric covariance matrix. Returns the three estimated power
+    components in the order even-odd-volume.
+
+    A. Freeman, S.L. Durden: "A three-component scattering model for polarimetric SAR data"
+    Transactions on Geoscience and Remote Sensing, Vol. 36. No. 3, pp. 963-973, 1998
+
+    :author: Andreas Reigber
+    """
+    gui = {'menu': 'PolSAR|Decompositions', 'entry': 'Freeman-Durden'}
+
+    def __init__(self, *args, **kwargs):
+        pyrat.FilterWorker.__init__(self, *args, **kwargs)
+        self.name = "FreemanDurden"
+        self.allowed_ndim = [4]
+        self.require_para = ['CH_pol']
+        self.blockprocess = False
+
+    def filter(self, array, *args, **kwargs):
+        meta = kwargs["meta"]
+        pol = meta['CH_pol']
+
+        np.seterr(divide='ignore', invalid='ignore')
+
+        shp = array.shape
+        array = np.reshape(array, (shp[0] * shp[1], shp[2], shp[3]))
+
+        idx_hh = pol.index('HHHH*')
+        idx_vv = pol.index('VVVV*')
+        idx_hhvv = pol.index('HHVV*')
+        if len(pol) == 9:                                       # C3 Matrix
+            idx_xx = pol.index('XXXX*')
+            cal_factor = 2.0
+        else:                                                   # C4 Matrix
+            idx_xx = pol.index('HVHV*')
+            cal_factor = 1.0
+
+        fv = np.abs(array[idx_xx, ...]) * 3 / cal_factor        # volume component
+        pv = 8 * fv / 3
+
+        pd = np.zeros_like(pv)
+        ps = np.zeros_like(pv)
+        shh = np.abs(array[idx_hh, ...]) - fv
+        svv = np.abs(array[idx_vv, ...]) - fv
+        shv = array[idx_hhvv, ...] - fv / 3
+
+        foo = np.abs(shv)**2
+        idx = foo > shh*svv
+        shv[idx] *= np.sqrt(shh[idx]*svv[idx]/foo[idx])
+
+        idx = array[idx_hhvv, ...].real > 0
+
+        alpha = -1.0                                             # double dominant
+        c1 = shh[idx]
+        c2 = svv[idx]
+        c3r = shv[idx].real
+        c3i = shv[idx].imag
+        fd = (c1 * c2 - c3r**2 - c3i**2) / (c1 + c2 + 2 * c3r)
+        fs = c2 - fd
+        beta = np.sqrt((fd + c3r)**2 + c3i**2) / fs
+        ps[idx] = fs * (1 + beta**2)
+        pd[idx] = fd * (1 + alpha**2)
+
+        beta = 1.0                                              # surface dominant
+        c1 = shh[~idx]
+        c2 = svv[~idx]
+        c3r = shv[~idx].real
+        c3i = shv[~idx].imag
+        fs = (c1 * c2 - c3r ** 2 - c3i ** 2) / (c1 + c2 + 2 * c3r)
+        fd = c2 - fs
+        alpha = np.sqrt((fs - c3r) ** 2 + c3i ** 2) / fd
+        ps[~idx] = fs * (1 + beta ** 2)
+        pd[~idx] = fd * (1 + alpha ** 2)
+
+        np.seterr(divide='warn', invalid='warn')
+        array = np.stack([pd, ps, pv])
+        array[~np.isfinite(array)] = 0.0
+        array[array < 0.0] = 0.0
+
+        del meta['CH_pol']
+        return array
+
+
+@pyrat.docstringfrom(FreemanDurden)
+def freemandurden(*args, **kwargs):
+    return FreemanDurden(*args, **kwargs).run(**kwargs)
+
+
 class Lex2Pauli(pyrat.FilterWorker):
     """
     Lexicographic to Pauli basis conversion.
