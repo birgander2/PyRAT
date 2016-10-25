@@ -3,7 +3,7 @@ from PyQt4 import QtGui, QtCore
 import pyrat
 import copy
 import logging
-from pyrat.tools import ProgressBar, flattenlist, unflattenlist
+from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
 
 
 def exec_out(args):
@@ -426,19 +426,19 @@ class Worker(object):
 
         if self.allowed_ndim is not False:
             if query['ndim'] not in self.allowed_ndim:
-                logging.error('ERROR: input layer dimensionality mismatch')
+                logging.error(bcolors.FAIL + 'ERROR: input layer dimensionality mismatch' + bcolors.ENDC)
                 return False
 
         if self.allowed_dtype is not False:
             if len(set(self.allowed_dtype).intersection(query['dtype'])) == 0:
-                logging.error('ERROR: data type mismatch')
+                logging.error(bcolors.FAIL + 'ERROR: data type mismatch' + bcolors.ENDC)
                 return False
 
         if self.require_para is not False:
             annotation = pyrat.data.getAnnotation(layer=self.layer)
             if not set(annotation.keys()).issuperset(self.require_para):
                 keys = list(set(self.require_para).difference(annotation.keys()))
-                logging.error('ERROR: meta data parameter missing '+str(keys))
+                logging.error(bcolors.FAIL + 'ERROR: meta data parameter missing '+str(keys) + bcolors.ENDC)
                 return False
         return True
 

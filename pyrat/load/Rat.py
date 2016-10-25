@@ -80,7 +80,7 @@ class RatHDF(pyrat.Worker):
     :author: Andreas Reigber
     """
     gui = {'menu': 'File', 'entry': 'Open PYRAT file', 'before': 'Open pixmap'}
-    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Read PyRAT'}]
+    para = [{'var': 'file', 'value': '', 'type': 'openfile', 'text': 'Read PyRAT'}]
 
     def __init__(self, *args, **kwargs):
         super(RatHDF, self).__init__(*args, **kwargs)
