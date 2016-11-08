@@ -20,7 +20,7 @@ class FreemanDurden(pyrat.FilterWorker):
         self.name = "FreemanDurden"
         self.allowed_ndim = [4]
         self.require_para = ['CH_pol']
-        self.blockprocess = False
+        self.blockprocess = True
 
     def filter(self, array, *args, **kwargs):
         meta = kwargs["meta"]
@@ -84,6 +84,7 @@ class FreemanDurden(pyrat.FilterWorker):
         array[array < 0.0] = 0.0
 
         del meta['CH_pol']
+        meta['CH_name'] = ['even', 'odd', 'volume']
         return array
 
 

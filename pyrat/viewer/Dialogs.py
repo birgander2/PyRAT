@@ -274,6 +274,8 @@ class LayerTreeWidget(QtGui.QTreeWidget):
                 cname = channel.split('/')[-1]
                 if 'CH_pol' in metadata:
                     cname = metadata['CH_pol'][k]
+                if 'CH_name' in metadata:
+                    cname = metadata['CH_name'][k]
                 self.treelements[channel] = QtGui.QTreeWidgetItem()
                 self.treelements[channel].setText(0, cname)
                 self.treelements[channel].setWhatsThis(0, channel)
