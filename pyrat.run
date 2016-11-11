@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 from PyQt4 import QtGui, QtCore
 QtCore.pyqtRemoveInputHook()
 import sys
@@ -11,7 +10,7 @@ import pyrat
 def usage():
     logging.basicConfig(format='  %(message)s', level=logging.INFO)
     logging.info(" ")
-    logging.info("  Usage: PyRat [OPTION] [RATFILE].")
+    logging.info("  Usage: pyrat.run [OPTION] [RATFILE].")
     logging.info("  Starts the PyRat environment, optinally loading the give filename")
     logging.info(" ")
     logging.info("  --help/-h     : Show this help")
