@@ -101,6 +101,17 @@ More information about modules and contents (replace 'module' by correct name, e
     >>> var = getdata(layer=x1)
     >>> show()
 
+## Important comment on using PyRAT
+
+PyRAT expects a bit that you know what you're doing. In particular, it might be required to perform certain
+operations before doing others; PyRAT will not necessarily check or care if input data for certain modules
+are the ones needed. In some cases, an entire chain of steps are required to get the desired results.
+
+Some examples: Multi-looking before decompositions, conversion into covariances prior to speckle filtering,
+conversion into covariances, multi-looking, eigendecomposition before calculating entropy / alpha. There are
+many more examples like that, so please remember that PyRAT offers 'only' a collection of singular tools, not
+(yet) entire tool-chains. This is planned, though.
+
 ## Implementing your own modules
 
 PyRat has a very simple programming interface. Have a look at the file 'pyrat/filter/Template.py',
