@@ -496,7 +496,7 @@ class DiscLayer():
     def getMeta(self, key=False, layer=None):
         meta = dict(self.group.attrs)
         for k, v in meta.items():
-            if isinstance(v, np.ndarray) and (v.dtype in ['|S2', '|S1', '|S5', '|S6']):
+            if isinstance(v, np.ndarray) and str(v.dtype)[0:2] == '|S':         # workaround for unicode arrays
                 meta[k] = [foo.decode() for foo in v]
         if layer is not None and 'D' in layer:
             channel = int(layer.split('/')[2][1:])
