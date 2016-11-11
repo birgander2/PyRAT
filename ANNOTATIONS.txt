@@ -16,4 +16,4 @@ ps_az           float           azimuth pixel spacing [m]
 ps_rg           float           slant / ground range pixel spacing [m]
 
 CH_pol          string          HH, VV, VH, HV, XX (symmetrised cross)
-
+CH_name         string          names for sublayers to be displayed in GUI
