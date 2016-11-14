@@ -1,6 +1,121 @@
 import pyrat
 import numpy as np
 
+class Yamaguchi3(pyrat.FilterWorker):
+    """
+    Yamaguchi 3-component decomposition into surface, double bounce and volume component.
+    Expects as input a C3 or C4 polarimetric covariance matrix. Returns the three estimated power
+    components in the order even-odd-volume.
+
+    :author: Andreas Reigber
+    """
+    gui = {'menu': 'PolSAR|Decompositions', 'entry': 'Yamaguchi3'}
+
+    def __init__(self, *args, **kwargs):
+        pyrat.FilterWorker.__init__(self, *args, **kwargs)
+        self.name = "YAMAGUCHI3"
+        self.allowed_ndim = [4]
+        self.require_para = ['CH_pol']
+        self.blockprocess = True
+
+    def filter(self, array, *args, **kwargs):
+        meta = kwargs["meta"]
+        pol = meta['CH_pol']
+
+        np.seterr(divide='ignore', invalid='ignore')
+
+        shp = array.shape
+        array = np.reshape(array, (shp[0] * shp[1], shp[2], shp[3]))
+
+        idx_hh = pol.index('HHHH*')
+        idx_vv = pol.index('VVVV*')
+        idx_hhvv = pol.index('HHVV*')
+        if len(pol) == 9:                                       # C3 Matrix
+            idx_xx = pol.index('XXXX*')
+            cal_factor = 2.0
+            npol = 3
+        else:                                                   # C4 Matrix
+            idx_xx = pol.index('HVHV*')
+            cal_factor = 1.0
+            npol = 4
+
+        span = np.abs(np.trace(np.reshape(array, (npol, npol, array.shape[-2], array.shape[-1]))))
+
+        hhhh = np.abs(array[idx_hh, ...])
+        vvvv = np.abs(array[idx_vv, ...])
+        hvhv = np.abs(array[idx_xx, ...]) / cal_factor
+        hhvvr = np.array(np.abs(array[idx_hhvv, ...]).real)
+        hhvvi = np.array(np.abs(array[idx_hhvv, ...]).imag)
+        fv = np.zeros_like(hhhh)
+        fd = np.zeros_like(hhhh)
+        fs = np.zeros_like(hhhh)
+        alp_r = np.zeros_like(hhhh)
+        alp_i = np.zeros_like(hhhh)
+        bet_r = np.zeros_like(hhhh)
+        bet_i = np.zeros_like(hhhh)
+
+        ratio = 10*np.log10(vvvv / hhhh)                       # preconditioning
+
+        idx_m2 = ratio < -2.0
+        fv[idx_m2] = 15.0 * hvhv[idx_m2] / 4.0
+        hhhh[idx_m2] -= 8.0 * fv[idx_m2] / 15.0
+        vvvv[idx_m2] -= 3.0 * fv[idx_m2] / 15.0
+        hhvvr[idx_m2] -= 2.0 * fv[idx_m2] / 15.0
+
+        idx_p2 = ratio > 2.0
+        fv[idx_p2] = 15.0 * hvhv[idx_p2] / 4.0
+        hhhh[idx_p2] -= 3.0 * fv[idx_p2] / 15.0
+        vvvv[idx_p2] -= 8.0 * fv[idx_p2] / 15.0
+        hhvvr[idx_p2] -= 2.0 * fv[idx_p2] / 15.0
+
+        idx_mm = (ratio >= -2.0) & (ratio <= 2.0)
+        fv[idx_mm] = 8.0 * hvhv[idx_mm] / 2.0
+        hhhh[idx_mm] -= 3.0 * fv[idx_mm] / 8.0
+        vvvv[idx_mm] -= 3.0 * fv[idx_mm] / 8.0
+        hhvvr[idx_mm] -= 1.0 * fv[idx_mm] / 8.0
+
+        idx_volerr = (hhhh <= 0.0) | (vvvv <= 0.0)                # volume > total
+        fv[idx_volerr] = span[idx_volerr] # - hvhv[idx_volerr]
+
+        foo = hhvvr**2 + hhvvi**2                                # non-realisable Shhvv term
+        idx = (foo > hhhh*vvvv) & ~idx_volerr
+        hhvvr[idx] *= np.sqrt(hhhh[idx]*vvvv[idx]/foo[idx])
+        hhvvi[idx] *= np.sqrt(hhhh[idx]*vvvv[idx]/foo[idx])
+
+        idx = (hhvvr >= 0.0) & ~idx_volerr
+        alp_r[idx] = -1.0                                            # single dominant
+        alp_i[idx] = 0.0
+        fd[idx] = (hhhh[idx] * vvvv[idx] - hhvvr[idx]**2 - hhvvi[idx]**2) / (hhhh[idx] + vvvv[idx] + 2 * hhvvr[idx])
+        fs[idx] = vvvv[idx] - fd[idx]
+        bet_r[idx] = (fd[idx] + hhvvr[idx]) / fs[idx]
+        bet_i[idx] = hhvvi[idx] / fs[idx]
+
+        idx = (hhvvr < 0.0) & ~idx_volerr
+        bet_r[idx] = 1.0                                                  # double dominant
+        bet_i[idx] = 0.0
+        fs[idx] = (hhhh[idx] * vvvv[idx] - hhvvr[idx]**2 - hhvvi[idx]**2) / (hhhh[idx] + vvvv[idx] - 2 * hhvvr[idx])
+        fd[idx] = vvvv[idx] - fs[idx]
+        alp_r[idx] = (hhvvr[idx] - fs[idx]) / fd[idx]
+        alp_i[idx] = hhvvi[idx] / fd[idx]
+
+        pd = np.clip(fd * (1 + alp_r**2 + alp_i**2), 0.0, span)                             # clip to valid range
+        ps = np.clip(fs * (1 + bet_r**2 + bet_i**2), 0.0, span)                             # clip to valid range
+        pv = np.clip(fv, 0.0, span)                                                         # clip to valid range
+
+        np.seterr(divide='warn', invalid='warn')                # remove nans and zeros
+        array = np.stack([pd, ps, pv])
+        array[~np.isfinite(array)] = 0.0
+        array[array < 0.0] = 0.0
+
+        del meta['CH_pol']
+        meta['CH_name'] = ['even', 'odd', 'volume']
+        return array
+
+
+@pyrat.docstringfrom(Yamaguchi3)
+def yamaguchi3(*args, **kwargs):
+    return Yamaguchi3(*args, **kwargs).run(**kwargs)
+
 
 class FreemanDurden(pyrat.FilterWorker):
     """
@@ -12,6 +127,7 @@ class FreemanDurden(pyrat.FilterWorker):
     Transactions on Geoscience and Remote Sensing, Vol. 36. No. 3, pp. 963-973, 1998
 
     :author: Andreas Reigber
+    :tested: for C4 input (todo: C3)
     """
     gui = {'menu': 'PolSAR|Decompositions', 'entry': 'Freeman-Durden'}
 
@@ -37,9 +153,13 @@ class FreemanDurden(pyrat.FilterWorker):
         if len(pol) == 9:                                       # C3 Matrix
             idx_xx = pol.index('XXXX*')
             cal_factor = 2.0
+            npol = 3
         else:                                                   # C4 Matrix
             idx_xx = pol.index('HVHV*')
             cal_factor = 1.0
+            npol = 4
+
+        span = np.abs(np.trace(np.reshape(array, (npol, npol, array.shape[-2], array.shape[-1]))))
 
         fv = np.abs(array[idx_xx, ...]) * 3 / cal_factor        # volume component
         pv = 8 * fv / 3
@@ -50,12 +170,14 @@ class FreemanDurden(pyrat.FilterWorker):
         svv = np.abs(array[idx_vv, ...]) - fv
         shv = array[idx_hhvv, ...] - fv / 3
 
-        foo = np.abs(shv)**2
-        idx = foo > shh*svv
+        idx_volerr = (shh <= 0.0) | (svv <= 0.0)                # volume > total
+        pv[idx_volerr] = span[idx_volerr]
+
+        foo = np.abs(shv)**2                                    # data conditioning for
+        idx = (foo > shh*svv) & ~idx_volerr                     # non-realisable ShhShv term
         shv[idx] *= np.sqrt(shh[idx]*svv[idx]/foo[idx])
 
-        idx = array[idx_hhvv, ...].real > 0
-
+        idx = (shv.real >= 0.0) & ~idx_volerr
         alpha = -1.0                                             # double dominant
         c1 = shh[idx]
         c2 = svv[idx]
@@ -67,18 +189,23 @@ class FreemanDurden(pyrat.FilterWorker):
         ps[idx] = fs * (1 + beta**2)
         pd[idx] = fd * (1 + alpha**2)
 
+        idx = (shv.real < 0.0) & ~idx_volerr
         beta = 1.0                                              # surface dominant
-        c1 = shh[~idx]
-        c2 = svv[~idx]
-        c3r = shv[~idx].real
-        c3i = shv[~idx].imag
-        fs = (c1 * c2 - c3r ** 2 - c3i ** 2) / (c1 + c2 + 2 * c3r)
+        c1 = shh[idx]
+        c2 = svv[idx]
+        c3r = shv[idx].real
+        c3i = shv[idx].imag
+        fs = (c1 * c2 - c3r ** 2 - c3i ** 2) / (c1 + c2 - 2 * c3r)
         fd = c2 - fs
         alpha = np.sqrt((fs - c3r) ** 2 + c3i ** 2) / fd
-        ps[~idx] = fs * (1 + beta ** 2)
-        pd[~idx] = fd * (1 + alpha ** 2)
+        ps[idx] = fs * (1 + beta ** 2)
+        pd[idx] = fd * (1 + alpha ** 2)
 
-        np.seterr(divide='warn', invalid='warn')
+        pd = np.clip(pd, 0.0, span)                             # clip to valid range
+        ps = np.clip(ps, 0.0, span)
+        pv = np.clip(pv, 0.0, span)
+
+        np.seterr(divide='warn', invalid='warn')                # remove nan's
         array = np.stack([pd, ps, pv])
         array[~np.isfinite(array)] = 0.0
         array[array < 0.0] = 0.0

@@ -19,7 +19,7 @@ TODO CLI:
 - FSAR Import blockweise!!!
 
 TODO GUI:
-- Recalculate Pyramid nur wenn noetig (e.g. amplitude -> phase)
+- Implement scaling_hint for GUI
 [- Metadateneditor...]
 
 BUGS:

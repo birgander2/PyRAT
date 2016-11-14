@@ -5,7 +5,8 @@ from scipy.ndimage import filters
 
 class Entalpani(pyrat.FilterWorker):
     """
-    Estimation of polarimetric entropy, alpha angle (max & mean) and anisotropy
+    Estimation of polarimetric entropy, alpha angle (max & mean) and anisotropy.
+    Expects a layer with an eigenvalue decomposition as imput.
     """
     gui = {'menu': 'PolSAR|Parameters', 'entry': 'Entropy / Alpha / Anisotropy'}
 
@@ -15,6 +16,7 @@ class Entalpani(pyrat.FilterWorker):
         self.blockprocess = True
 
     def filter(self, array, *args, **kwargs):
+        meta = kwargs["meta"]
         zdim = array[1].shape[0]
         sew = np.sum(array[0], axis=0)
         pi = (array[0] + (sew == 0)) / (sew + (sew == 0))
@@ -26,7 +28,9 @@ class Entalpani(pyrat.FilterWorker):
         sew = array[0][1, ...] + array[0][2, ...]
         anisotropy = (array[0][1, ...] - array[0][2, ...]) / (sew + (sew == 0))
         np.seterr(divide='warn', invalid='warn')
-        return entropy, alphamax, alphamean, anisotropy
+        meta = meta[0]
+        meta['CH_name'] = ['Entropy', 'AlphaMax', 'AlphaMean', 'Anisotropy']
+        return np.stack([entropy, alphamax, alphamean, anisotropy])
 
 
 @pyrat.docstringfrom(Entalpani)
