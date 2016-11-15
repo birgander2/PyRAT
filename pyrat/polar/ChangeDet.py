@@ -2,10 +2,10 @@ import pyrat
 import numpy as np
 from scipy.stats import chi2
 from scipy.ndimage.filters import median_filter
-from . import PolsarWorker
+from .tools import block_det
 
 
-class ChangeDet(PolsarWorker):
+class ChangeDet(pyrat.FilterWorker):
     """
     Incoherent change detection by comparing covariance matrices over 
     a temporal base line.
@@ -63,9 +63,9 @@ class ChangeDet(PolsarWorker):
             p = 1
 
         lnq = p * ((n1 + n2) * np.log(n1 + n2) - n1 * np.log(n1) - n2 * np.log(n2)) + \
-              n1 * np.log(self.block_det(c1)) + \
-              n2 * np.log(self.block_det(c2)) - \
-              (n1 + n2) * np.log(self.block_det(c1 + c2))
+              n1 * np.log(block_det(c1)) + \
+              n2 * np.log(block_det(c2)) - \
+              (n1 + n2) * np.log(block_det(c1 + c2))
 
         rho = 1 - (2 * p ** 2 - 1) * (1 / n1 + 1 / n2 - 1 / (n1 + n2)) / (6 * p)
 

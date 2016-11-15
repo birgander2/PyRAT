@@ -40,7 +40,7 @@ def entalpani(*args, **kwargs):
 
 class OrientationAngle(pyrat.FilterWorker):
     """
-    Estimation of the polarimetric orientation angle.
+    Estimation of the polarimetric orientation angle from lexicographic scattering vector.
     """
     gui = {'menu': 'PolSAR|Parameters', 'entry': 'Orientation angle'}
     para = [

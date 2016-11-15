@@ -1,7 +1,7 @@
 from pyrat import pyrat_help
 help = pyrat_help(__name__, "\n  SAR polarimetry related stuff")
 
-from .PolsarWorker import *
+from .tools import *
 from .Decompositions import *
 from .Parameters import *
 from .Transforms import *
