@@ -11,3 +11,4 @@ matplotlib
 lxml
 scikit-image
 pyreadline
+mako

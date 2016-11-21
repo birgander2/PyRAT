@@ -85,7 +85,7 @@ def changedet(*args, **kwargs):
     return ChangeDet(*args, **kwargs).run(*args, **kwargs)
 
 
-class CoherChangeDet(PolsarWorker):
+class CoherChangeDet(pyrat.FilterWorker):
     """
     Simple coherent change detection from a PolInSAR covariance matrix.
 

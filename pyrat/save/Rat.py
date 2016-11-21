@@ -1,11 +1,12 @@
 import shutil
 
 import pyrat
-from pyrat.load.tools import RatFile, srat
+# from pyrat.load.tools import RatFile, srat
+from pyrat.lib.ste import RatFile, RatHeader, dtype_dict
 import logging
 import numpy as np
 
-from  pkg_resources import resource_string
+from pkg_resources import resource_string
 from mako.template import Template
 
 
@@ -17,7 +18,8 @@ class Rat(pyrat.ExportWorker):
     :author: Andreas Reigber
     """
     gui = {'menu': 'File', 'entry': 'Save RAT file', 'before': 'Save pixmap'}
-    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'}]
+    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
+            {'var': 'geo_envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write ENVI header'}]
 
     def __init__(self, *args, **kwargs):
         super(Rat, self).__init__(*args, **kwargs)
@@ -29,31 +31,33 @@ class Rat(pyrat.ExportWorker):
             self.header = None
 
     def open(self, *args, **kwargs):
-        self.rat = RatFile(self.file)
+        # self.rat = RatFile(self.file)
         data = pyrat.data.queryLayer(self.layer)
         if isinstance(data, list):
             logging.error("Cannot export multiple layers at once!")
             return False
         else:
+            header = RatHeader()
             dtype = data['dtype']
-            var = self.rat.dtype2var(dtype)
-            if self.header is not None:
-                self.rat.Header = self.header
-            self.rat.Header.Rat.ndim = data['ndim']
-            self.rat.Header.Rat.dim[:data['ndim']] = data['shape'][::-1]
-            self.rat.Header.Rat.var = var
+            var = [k for k, v in dtype_dict.items() if v == dtype][0]
+            header.Rat.ndim = data['ndim']
+            header.Rat.idl_shape[:data['ndim']] = data['shape'][::-1]
+            header.Rat.var = var
             # todo: missing nchannels
             # todo: missing info string
-            self.lun = self.rat.write_header()
+            self.lun = open(self.file, 'wb')
+            self.lun.write(header)
+            self.lun.flush()
+            self.rat = RatFile(self.file)
             return True
 
     def close(self, *args, **kwargs):
         self.lun.close()
 
-        if 'geo_envi_hdr' in self.__dict__ and self.geo_envi_hdr:
+        if self.geo_envi_hdr is True:
             logging.info(self.name + '  Writing GEO ENVI Header (.hdr)...')
             hdr = RatFile(self.file).Header
-            tmpl = Template(resource_string('pyrat.templates', 'envi_geo_hdr.tpl'))
+            tmpl = Template(resource_string('pyrat.lib.templates', 'envi_geo_hdr.tpl'))
             envi_hdr = tmpl.render(file=self.file, hdr=hdr)
             with open(self.file+'.hdr','w') as f:
                 f.write(envi_hdr)
@@ -69,7 +73,7 @@ class Rat(pyrat.ExportWorker):
         for ch in array.shape[:-2]:
             nchannels *= ch
         out = out.reshape((nchannels, ny, nx))
-        seek_ch = nx * self.rat.Header.Rat.dim[1] * out.itemsize
+        seek_ch = nx * self.rat.Header.Rat.idl_shape[1] * out.itemsize
         for ch in range(nchannels):
             self.lun.seek(1000 + ch * seek_ch + out.itemsize * (kwargs['block'][0] + kwargs['valid'][0]) * nx)
             out[ch, ...].tofile(self.lun)
