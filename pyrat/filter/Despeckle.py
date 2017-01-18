@@ -445,7 +445,7 @@ try:
              'text': 'SAR data type'}]
 
         def __init__(self, *args, **kwargs):
-            super(LeeSigmaImproved, self).__init__(*args, **kwargs)
+            super(LeeSigma2, self).__init__(*args, **kwargs)
             self.name = "IMPROVED SIGMA LEE"
             self.blockprocess = True
             self.blockoverlap = self.win[0] // 2 + 1
@@ -545,10 +545,10 @@ try:
 
     @pyrat.docstringfrom(LeeSigma2)
     def leesigma2(*args, **kwargs):
-        return LeeSigmaImproved(*args, **kwargs).run(**kwargs)
+        return LeeSigma2(*args, **kwargs).run(**kwargs)
 
 except ImportError:
-    logging.info("LeeSigmaImproved cython module not found. (run build process?)")
+    logging.info("LeeSigma2 cython module not found. (run build process?)")
 
 # # ---------------------------------------------------------------------------------------------------------------
 # # ---------------------------------------------------------------------------------------------------------------
