@@ -12,8 +12,7 @@ It is expandable by plugins without deep knowledge of framework itself.
 ## Requirements
 
 Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
-file _requirements.txt_. Currently, it is required to use python 3.4 (and not python >=3.5)
-since some packages have not yet been updated to python >=3.5. We recommend using the free [Anaconda Python 
+file _requirements.txt_. Currently, it is required to use python 3.x. We recommend using the free [Anaconda Python
 distribution](https://docs.continuum.io/anaconda). With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands:
 
     conda env create -f requirements.txt -n ve4pyrat
@@ -23,9 +22,8 @@ distribution](https://docs.continuum.io/anaconda). With Anaconda, you can create
 Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
 Windows and OSX, but this is genuinely untested. 
 
-**A known issue of Anaconda Python on  Windows is a buggy 
-pyqt 4.11. Please downgrade to pyqt 4.10  if the GUI crashes on startup using the command
-"conda install pyqt=4.10.4".** 
+**Sometimes there are some small differences between the requirements on different platforms. Currently, on Windows, please use the
+requirements_win.txt file instead.**
 
 ## Download
 
