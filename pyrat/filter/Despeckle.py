@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pyrat
 import scipy as sp
 from scipy import optimize as opt
