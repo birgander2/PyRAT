@@ -19,7 +19,11 @@ distribution](https://docs.continuum.io/anaconda). With Anaconda, you can create
     source activate ve4pyrat   [on Linux]  
     activate ve4pyrat          [on Windows]
 
-Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on 
+Alternatively, one can also directly install all the required packages with the command:
+
+    conda install --file requirements.txt
+
+Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on
 Windows and OSX, but this is genuinely untested. 
 
 **Sometimes there are some small differences between the requirements on different platforms. Currently, on Windows, please use the

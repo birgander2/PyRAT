@@ -1,5 +1,5 @@
 python
-pyqt=4.11
+pyqt=4.11.4
 numpy
 numexpr
 scipy
@@ -12,3 +12,4 @@ matplotlib
 lxml
 scikit-image
 readline
+mako
