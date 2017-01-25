@@ -55,7 +55,7 @@ class Template(pyrat.FilterWorker):
         # self.blockprocess = False                        # uncomment to switch off blockprocessing entirely
                                                            # (otherwise data will be always provided in blocks)
 
-        # self.nthreas = 1                                 # uncomment to disable multithreading in this class
+        # self.nthreads = 1                                # uncomment to disable multithreading in this class
                                                            # (this is recommended for debugging!)
 
     # The actual filter: Receives the data in 'array' and returns a filtered version. Metadata can be

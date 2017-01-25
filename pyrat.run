@@ -2,7 +2,7 @@
 
 from PyQt4 import QtGui, QtCore
 QtCore.pyqtRemoveInputHook()
-import sys
+import sys, os
 import logging
 import pyrat
 
@@ -39,13 +39,16 @@ def main():
             sys.exit()
         else:
             pyrat.pyrat_init()
-            pyrat.load.rat(filename=sys.argv[1])
+            pyrat.load.rat(file=sys.argv[1])
             pyrat.show()
     else:
         pyrat.pyrat_init()
-        app = QtGui.QApplication(sys.argv)
-        pyrat.app = pyrat.viewer.MainWindow()
-        sys.exit(app.exec_())
+        if os.path.exists("default.rat"):
+            pyrat.load.rat(file="default.rat")
+        # app = QtGui.QApplication(sys.argv)
+        # pyrat.app = pyrat.viewer.MainWindow()
+        pyrat.show()
+        # sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
