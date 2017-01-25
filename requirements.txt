@@ -1,11 +1,10 @@
-python
-pyqt=4.11.4
+python>=3
+pyqt==4.11.4
 numpy
 numexpr
 scipy
 h5py
 gdal
-pyqt
 pillow
 cython
 matplotlib
