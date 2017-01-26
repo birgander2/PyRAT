@@ -41,13 +41,13 @@ def main():
             pyrat.pyrat_init()
             pyrat.load.rat(file=sys.argv[1])
             pyrat.show()
+            sys.exit()
     else:
         pyrat.pyrat_init()
         if os.path.exists("default.rat"):
             pyrat.load.rat(file="default.rat")
-        # app = QtGui.QApplication(sys.argv)
-        # pyrat.app = pyrat.viewer.MainWindow()
         pyrat.show()
+        sys.exit()
         # sys.exit(app.exec_())
 
 if __name__ == "__main__":

@@ -219,7 +219,7 @@ def show():
     app = QtGui.QApplication(sys.argv)
     pyrat.app = pyrat.viewer.MainWindow()
     pyrat.app.updateViewer()
-    sys.exit(app.exec_())
+    app.exec_()
 
 gui = show
 
