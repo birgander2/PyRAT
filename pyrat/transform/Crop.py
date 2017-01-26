@@ -1,5 +1,5 @@
 import pyrat
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtWidgets
 import copy
 
 
@@ -37,7 +37,7 @@ class Crop(pyrat.FilterWorker):
 
     @classmethod
     def guirun(cls, viewer):
-        rubberband = QtGui.QRubberBand(QtGui.QRubberBand.Rectangle, viewer)
+        rubberband = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, viewer)
 
         viewer.show_rubberband = True
         while viewer.show_rubberband is True:

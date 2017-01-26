@@ -1,5 +1,4 @@
-from __future__ import print_function
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtWidgets
 import pyrat
 import sys
 
@@ -12,13 +11,13 @@ class About(pyrat.Worker):
         message = """
         PyRat - Radar Tools Collection
         ---
-        (c) 2014-2016 by the RAT development team
+        (c) 2015-2017 by the RAT development team
         ---
         PyRat version: v%s
         running on: %s / python %s
         ---
         """ % (str(pyrat.__version__), sys.platform, sys.version[0:3])
-        foo = QtGui.QMessageBox(parent=viewer)
+        foo = QtWidgets.QMessageBox(parent=viewer)
         foo.setIcon(1)
         foo.setText(message)
         foo.exec_()

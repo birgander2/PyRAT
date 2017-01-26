@@ -1,4 +1,4 @@
-__version__ = '0.35-oss'
+__version__ = '0.40-oss'
 
 import logging
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)

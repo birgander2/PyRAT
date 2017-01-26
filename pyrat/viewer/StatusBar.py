@@ -1,4 +1,4 @@
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class StatusBar:
@@ -10,13 +10,13 @@ class StatusBar:
         self.pixmap_green  = QtGui.QPixmap("icons/green.png", "PNG")
         self.pixmap_yellow = QtGui.QPixmap("icons/yellow.png", "PNG")
         self.pixmap_red    = QtGui.QPixmap("icons/red.png", "PNG")
-        self.statusPixmap = QtGui.QLabel("image", self.statusBar)
+        self.statusPixmap = QtWidgets.QLabel("image", self.statusBar)
         self.statusPixmap.setPixmap(self.pixmap_green)
         
         self.__statusTimer = QtCore.QTimer(self.parent)
-        self.parent.connect(self.__statusTimer, QtCore.SIGNAL("timeout()"), self.resetMessage)
-        self.__statusLabel = QtGui.QLabel("Default", self.statusBar)
-        self.progressbar = QtGui.QProgressBar(self.statusBar)
+        # self.parent.connect(self.__statusTimer, QtCore.SIGNAL("timeout()"), self.resetMessage)
+        self.__statusLabel = QtWidgets.QLabel("Default", self.statusBar)
+        self.progressbar = QtWidgets.QProgressBar(self.statusBar)
         self.progressbar.setMinimum(0)
         self.progressbar.setMaximum(100)
         self.progressbar.setValue(0)
@@ -24,10 +24,10 @@ class StatusBar:
 
         self.lastMessage = ''
        
-        self.statusSize  = QtGui.QLabel("", self.statusBar)
-        self.statusZoom  = QtGui.QLabel("", self.statusBar)
-        self.statusScale = QtGui.QLabel("", self.statusBar)
-        self.statusLevel = QtGui.QLabel("", self.statusBar)
+        self.statusSize  = QtWidgets.QLabel("", self.statusBar)
+        self.statusZoom  = QtWidgets.QLabel("", self.statusBar)
+        self.statusScale = QtWidgets.QLabel("", self.statusBar)
+        self.statusLevel = QtWidgets.QLabel("", self.statusBar)
       
         self.statusBar.addWidget(self.statusPixmap, 0)
         self.statusBar.addWidget(self.__statusLabel, 0)
@@ -71,7 +71,7 @@ class StatusBar:
         elif colour == 'R':
             self.statusPixmap.setPixmap(self.pixmap_red)
         
-        QtGui.QApplication.processEvents()
+        QtWidgets.QApplication.processEvents()
             
     def resetMessage(self):
         self.__statusTimer.stop()

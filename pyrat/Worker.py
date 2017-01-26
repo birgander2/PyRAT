@@ -1,5 +1,4 @@
-from __future__ import print_function
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtWidgets
 import pyrat
 import copy
 import logging
@@ -447,8 +446,9 @@ class Worker(object):
     def registerGUI(cls, viewer):
         shortcut = cls.gui['shortcut'] if 'shortcut' in cls.gui else ''
 
-        action = QtGui.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
-        viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
+        action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
+        # viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
+        action.triggered.connect(lambda: cls.guirun(viewer))
 
         if cls.gui['menu'] not in viewer.menue:
             logging.warning("\nWARNING: The gui annotation '" +
@@ -499,7 +499,7 @@ class Worker(object):
                         Module: %s
                         Line  : %s
                         """ % (str(type(ex).__name__), os.path.basename(tbinfo[0]), str(tbinfo[1]))
-                        foo = QtGui.QMessageBox(parent=pyrat.app)
+                        foo = QtWidgets.QMessageBox(parent=pyrat.app)
                         foo.setIcon(1)
                         foo.setText(textwrap.dedent(message))
                         foo.exec_()

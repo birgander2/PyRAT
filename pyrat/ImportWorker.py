@@ -1,7 +1,6 @@
 from __future__ import print_function
 import pyrat
 import logging
-from PyQt4 import QtGui, QtCore
 
 
 class ImportWorker(pyrat.Worker):
