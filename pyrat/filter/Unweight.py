@@ -1,4 +1,3 @@
-from __future__ import print_function
 import matplotlib
 matplotlib.use('Qt4Agg')
 import pylab as plt
