@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore
 QtCore.pyqtRemoveInputHook()
 import sys, os
 import logging
