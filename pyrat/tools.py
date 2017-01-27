@@ -527,3 +527,7 @@ def colortables(*args):
             return coltabnames[idx], colortables[idx]
     else:
         return coltabnames, colortables
+
+
+class PyratInputError(Exception):
+    pass

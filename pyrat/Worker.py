@@ -1,12 +1,10 @@
-from PyQt4 import QtGui, QtCore
-import pyrat
 import copy
 import logging
-from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
 
+from PyQt4 import QtGui, QtCore
 
-class PyratInputError(Exception):
-    pass
+import pyrat
+from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors, PyratInputError
 
 
 def exec_out(args):
