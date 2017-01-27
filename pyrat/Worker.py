@@ -450,8 +450,9 @@ class Worker(object):
             if hasattr(pyrat, "app"):
                 pyrat.app.statusBar.progressbar.setValue(0)
                 message = """
-                Ooops, this was not planned!
-                You either used a module in the wrong way or found a bug!
+                Ooops, this was not planned! You either:
+                - used a module in the wrong way
+                - you have discovered a bug!?
 
                 Error : %s
                 %s in %s (line %s)
@@ -463,6 +464,8 @@ class Worker(object):
             logging.error(bcolors.FAIL + 'ERROR : ' + str(ex))
             logging.error(str(type(ex).__name__) + " in " + os.path.basename(tbinfo[0]) +
                           " (line " + str(tbinfo[1]) + ")" + bcolors.ENDC)
+        else:
+            raise ex
 
     @classmethod
     def registerGUI(cls, viewer):
