@@ -9,25 +9,27 @@ class ExportWorker(pyrat.Worker):
         self.nthreads = 1
 
     def run(self, *args, **kwargs):
+        try:
+            para = [foo['var'] for foo in self.para]
+            self.checkpara(kwargs, para)
+            logging.info(
+                self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items() if k in para or k in kwargs)))
 
-        para = [foo['var'] for foo in self.para]
-        self.checkpara(kwargs, para)
-        logging.info(
-            self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items() if k in para or k in kwargs)))
-
-        foo = self.open(*args, **kwargs)
-        if foo is None:                        # open not overloaded -> use full image import
-            if 'layer' in kwargs:
-                self.writer(pyrat.data.getData(layer=kwargs['layer']), *args, **kwargs)
-            else:
-                self.writer(pyrat.data.getData(), *args, **kwargs)
-            return self.layer
-        elif foo is False:                     # open failed in some sense -> return False
-            return False
-        else:                                  # blockwise export
-            self.layer_extract(self.block_writer, silent=False, **kwargs)
-            self.close(*args, **kwargs)
-            return self.layer
+            foo = self.open(*args, **kwargs)
+            if foo is None:                        # open not overloaded -> use full image import
+                if 'layer' in kwargs:
+                    self.writer(pyrat.data.getData(layer=kwargs['layer']), *args, **kwargs)
+                else:
+                    self.writer(pyrat.data.getData(), *args, **kwargs)
+                return self.layer
+            elif foo is False:                     # open failed in some sense -> return False
+                return False
+            else:                                  # blockwise export
+                self.layer_extract(self.block_writer, silent=False, **kwargs)
+                self.close(*args, **kwargs)
+                return self.layer
+        except Exception as ex:
+            self.crash_handler(ex)
 
     def writer(self, array, *args, **kwargs):
         return False

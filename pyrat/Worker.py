@@ -1,9 +1,12 @@
-from __future__ import print_function
 from PyQt4 import QtGui, QtCore
 import pyrat
 import copy
 import logging
 from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
+
+
+class PyratInputError(Exception):
+    pass
 
 
 def exec_out(args):
@@ -426,22 +429,42 @@ class Worker(object):
 
         if self.allowed_ndim is not False:
             if query['ndim'] not in self.allowed_ndim:
-                logging.error(bcolors.FAIL + 'ERROR: input layer dimensionality mismatch' + bcolors.ENDC)
-                return False
+                raise PyratInputError('Input layer dimensionality mismatch')
 
         if self.allowed_dtype is not False:
             if len(set(self.allowed_dtype).intersection(query['dtype'])) == 0:
-                logging.error(bcolors.FAIL + 'ERROR: data type mismatch' + bcolors.ENDC)
-                return False
+                raise PyRatInputError('Data type mismatch')
 
         if self.require_para is not False:
             annotation = pyrat.data.getAnnotation(layer=self.layer)
             if not set(annotation.keys()).issuperset(self.require_para):
                 keys = list(set(self.require_para).difference(annotation.keys()))
-                logging.error(bcolors.FAIL + 'ERROR: meta data parameter missing '+str(keys) + bcolors.ENDC)
-                return False
+                raise PyRatInputError('Mandatory meta data missing: '+str(keys))
+
         return True
 
+    @classmethod
+    def crash_handler(cls, ex):
+        if pyrat._debug is False:
+            import traceback, os.path, sys, textwrap
+            tb = sys.exc_info()[2]
+            tbinfo = traceback.extract_tb(tb)[-1]
+            if hasattr(pyrat, "app"):
+                pyrat.app.statusBar.progressbar.setValue(0)
+                message = """
+                Ooops, this was not planned!
+                You either used a module in the wrong way or found a bug!
+
+                Error : %s
+                %s in %s (line %s)
+                """ % (ex, str(type(ex).__name__), os.path.basename(tbinfo[0]), str(tbinfo[1]))
+                foo = QtGui.QMessageBox(parent=pyrat.app)
+                foo.setIcon(1)
+                foo.setText(textwrap.dedent(message))
+                foo.exec_()
+            logging.error(bcolors.FAIL + 'ERROR : ' + str(ex))
+            logging.error(str(type(ex).__name__) + " in " + os.path.basename(tbinfo[0]) +
+                          " (line " + str(tbinfo[1]) + ")" + bcolors.ENDC)
 
     @classmethod
     def registerGUI(cls, viewer):
@@ -484,26 +507,7 @@ class Worker(object):
                     del plugin
                     viewer.updateViewer(layer=layers)
                 except Exception as ex:
-                    import traceback, os.path, sys, textwrap
-                    tb = sys.exc_info()[2]
-                    tbinfo = traceback.extract_tb(tb)[-1]
-                    print()
-                    if hasattr(pyrat, "app"):
-                        pyrat.app.statusBar.progressbar.setValue(0)
-                        message = """
-                        Ooops, this was not planned!
-                        You either found a bug, or are using a module in the wrong way!
-                        PyRAT will try to continue ignoring this error...
-
-                        Error : %s
-                        Module: %s
-                        Line  : %s
-                        """ % (str(type(ex).__name__), os.path.basename(tbinfo[0]), str(tbinfo[1]))
-                        foo = QtGui.QMessageBox(parent=pyrat.app)
-                        foo.setIcon(1)
-                        foo.setText(textwrap.dedent(message))
-                        foo.exec_()
-                    logging.error(str(type(ex).__name__)+" in "+os.path.basename(tbinfo[0])+" (line "+str(tbinfo[1])+")")
+                    cls.crash_handler(ex)
             else:
                 layers = plugin.run()
                 del plugin
