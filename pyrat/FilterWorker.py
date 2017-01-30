@@ -1,8 +1,5 @@
-from __future__ import print_function
 import pyrat
 import logging
-import copy
-from pyrat.tools import ProgressBar
 
 
 def exec_parallel(args):
@@ -18,21 +15,24 @@ class FilterWorker(pyrat.Worker):
         Main routine doing the (parallel) block processing, calling the (overloaded) filter method.
         Before the actual processing, pre() is called, as well as post() after completing it.
         """
-        para = [foo['var'] for foo in self.para]
-        self.checkpara(kwargs, para)
-        logging.info(self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items()
-                                                 if k in para or k in kwargs)))
-        if self.checkinput():
-            self.pre(*args, **kwargs)
-            newlayer = self.layer_process(self.filter, silent=False, **kwargs)
-            pyrat.data.activateLayer(newlayer)
-            self.post(*args, **kwargs)
+        try:
+            para = [foo['var'] for foo in self.para]
+            self.checkpara(kwargs, para)
+            logging.info(self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items()
+                                                     if k in para or k in kwargs)))
+            if self.checkinput():
+                self.pre(*args, **kwargs)
+                newlayer = self.layer_process(self.filter, silent=False, **kwargs)
+                pyrat.data.activateLayer(newlayer)
+                self.post(*args, **kwargs)
 
-            if self.delete is True:
-                pyrat.delete(self.input)
-            return newlayer
-        else:
-            return False
+                if self.delete is True:
+                    pyrat.delete(self.input)
+                return newlayer
+            else:
+                return False
+        except Exception as ex:
+            self.crash_handler(ex)
 
     def filter(self, data, *args, **kwargs):
         """

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pyrat
 import scipy.fftpack as fftpack
 import numpy as np

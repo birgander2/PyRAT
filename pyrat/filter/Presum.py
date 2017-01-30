@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pyrat
 from pyrat.filter.tools import rebin
 import PIL

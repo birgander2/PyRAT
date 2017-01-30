@@ -1,8 +1,6 @@
-from __future__ import print_function
 import pyrat
 import numpy as np
 from scipy import ndimage
-
 import logging
 
 
