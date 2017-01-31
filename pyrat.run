@@ -1,53 +1,50 @@
 #!/usr/bin/env python
 
-from PyQt5 import QtGui, QtCore
+from PyQt5 import QtCore
 QtCore.pyqtRemoveInputHook()
-import sys, os
-import logging
+import sys, os, argparse
 import pyrat
-
-
-def usage():
-    logging.basicConfig(format='  %(message)s', level=logging.INFO)
-    logging.info(" ")
-    logging.info("  Usage: pyrat.run [OPTION] [RATFILE].")
-    logging.info("  Starts the PyRat environment, optionally loading the give filename")
-    logging.info(" ")
-    logging.info("  --help/-h     : Show this help")
-    logging.info("  --batch/-b    : Run in batch mode, not starting the gui")
-    logging.info(" ")
+from pyrat.lib.ste.ste_io import check_ratformat
 
 
 def main():
-    
-    if len(sys.argv) > 1:
-        if sys.argv[1] in ['-h', '--help']:
-            usage()
-            sys.exit()
-        elif sys.argv[1] in ['-b', '--batch']:
-            from pyrat.tools import HistoryConsole
-            vars = globals().copy()
-            vars.update(locals())
-            shell = HistoryConsole(vars)
-            # shell = code.InteractiveConsole(vars)
-            shell.push("from pyrat import *")
-            shell.push("pyrat_init()")
-            if len(sys.argv) == 3:
-                shell.push("load.rat(file='"+sys.argv[2]+"')")
-            shell.interact("  \n  You are in PyRAT batch mode\n")
-            sys.exit()
-        else:
-            pyrat.pyrat_init()
-            pyrat.load.rat(file=sys.argv[1])
-            pyrat.show()
-            sys.exit()
+    parser = argparse.ArgumentParser(description="PyRAT - Radar Tools")
+    parser.add_argument("-b", "--batch", help="Run in batch mode (not starting the viewer)", action="store_true")
+    parser.add_argument("-d", "--debug", help="Run in debug mode", action="store_true")
+    parser.add_argument("-t", "--temp", help="Override temporary directory settings")
+    parser.add_argument("FILE", help="file to open on startup (RATHDF or RAT type)", nargs='?', default="default.rat")
+
+    args = parser.parse_args()
+
+    if args.batch is True:
+        from pyrat.tools import HistoryConsole
+        vars = globals().copy()
+        vars.update(locals())
+        shell = HistoryConsole(vars)
+        shell.push("from pyrat import *")
+        launcher = "pyrat_init("
+        if args.debug:
+            launcher += "debug=True"
+        if args.temp:
+            launcher += "tmpdir='"+args.temp+"'"
+        launcher += ")"
+        shell.push(launcher)
+        if os.path.exists(args.FILE):
+            if check_ratformat(args.FILE):
+                shell.push("load.rat('" + args.FILE + "')")
+            else:
+                shell.push("load.rathdf('" + args.FILE + "')")
+        shell.interact("  \n  You are in PyRAT batch mode\n")
+        sys.exit()
     else:
-        pyrat.pyrat_init()
-        if os.path.exists("default.rat"):
-            pyrat.load.rat(file="default.rat")
+        pyrat.pyrat_init(debug=args.debug, tmpdir=args.temp)
+        if os.path.exists(args.FILE):
+            if check_ratformat(args.FILE):
+                pyrat.load.rat(args.FILE)
+            else:
+                pyrat.load.rathdf(args.FILE)
         pyrat.show()
         sys.exit()
-        # sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

@@ -115,13 +115,14 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     logging.info('OS detected : ' + sys.platform)
 
     # set up tmp dir
-    if cfg["tmpdir"] is not None:
-        tmpdir = cfg["tmpdir"]
-    else:
-        tmpdir = tempfile.gettempdir()
-        logging.warning(
-            bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
-        logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
+    if not tmpdir:
+        if cfg["tmpdir"] is not None:
+            tmpdir = cfg["tmpdir"]
+        else:
+            tmpdir = tempfile.gettempdir()
+            logging.warning(
+                bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
+            logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)

@@ -1002,6 +1002,15 @@ class RatFile():
         return tuple(shape[::-1])
 
 
+def check_ratformat(filename):
+    with open(filename, 'rb') as lun:
+        magiclong = lun.read(4)
+        if magiclong == b'RAT2':
+            return True
+        else:
+            return False
+
+
 def get_var(dtype):
     """Get ``RatHeaderRat.var`` value given ``dtype``."""
     var = [key for (key, value) in dtype_dict.items() if
