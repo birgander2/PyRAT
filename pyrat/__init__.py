@@ -1,4 +1,4 @@
-__version__ = '0.40-oss'
+__version__ = '0.40'
 
 import logging
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
@@ -87,18 +87,18 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     _debug = debug
 
     # read config file (~/.pyratrc or the win version)
-    cfg = read_config_file()
+    cfg = read_config_file(verbose=debug)
 
     # import plugins
     import_plugins(plugin_paths=cfg["plugin_paths"], verbose=True)
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
-    pool = multiprocessing.Pool(nthreads)
 
-   # if sys.platform.startswith('win'):
-   #      for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
-   #          pass                                       # COMMENT: seems not to be necessary anymore !?
+    pool = multiprocessing.Pool(nthreads)
+    # if sys.platform.startswith('win'):
+    #     for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
+    #         pass                                       # COMMENT: seems not to be necessary anymore !?
 
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
