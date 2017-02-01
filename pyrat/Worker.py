@@ -1,10 +1,8 @@
+from PyQt5 import QtCore, QtWidgets
+import pyrat
 import copy
 import logging
-
-from PyQt4 import QtGui, QtCore
-
-import pyrat
-from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors, PyratInputError
+from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
 
 
 def exec_out(args):
@@ -471,8 +469,9 @@ class Worker(object):
     def registerGUI(cls, viewer):
         shortcut = cls.gui['shortcut'] if 'shortcut' in cls.gui else ''
 
-        action = QtGui.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
-        viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
+        action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
+        # viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
+        action.triggered.connect(lambda: cls.guirun(viewer))
 
         if cls.gui['menu'] not in viewer.menue:
             logging.warning("\nWARNING: The gui annotation '" +

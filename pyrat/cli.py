@@ -202,11 +202,12 @@ def show():
 
     import pyrat
     import sys
-    from PyQt4 import QtGui
+    from PyQt5 import QtWidgets
 
     # active = pyrat.data.active
     # if isinstance(active, list):
-    #     active = active[0]
+     # if arr.ndim == 3 or arr.ndim == 4:
+    #     arr = arr[0:3, ...]
     #
     # arr = pyrat.data.getData(layer=active)
     #
@@ -216,7 +217,7 @@ def show():
     # if arr.ndim == 3 or arr.ndim == 4:
     #     arr = arr[0:3, ...]
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     pyrat.app = pyrat.viewer.MainWindow()
     pyrat.app.updateViewer()
     app.exec_()

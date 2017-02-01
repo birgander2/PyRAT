@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Qt4Agg')
+matplotlib.use('Qt5Agg')
 import pylab as plt
 from scipy.misc import bytescale
 from mpl_toolkits.mplot3d import Axes3D

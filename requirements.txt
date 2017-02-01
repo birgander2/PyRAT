@@ -1,5 +1,5 @@
 python>=3
-pyqt==4.11.4
+pyqt>=5
 numpy
 numexpr
 scipy

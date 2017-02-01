@@ -3,7 +3,7 @@ import glob, os
 import logging
 import copy
 import numpy as np
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtWidgets
 
 # from pyrat.load import RatFile
 from pyrat.load.tools import RatFile, Xml2Py
@@ -158,11 +158,11 @@ class FSAR(pyrat.ImportWorker):
             viewer.updateViewer()
 
 
-class FsarImportWidget(QtGui.QDialog):
+class FsarImportWidget(QtWidgets.QDialog):
     def __init__(self, parent=None, dir=None):
         super(FsarImportWidget, self).__init__(parent)
         self.setWindowTitle("FSAR import")
-        mainlayout = QtGui.QVBoxLayout(self)
+        mainlayout = QtWidgets.QVBoxLayout(self)
 
         self.dirwidget = FileselWidget(title='FSAR product dir', type='opendir')
         self.dirwidget.setvalue(dir)
@@ -174,7 +174,7 @@ class FsarImportWidget(QtGui.QDialog):
         self.cropwidget = CropBoxWidget(title='Select crop (0=maximum)')
         mainlayout.addWidget(self.cropwidget)
 
-        self.buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
                                               QtCore.Qt.Horizontal, self)
         mainlayout.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)

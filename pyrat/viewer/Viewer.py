@@ -1,8 +1,7 @@
-from __future__ import print_function
 import pyrat
 import numpy as np
 import logging
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 from .Dialogs import PaletteSelector, LayerWidget
 from .StatusBar import *
 from . import egg
@@ -11,9 +10,9 @@ from pyrat.tools import ProgressBar, colortables
 from pyrat.viewer.tools import sarscale, subsample
 
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        QtGui.QMainWindow.__init__(self)
+        QtWidgets.QMainWindow.__init__(self)
         self.setWindowTitle("PyRAT - Radar Tools")
 
         self.box = [0, 100, 0, 100]
@@ -42,19 +41,19 @@ class MainWindow(QtGui.QMainWindow):
         self.central.setSizes([150, 800])
         self.updateDisplayList()
         self.show()
-        self.rubberband = QtGui.QRubberBand(QtGui.QRubberBand.Rectangle, self.imageLabel)
+        self.rubberband = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, self.imageLabel)
         self.palette = 0
 
-        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self.easterEgg)
+        QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self.easterEgg)
         self.central.setMinimumSize(100, 100)
 
     def makeToolbar(self):
-        self.openTB = QtGui.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self)
-        self.closeTB = QtGui.QAction(QtGui.QIcon('icons/document-close.png'), 'Close', self)
+        self.openTB = QtWidgets.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self)
+        self.closeTB = QtWidgets.QAction(QtGui.QIcon('icons/document-close.png'), 'Close', self)
         # self.zoominTB = QtGui.QAction(QtGui.QIcon('icons/zoom-in.png'), 'Zoom in', self)
         # self.zoomoutTB = QtGui.QAction(QtGui.QIcon('icons/zoom-out.png'), 'Zoom out', self)
         #self.zoomresetTB = QtGui.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), 'Fit zoom', self)
-        self.seperatorTB = QtGui.QAction(self)
+        self.seperatorTB = QtWidgets.QAction(self)
 
         self.toolbar1 = self.addToolBar("File")
         self.toolbar1.addAction(self.openTB)
@@ -62,7 +61,7 @@ class MainWindow(QtGui.QMainWindow):
 
         self.toolbar2 = self.addToolBar("Display")
         self.toolbar2.addAction(self.zoomOutAct)
-        self.viewCombo = QtGui.QComboBox(self)
+        self.viewCombo = QtWidgets.QComboBox(self)
         self.viewCombo.insertItems(1, ["100%", "Fit to window", "Fit to width", "Fit to height", "100%"])
         self.viewCombo.setEditable(False)
         self.viewCombo.activated.connect(self.comboZoom)
@@ -81,22 +80,22 @@ class MainWindow(QtGui.QMainWindow):
 
     # -------------------------------- DEFAULT ACTIONS (only those not implemented trough plugins)
     def makeActions(self):
-        self.exitAct = QtGui.QAction('Exit', self, shortcut='Q', triggered=self.close)
-        self.zoomInAct = QtGui.QAction(QtGui.QIcon('icons/zoom-in.png'), "Zoom &In (25%)", self, shortcut="up",
+        self.exitAct = QtWidgets.QAction('Exit', self, shortcut='Q', triggered=self.close)
+        self.zoomInAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-in.png'), "Zoom &In (25%)", self, shortcut="up",
                                        triggered=lambda: self.zoom(3.0 / 2.0))
-        self.zoomOutAct = QtGui.QAction(QtGui.QIcon('icons/zoom-out.png'), "Zoom &Out (25%)", self, shortcut="down",
+        self.zoomOutAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-out.png'), "Zoom &Out (25%)", self, shortcut="down",
                                         triggered=lambda: self.zoom(2.0 / 3.0))
-        self.fitToWindowAct = QtGui.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), "Reset view", self, shortcut="f",
+        self.fitToWindowAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), "Reset view", self, shortcut="f",
                                             triggered=self.resetView)
-        self.viewAmpAct = QtGui.QAction("View as amplitude", self, checkable=True, shortcut="1",
+        self.viewAmpAct = QtWidgets.QAction("View as amplitude", self, checkable=True, shortcut="1",
                                         triggered=self.viewAsAmplitude)
-        self.viewPhaAct = QtGui.QAction("View as phase", self, checkable=True, shortcut="2", triggered=self.viewAsPhase)
-        self.viewCohAct = QtGui.QAction("View as coherence", self, checkable=True, shortcut="3",
+        self.viewPhaAct = QtWidgets.QAction("View as phase", self, checkable=True, shortcut="2", triggered=self.viewAsPhase)
+        self.viewCohAct = QtWidgets.QAction("View as coherence", self, checkable=True, shortcut="3",
                                         triggered=self.viewAsCoherence)
-        self.viewBrighter = QtGui.QAction("View brighter", self, shortcut="right", triggered=self.brighterView)
-        self.viewDarker = QtGui.QAction("View darker", self, shortcut="left", triggered=self.darkerView)
-        self.undoAct = QtGui.QAction('Undo', self, shortcut='Ctrl+z', triggered=self.undo)
-        self.paletteAct = QtGui.QAction(QtGui.QIcon('icons/color_wheel.png'), 'Palette', self,
+        self.viewBrighter = QtWidgets.QAction("View brighter", self, shortcut="right", triggered=self.brighterView)
+        self.viewDarker = QtWidgets.QAction("View darker", self, shortcut="left", triggered=self.darkerView)
+        self.undoAct = QtWidgets.QAction('Undo', self, shortcut='Ctrl+z', triggered=self.undo)
+        self.paletteAct = QtWidgets.QAction(QtGui.QIcon('icons/color_wheel.png'), 'Palette', self,
                                         triggered=self.paletteChooser)
 
     def easterEgg(self):
@@ -149,7 +148,7 @@ class MainWindow(QtGui.QMainWindow):
         self.menue["General"].addAction(self.viewBrighter)
         self.menue["General"].addAction(self.viewDarker)
         self.menue["General"].addSeparator()
-        self.viewSel = QtGui.QActionGroup(self.menue["General"], exclusive=True)
+        self.viewSel = QtWidgets.QActionGroup(self.menue["General"], exclusive=True)
         foo = self.viewSel.addAction(self.viewAmpAct)
         self.menue["General"].addAction(foo)
         foo = self.viewSel.addAction(self.viewPhaAct)
@@ -182,9 +181,9 @@ class MainWindow(QtGui.QMainWindow):
     def makeView(self):
         # self.central = QtGui.QWidget()
         # self.HLayout = QtGui.QHBoxLayout(self.central)
-        self.central = QtGui.QSplitter(self)
+        self.central = QtWidgets.QSplitter(self)
         self.central.setOpaqueResize(False)
-        self.central.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        self.central.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
         self.tree = LayerWidget(self)
         # self.tree.setFixedWidth(200)
@@ -193,14 +192,14 @@ class MainWindow(QtGui.QMainWindow):
 
         # self.HLayout.addItem(self.spacer)
 
-        self.frame = QtGui.QWidget()
+        self.frame = QtWidgets.QWidget()
         # self.frame = DelayedUpdater()
 
-        self.frame.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
-        self.imageLabel = QtGui.QLabel(self.frame)
+        self.frame.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.imageLabel = QtWidgets.QLabel(self.frame)
         self.imageLabel.setBackgroundRole(QtGui.QPalette.Base)
         self.imageLabel.setStyleSheet("QLabel { background-color: #333 }")
-        self.imageLabel.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        self.imageLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.imageLabel.setScaledContents(False)
         self.imageLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.imageLabel.resize(self.frame.width(), self.frame.height())
@@ -240,6 +239,8 @@ class MainWindow(QtGui.QMainWindow):
         layers = pyrat.data.getLayerNames()
         if not isinstance(layers, list):
             layers = [layers]
+
+
 
         for layer in layers:
             if layer not in self.display:
@@ -601,7 +602,7 @@ class MainWindow(QtGui.QMainWindow):
                     self.posval.adjustSize()
                     self.posval.show()
                 else:
-                    self.posval = QtGui.QLabel(txt)
+                    self.posval = QtWidgets.QLabel(txt)
                     self.posval.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                     self.posval.setWindowTitle("position / value")
                     self.posval.setGeometry(self.x()+xoff, self.y()+yoff, 200, 100)
@@ -611,7 +612,7 @@ class MainWindow(QtGui.QMainWindow):
                 self.dragX = event.x()
                 self.dragY = event.y()
 
-        QtGui.QWidget.mousePressEvent(self, event)
+        QtWidgets.QWidget.mousePressEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         if self.show_rubberband is True:
@@ -642,7 +643,7 @@ class MainWindow(QtGui.QMainWindow):
                 # if hasattr(self, "posval"):
                 #     self.posval.hide()
                 pass
-        QtGui.QWidget.mouseReleaseEvent(self, event)
+        QtWidgets.QWidget.mouseReleaseEvent(self, event)
 
     def mouseMoveEvent(self, event):
         if self.show_rubberband is True:
@@ -662,7 +663,7 @@ class MainWindow(QtGui.QMainWindow):
                     txt = self.getPosVal(x, y)
                     self.posval.setText(txt)
                     self.posval.adjustSize()
-        QtGui.QWidget.mouseMoveEvent(self, event)
+        QtWidgets.QWidget.mouseMoveEvent(self, event)
 
 
 class GenPyramid():

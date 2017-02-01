@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-ZetCode PyQt4 tutorial
+ZetCode PyQt4 tutorial (translated to PyQt5)
 
 This is a Tetris game clone.
 
@@ -12,10 +12,10 @@ last edited: October 2013
 """
 
 import sys, random
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Tetris(QtGui.QMainWindow):
+class Tetris(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(Tetris, self).__init__(parent)
 
@@ -38,13 +38,13 @@ class Tetris(QtGui.QMainWindow):
 
 
     def center(self):
-        screen = QtGui.QDesktopWidget().screenGeometry()
+        screen = QtWidgets.QDesktopWidget().screenGeometry()
         size = self.geometry()
         self.move((screen.width() - size.width()) / 2,
                   (screen.height() - size.height()) / 2)
 
 
-class Board(QtGui.QFrame):
+class Board(QtWidgets.QFrame):
     msg2Statusbar = QtCore.pyqtSignal(str)
 
     BoardWidth = 10
@@ -319,11 +319,11 @@ class Board(QtGui.QFrame):
         painter.fillRect(x + 1, y + 1, self.squareWidth() - 2,
                          self.squareHeight() - 2, color)
 
-        painter.setPen(color.light())
+        painter.setPen(color.lighter())
         painter.drawLine(x, y + self.squareHeight() - 1, x, y)
         painter.drawLine(x, y, x + self.squareWidth() - 1, y)
 
-        painter.setPen(color.dark())
+        painter.setPen(color.darker())
         painter.drawLine(x + 1, y + self.squareHeight() - 1,
                          x + self.squareWidth() - 1, y + self.squareHeight() - 1)
         painter.drawLine(x + self.squareWidth() - 1,
@@ -463,7 +463,7 @@ class Shape(object):
 
 
 def main():
-    app = QtGui.QApplication([])
+    app = QtWidgets.QApplication([])
     tetris = Tetris()
     sys.exit(app.exec_())
 

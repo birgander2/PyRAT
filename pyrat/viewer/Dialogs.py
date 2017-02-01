@@ -1,64 +1,64 @@
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 import pyrat
 
 
-class FlexInputDialog(QtGui.QDialog):
+class FlexInputDialog(QtWidgets.QDialog):
     def __init__(self, params, title='', doc='no help available', parent=None):
         super(FlexInputDialog, self).__init__(parent)
         self.setWindowTitle(title)
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
         self.para = params
         self.read = []
         self.doc = doc
 
         for para in params:
-            line = QtGui.QHBoxLayout()
-            line.addWidget(QtGui.QLabel(para['text']))
+            line = QtWidgets.QHBoxLayout()
+            line.addWidget(QtWidgets.QLabel(para['text']))
             readline = {'var': para['var'], 'type': para['type'], 'widget': []}
-            valuebox = QtGui.QVBoxLayout()
+            valuebox = QtWidgets.QVBoxLayout()
             line.addLayout(valuebox)
             layout.addLayout(line)
             vals = para['value'] if isinstance(para['value'], list) else [para['value']]
             if 'subtext' not in para:
                 para.update({'subtext': [' '] * len(vals)})
-            hbox = QtGui.QGridLayout()
+            hbox = QtWidgets.QGridLayout()
             valuebox.addLayout(hbox)
             for j, (val, txt) in enumerate(zip(vals, para['subtext'])):
-                hbox.addWidget(QtGui.QLabel(txt), j, 0)
+                hbox.addWidget(QtWidgets.QLabel(txt), j, 0)
                 if para['type'] == 'int':
-                    wid = QtGui.QSpinBox()
+                    wid = QtWidgets.QSpinBox()
                     if 'range' not in para:
                         para['range'] = [-99999, 99999]
                     wid.setMinimum(para['range'][0])
                     wid.setMaximum(para['range'][1])
                     wid.setValue(val)
                 elif para['type'] == 'float':
-                    wid = QtGui.QDoubleSpinBox()
+                    wid = QtWidgets.QDoubleSpinBox()
                     if 'range' in para:
                         wid.setMinimum(para['range'][0])
                         wid.setMaximum(para['range'][1])
                     wid.setValue(val)
                 elif para['type'] == 'bool':
-                    wid = QtGui.QCheckBox()
+                    wid = QtWidgets.QCheckBox()
                     if val:
                         wid.setCheckState(2)
                 elif para['type'] == 'list':
-                    wid = QtGui.QComboBox()
+                    wid = QtWidgets.QComboBox()
                     wid.addItems(para['range'])
                     wid.setCurrentIndex(para['range'].index(val))
                 elif para['type'] in ['openfile', 'opendir', 'savefile']:
                     wid = FlexFilesel(para['type'])
                 elif para['type'] == 'str':
-                    wid = QtGui.QLineEdit()
+                    wid = QtWidgets.QLineEdit()
                     wid.setText(val)
                 readline['widget'].append(wid)
                 hbox.addWidget(wid, j, 1)
             # layout.addWidget(HLine())
             self.read.append(readline)
 
-        self.buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel |
-                                              QtGui.QDialogButtonBox.Help, QtCore.Qt.Horizontal, self)
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel |
+                                              QtWidgets.QDialogButtonBox.Help, QtCore.Qt.Horizontal, self)
         layout.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
@@ -96,51 +96,51 @@ class FlexInputDialog(QtGui.QDialog):
             doc = publish_parts(self.doc, writer_name='html')['html_body']
         except ImportError:
             doc = self.doc
-        foo = QtGui.QMessageBox.information(self, "Routine documentation", doc, QtGui.QMessageBox.Ok)
+        foo = QtWidgets.QMessageBox.information(self, "Routine documentation", doc, QtWidgets.QMessageBox.Ok)
 
 
-class FlexFilesel(QtGui.QWidget):
+class FlexFilesel(QtWidgets.QWidget):
     def __init__(self, type='filename', parent=None):
         self.type = type
         self.value = ''
         super(FlexFilesel, self).__init__(parent)
-        layout = QtGui.QHBoxLayout(self)
-        self.wid = QtGui.QLineEdit()
+        layout = QtWidgets.QHBoxLayout(self)
+        self.wid = QtWidgets.QLineEdit()
         self.wid.setFixedWidth(300)
         layout.addWidget(self.wid)
-        self.button = QtGui.QPushButton("Select")
+        self.button = QtWidgets.QPushButton("Select")
         layout.addWidget(self.button)
         self.button.clicked.connect(self.filesel)
 
     def filesel(self):
         if self.type == 'openfile':
-            self.value = str(QtGui.QFileDialog.getOpenFileName())
+            self.value = str(QtWidgets.QFileDialog.getOpenFileName()[0])
         elif self.type == 'opendir':
-            self.value = str(QtGui.QFileDialog.getExistingDirectory())
+            self.value = str(QtWidgets.QFileDialog.getExistingDirectory())
         elif self.type == 'savefile':
-            self.value = str(QtGui.QFileDialog.getSaveFileName())
+            self.value = str(QtWidgets.QFileDialog.getSaveFileName()[0])
         self.wid.setText(self.value)
 
     def text(self):
         return self.wid.text()
 
 
-class PaletteSelector(QtGui.QDialog):
+class PaletteSelector(QtWidgets.QDialog):
     def __init__(self, tables, current=0, parent=None):
         super(PaletteSelector, self).__init__(parent)
         self.pnames, self.pcolors = tables
         self.palette = current
         self.setWindowTitle("Colour palette chooser")
-        layout = QtGui.QVBoxLayout(self)
-        self.showpalette = QtGui.QLabel()
+        layout = QtWidgets.QVBoxLayout(self)
+        self.showpalette = QtWidgets.QLabel()
         self.update(self.palette)
-        wid = QtGui.QLabel("Select colour palette:")
+        wid = QtWidgets.QLabel("Select colour palette:")
         layout.addWidget(self.showpalette)
         layout.addWidget(wid)
-        self.list = QtGui.QListWidget()
+        self.list = QtWidgets.QListWidget()
         self.list.addItems(self.pnames)
         layout.addWidget(self.list)
-        self.buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel, QtCore.Qt.Horizontal, self)
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel, QtCore.Qt.Horizontal, self)
         layout.addWidget(self.buttons)
 
         self.buttons.accepted.connect(self.accept)
@@ -153,20 +153,20 @@ class PaletteSelector(QtGui.QDialog):
 
     def update(self, n):
         self.palette = n
-        img = QtGui.QImage(self.pcolors[n].tostring(), 256, 1, QtGui.QImage.Format_RGB888)
-        self.showpalette.setPixmap(QtGui.QPixmap.fromImage(img).scaled(300,50))
+        img = QtWidgets.QImage(self.pcolors[n].tostring(), 256, 1, QtWidgets.QImage.Format_RGB888)
+        self.showpalette.setPixmap(QtWidgets.QPixmap.fromImage(img).scaled(300,50))
 
 
-class LayerWidget(QtGui.QWidget):
+class LayerWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(LayerWidget, self).__init__(parent)
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         self.treewidget = LayerTreeWidget(parent=self, viewer=parent)
         layout.addWidget(self.treewidget)
-        foo = QtGui.QHBoxLayout()
-        self.button_bw = QtGui.QRadioButton("B/W mode      ")
-        self.button_co = QtGui.QRadioButton("RGB mode      ")
+        foo = QtWidgets.QHBoxLayout()
+        self.button_bw = QtWidgets.QRadioButton("B/W mode      ")
+        self.button_co = QtWidgets.QRadioButton("RGB mode      ")
         self.button_bw.setChecked(True)
         foo.addWidget(self.button_bw)
         foo.addWidget(self.button_co)
@@ -197,9 +197,9 @@ class LayerWidget(QtGui.QWidget):
         self.treewidget.redraw()
 
 
-class LayerTreeWidget(QtGui.QTreeWidget):
+class LayerTreeWidget(QtWidgets.QTreeWidget):
     def __init__(self, parent=None, viewer=None):
-        QtGui.QTreeWidget.__init__(self, parent)
+        QtWidgets.QTreeWidget.__init__(self, parent)
         self.treelements = {}
         self.viewer = viewer
         self.colors = {
@@ -232,7 +232,7 @@ class LayerTreeWidget(QtGui.QTreeWidget):
                 ltext = meta['info']
             else:
                 ltext = layer.strip('/')
-            self.treelements[lname] = QtGui.QTreeWidgetItem()
+            self.treelements[lname] = QtWidgets.QTreeWidgetItem()
             self.treelements[lname].setText(0, ltext)
             self.treelements[lname].setWhatsThis(0, layer)
             self.treelements[lname].setFlags(self.treelements[lname].flags() | QtCore.Qt.ItemIsEditable)
@@ -243,25 +243,25 @@ class LayerTreeWidget(QtGui.QTreeWidget):
             query = pyrat.data.queryLayer(layer)
             font = QtGui.QFont("Monospace")
             font.setStyleHint(QtGui.QFont.TypeWriter)
-            meta = QtGui.QTreeWidgetItem()
+            meta = QtWidgets.QTreeWidgetItem()
             meta.setText(0, 'meta')
-            foo = QtGui.QTreeWidgetItem()
+            foo = QtWidgets.QTreeWidgetItem()
             foo.setFont(0, font)
             foo.setText(0, 'sensor: ' + sensor)
             meta.addChild(foo)
-            foo = QtGui.QTreeWidgetItem()
+            foo = QtWidgets.QTreeWidgetItem()
             foo.setFont(0, font)
             foo.setText(0, 'band  : ' + band)
             meta.addChild(foo)
-            foo = QtGui.QTreeWidgetItem()
+            foo = QtWidgets.QTreeWidgetItem()
             foo.setFont(0, font)
             foo.setText(0, 'dsize : ' + str(query['dshape']))
             meta.addChild(foo)
-            foo = QtGui.QTreeWidgetItem()
+            foo = QtWidgets.QTreeWidgetItem()
             foo.setFont(0, font)
             foo.setText(0, 'lsize : ' + str(query['lshape']))
             meta.addChild(foo)
-            foo = QtGui.QTreeWidgetItem()
+            foo = QtWidgets.QTreeWidgetItem()
             foo.setFont(0, font)
             foo.setText(0, 'type  : ' + str(query['dtype']))
             meta.addChild(foo)
@@ -276,7 +276,7 @@ class LayerTreeWidget(QtGui.QTreeWidget):
                     cname = metadata['CH_pol'][k]
                 if 'CH_name' in metadata:
                     cname = metadata['CH_name'][k]
-                self.treelements[channel] = QtGui.QTreeWidgetItem()
+                self.treelements[channel] = QtWidgets.QTreeWidgetItem()
                 self.treelements[channel].setText(0, cname)
                 self.treelements[channel].setWhatsThis(0, channel)
                 self.treelements[lname].addChild(self.treelements[channel])
@@ -311,45 +311,43 @@ class LayerTreeWidget(QtGui.QTreeWidget):
                 citem.setFont(0, font)
 
     def setColors(self):
-
         parent = self.invisibleRootItem()
         for k in range(parent.childCount()):
             litem = parent.child(k)
             for l in range(litem.childCount()):
                 citem = litem.child(l)
-
                 if self.viewer.config['colour'] is False:
                     if citem.whatsThis(0) == self.viewer.config['bwlayer']:
-                        citem.setBackgroundColor(0, self.colors['gray'])
+                        citem.setBackground(0, self.colors['gray'])
                     else:
                         citem.setBackground(0, self.colors['default'])
                 else:
                     if citem.whatsThis(0) == self.viewer.config['rgblayer'][0] and \
                             citem.whatsThis(0) == self.viewer.config['rgblayer'][1] and \
                             citem.whatsThis(0) == self.viewer.config['rgblayer'][2]:
-                        citem.setBackgroundColor(0, self.colors['gray'])
+                        citem.setBackground(0, self.colors['gray'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][0] and \
                             citem.whatsThis(0) == self.viewer.config['rgblayer'][1]:
-                        citem.setBackgroundColor(0, self.colors['redgreen'])
+                        citem.setBackground(0, self.colors['redgreen'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][0] and \
                             citem.whatsThis(0) == self.viewer.config['rgblayer'][2]:
-                        citem.setBackgroundColor(0, self.colors['redblue'])
+                        citem.setBackground(0, self.colors['redblue'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][1] and \
                             citem.whatsThis(0) == self.viewer.config['rgblayer'][2]:
-                        citem.setBackgroundColor(0, self.colors['bluegreen'])
+                        citem.setBackground(0, self.colors['bluegreen'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][0]:
-                        citem.setBackgroundColor(0, self.colors['red'])
+                        citem.setBackground(0, self.colors['red'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][1]:
-                        citem.setBackgroundColor(0, self.colors['green'])
+                        citem.setBackground(0, self.colors['green'])
                     elif citem.whatsThis(0) == self.viewer.config['rgblayer'][2]:
-                        citem.setBackgroundColor(0, self.colors['blue'])
+                        citem.setBackground(0, self.colors['blue'])
                     else:
                         citem.setBackground(0, self.colors['default'])
 
     def treeContextMenu(self, position):
         item = self.currentItem()
         itemname = item.whatsThis(0).split('/')[-1]
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         if itemname[0] is 'L':
             itemname = item.whatsThis(0)
             menu.addAction("show / activate", lambda: self.activate(itemname))
@@ -365,7 +363,7 @@ class LayerTreeWidget(QtGui.QTreeWidget):
 
             methods = ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']
             for meth in methods:
-                foo = QtGui.QAction(meth, scalemenu, checkable=True)
+                foo = QtWidgets.QAction(meth, scalemenu, checkable=True)
                 if scaling == meth:
                     foo.setChecked(True)
                 foo.changed.connect(lambda m=meth: self.scaling(itemname, m))

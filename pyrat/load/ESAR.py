@@ -1,8 +1,7 @@
-from __future__ import print_function
 import pyrat, glob, os, logging, copy
 import numpy as np
 from pyrat.viewer.Widgets import HLine, CropBoxWidget, FileselWidget, ProductContentWidget
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtWidgets
 
 
 class ESAR(pyrat.ImportWorker):
@@ -188,11 +187,11 @@ class ESAR(pyrat.ImportWorker):
             viewer.updateViewer()
 
 
-class EsarImportWidget(QtGui.QDialog):
+class EsarImportWidget(QtWidgets.QDialog):
     def __init__(self, parent=None, dir=None):
         super(EsarImportWidget, self).__init__(parent)
         self.setWindowTitle("ESAR import")
-        mainlayout = QtGui.QVBoxLayout(self)
+        mainlayout = QtWidgets.QVBoxLayout(self)
 
         self.dirwidget = FileselWidget(title='ESAR product directory (RGI-SR)', type='opendir')
         self.dirwidget.setvalue(dir)
@@ -204,7 +203,7 @@ class EsarImportWidget(QtGui.QDialog):
         self.cropwidget = CropBoxWidget(title='Select crop (0=maximum)')
         mainlayout.addWidget(self.cropwidget)
 
-        self.buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
                                               QtCore.Qt.Horizontal, self)
         mainlayout.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)

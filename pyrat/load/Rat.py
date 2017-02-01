@@ -4,8 +4,6 @@ import tempfile
 import pyrat
 import logging
 import numpy as np
-from PyQt4 import QtCore, QtGui
-#from pyrat.load.tools import rrat, RatFile
 from pyrat.lib.ste import rrat, RatFile
 
 

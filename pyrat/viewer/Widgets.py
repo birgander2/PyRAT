@@ -1,28 +1,28 @@
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtWidgets
 
 
-class CropBoxWidget(QtGui.QWidget):
+class CropBoxWidget(QtWidgets.QWidget):
     """
     Custom widget for crop region queries (4 values)
     """
     def __init__(self, title=None, parent=None):
         super(CropBoxWidget, self).__init__(parent)
         self.value = [0]*4
-        layout = QtGui.QGridLayout(self)
+        layout = QtWidgets.QGridLayout(self)
         if isinstance(title, str):
-            layout.addWidget(QtGui.QLabel(title), 0, 0)
-        self.crop1 = QtGui.QSpinBox()
-        self.crop2 = QtGui.QSpinBox()
-        self.crop3 = QtGui.QSpinBox()
-        self.crop4 = QtGui.QSpinBox()
-        cropbox = QtGui.QGridLayout()
-        cropbox.addWidget(QtGui.QLabel("range start"), 0, 0)
+            layout.addWidget(QtWidgets.QLabel(title), 0, 0)
+        self.crop1 = QtWidgets.QSpinBox()
+        self.crop2 = QtWidgets.QSpinBox()
+        self.crop3 = QtWidgets.QSpinBox()
+        self.crop4 = QtWidgets.QSpinBox()
+        cropbox = QtWidgets.QGridLayout()
+        cropbox.addWidget(QtWidgets.QLabel("range start"), 0, 0)
         cropbox.addWidget(self.crop1, 1, 0)
-        cropbox.addWidget(QtGui.QLabel("range end"), 2, 0)
+        cropbox.addWidget(QtWidgets.QLabel("range end"), 2, 0)
         cropbox.addWidget(self.crop2, 3, 0)
-        cropbox.addWidget(QtGui.QLabel("azimuth start"), 0, 1)
+        cropbox.addWidget(QtWidgets.QLabel("azimuth start"), 0, 1)
         cropbox.addWidget(self.crop3, 1, 1)
-        cropbox.addWidget(QtGui.QLabel("azimuth end"), 2, 1)
+        cropbox.addWidget(QtWidgets.QLabel("azimuth end"), 2, 1)
         cropbox.addWidget(self.crop4, 3, 1)
         layout.addLayout(cropbox, 1, 0)
         self.minmaxMemory = []
@@ -64,7 +64,7 @@ class CropBoxWidget(QtGui.QWidget):
         self.crop4.setMaximum(minmax[1][1])
 
 
-class FileselWidget(QtGui.QWidget):
+class FileselWidget(QtWidgets.QWidget):
     """
     Custom widget for file selection
     """
@@ -72,14 +72,14 @@ class FileselWidget(QtGui.QWidget):
         super(FileselWidget, self).__init__(parent)
         self.type = type
         self.value = ''
-        mainlayout = QtGui.QGridLayout(self)
+        mainlayout = QtWidgets.QGridLayout(self)
         if isinstance(title, str):
-            mainlayout.addWidget(QtGui.QLabel(title), 0, 0)
-        layout = QtGui.QHBoxLayout()
-        self.text = QtGui.QLineEdit()
+            mainlayout.addWidget(QtWidgets.QLabel(title), 0, 0)
+        layout = QtWidgets.QHBoxLayout()
+        self.text = QtWidgets.QLineEdit()
         self.text.setFixedWidth(300)
         layout.addWidget(self.text)
-        self.button = QtGui.QPushButton("Select")
+        self.button = QtWidgets.QPushButton("Select")
         layout.addWidget(self.button)
         mainlayout.addLayout(layout, 1, 0)
         self.button.clicked.connect(self.filesel)
@@ -88,11 +88,11 @@ class FileselWidget(QtGui.QWidget):
 
     def filesel(self):
         if self.type == 'openfile':
-            self.value = str(QtGui.QFileDialog(self).getOpenFileName())
+            self.value = str(QtWidgets.QFileDialog(self).getOpenFileName()[0])
         elif self.type == 'opendir':
-            self.value = str(QtGui.QFileDialog(self).getExistingDirectory())
+            self.value = str(QtWidgets.QFileDialog(self).getExistingDirectory())
         elif self.type == 'savefile':
-            self.value = str(QtGui.QFileDialog(self).getSaveFileName())
+            self.value = str(QtWidgets.QFileDialog(self).getSaveFileName()[0])
 
         self.text.setText(self.value)
 
@@ -104,7 +104,7 @@ class FileselWidget(QtGui.QWidget):
         return self.text.text()
 
 
-class ProductContentWidget(QtGui.QWidget):
+class ProductContentWidget(QtWidgets.QWidget):
     """
     Custom widget for product component selection
     """
@@ -112,22 +112,22 @@ class ProductContentWidget(QtGui.QWidget):
         super(ProductContentWidget, self).__init__(parent)
         self.bandflag = bands
         self.polflag = polar
-        mainlayout = QtGui.QGridLayout(self)
+        mainlayout = QtWidgets.QGridLayout(self)
         if isinstance(title, str):
-            mainlayout.addWidget(QtGui.QLabel(title), 0, 0)
-        layout = QtGui.QGridLayout()
-        layout.addWidget(QtGui.QLabel("Product"), 0, 0)
-        self.product = QtGui.QComboBox()
+            mainlayout.addWidget(QtWidgets.QLabel(title), 0, 0)
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(QtWidgets.QLabel("Product"), 0, 0)
+        self.product = QtWidgets.QComboBox()
         self.product.addItems(products)
         layout.addWidget(self.product, 1, 0)
         if self.bandflag is True:
-            layout.addWidget(QtGui.QLabel("Band"), 0, 1)
-            self.band = QtGui.QComboBox()
+            layout.addWidget(QtWidgets.QLabel("Band"), 0, 1)
+            self.band = QtWidgets.QComboBox()
             self.band.addItems(["*"])
             layout.addWidget(self.band, 1, 1)
         if self.polflag is True:
-            layout.addWidget(QtGui.QLabel("Polarisation"), 0, 2)
-            self.polar = QtGui.QComboBox()
+            layout.addWidget(QtWidgets.QLabel("Polarisation"), 0, 2)
+            self.polar = QtWidgets.QComboBox()
             self.polar.addItems(["*"])
             layout.addWidget(self.polar, 1, 2)
         mainlayout.addLayout(layout, 1, 0)
@@ -172,27 +172,27 @@ class ProductContentWidget(QtGui.QWidget):
             self.product.addItem(p)
 
 
-class HLine(QtGui.QFrame):
+class HLine(QtWidgets.QFrame):
     """
     Class for drawining a horiyontal line in a qt widget
     """
     def __init__(self, parent=None):
         super(HLine, self).__init__(parent)
-        self.setFrameShape(QtGui.QFrame.HLine)
-        self.setFrameShadow(QtGui.QFrame.Sunken)
+        self.setFrameShape(QtWidgets.QFrame.HLine)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
 
 
-class VLine(QtGui.QFrame):
+class VLine(QtWidgets.QFrame):
     """
     Class for drawining a vertical line in a qt widget
     """
     def __init__(self, parent=None):
         super(VLine, self).__init__(parent)
-        self.setFrameShape(QtGui.QFrame.VLine)
-        self.setFrameShadow(QtGui.QFrame.Sunken)
+        self.setFrameShape(QtWidgets.QFrame.VLine)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
 
 
-class DelayedUpdater(QtGui.QWidget):
+class DelayedUpdater(QtWidgets.QWidget):
 
     def __init__(self):
         super(DelayedUpdater, self).__init__()
