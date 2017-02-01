@@ -19,6 +19,8 @@ class FSAR(pyrat.ImportWorker):
     :type dir: str
     :param match: A matching string to select subset of files
     :type match: string
+    :param suffix: An optional suffix appended to the INF directory (i.e. INF_<suffix>)
+    :type suffix: string
     :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
     :type crop: tuple
     :author: Andreas Reigber
@@ -29,6 +31,7 @@ class FSAR(pyrat.ImportWorker):
         {'var': 'bands', 'value': '*'},
         {'var': 'polarisations', 'value': '*'},
         {'var': 'product', 'value': 'RGI-SLC'},
+        {'var': 'suffix', 'value': ''},
         {'var': 'crop', 'value': [0, 0, 0, 0]},
         {'var': 'mask', 'type': bool, 'value': False}]
 
@@ -48,7 +51,7 @@ class FSAR(pyrat.ImportWorker):
             src = ('RGI', 'RGI-SR')
         if self.product == 'INF-SLC':
             head = 'slc_coreg'
-            src = ('INF', 'INF-SR')
+            src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
         if self.product == 'INF-CIR':
             head = 'slcpol'
             src = ('INF', 'INF-SR')
@@ -103,7 +106,7 @@ class FSAR(pyrat.ImportWorker):
                         ppfile = f.replace('RGI-SR', 'RGI-RDP').replace('amp_', 'pp_').replace('.rat', '.xml')
                     if self.product == 'INF-SLC':
                         ppname = 'pp_' + '_'.join(os.path.basename(f).split('_')[3:]).replace('.rat', '.xml')
-                        ppfile = os.path.join(self.dir, 'INF', 'INF-RDP', ppname)
+                        ppfile = os.path.join(self.dir, src[0], 'INF-RDP', ppname)
                     if self.product == 'INF-CIR':
                         ppname = 'ppgeo_csar_' + '_'.join(os.path.basename(f).split('_')[1:4]) + '.xml'
                         ppfile = os.path.join(self.dir, 'GTC', 'GTC-RDP', ppname)
@@ -334,6 +337,8 @@ class FSAR_phadem(pyrat.ImportWorker):
     :type dir: str
     :param match: A matching string to select subset of files
     :type match: string
+    :param suffix: An optional suffix appended to the INF directory (i.e. INF_<suffix>)
+    :type suffix: string
     :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
     :type crop: tuple
     :author: Andreas Reigber
@@ -343,6 +348,7 @@ class FSAR_phadem(pyrat.ImportWorker):
         {'var': 'dir', 'value': ''},
         {'var': 'bands', 'value': '*'},
         {'var': 'product', 'value': 'RGI-SLC'},
+        {'var': 'suffix', 'value': ''},
         {'var': 'crop', 'value': [0, 0, 0, 0]}
     ]
 
@@ -355,7 +361,7 @@ class FSAR_phadem(pyrat.ImportWorker):
     def reader(self, *args, **kwargs):
 
         head = 'pha_dem'
-        src = ('INF', 'INF-SR')
+        src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
 
         files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper() + '*.rat'))
         bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
@@ -405,6 +411,8 @@ class FSAR_kz(pyrat.ImportWorker):
     :type dir: str
     :param match: A matching string to select subset of files
     :type match: string
+    :param suffix: An optional suffix appended to the INF directory (i.e. INF_<suffix>)
+    :type suffix: string
     :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
     :type crop: tuple
     :author: Andreas Reigber
@@ -414,6 +422,7 @@ class FSAR_kz(pyrat.ImportWorker):
         {'var': 'dir', 'value': ''},
         {'var': 'bands', 'value': '*'},
         {'var': 'polarisations', 'value': '*'},
+        {'var': 'suffix', 'value': ''},
         {'var': 'crop', 'value': [0, 0, 0, 0]}
     ]
 
@@ -426,7 +435,7 @@ class FSAR_kz(pyrat.ImportWorker):
     def reader(self, *args, **kwargs):
 
         head = 'kz'
-        src = ('INF', 'INF-SR')
+        src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
 
         files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*'
                                        + self.bands.upper() + self.polarisations.lower() + '*.rat'))
