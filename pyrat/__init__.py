@@ -10,7 +10,7 @@ if sys.version < "3":
 try:
     import PyQt5
 except ImportError:
-    logging.error("PyQt5 is required to run PyRAT (see requirements.txt and README.md). Please install it an try again!")
+    logging.error("PyQt5 is required to run PyRAT. Please install requirements (see README.md) and try again !")
     sys.exit()
 
 # # extract svn version number
