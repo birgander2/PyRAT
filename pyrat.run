@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
+import pyrat
 from PyQt5 import QtCore
 QtCore.pyqtRemoveInputHook()
 import sys, os, argparse
-import pyrat
 from pyrat.lib.ste.ste_io import check_ratformat
 
 

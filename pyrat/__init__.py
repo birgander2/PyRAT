@@ -1,8 +1,17 @@
 __version__ = '0.40'
 
-import logging
+import logging, sys
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
 import scipy.misc                           # workaround for problems with pillow / gdal not working nicely together
+
+if sys.version < "3":
+    logging.error("You are running Python " + sys.version[0:3] + ": Python 3.x is required to run PyRAT!!!")
+    sys.exit()
+try:
+    import PyQt5
+except ImportError:
+    logging.error("PyQt5 is required to run PyRAT (see requirements.txt and README.md). Please install it an try again!")
+    sys.exit()
 
 # # extract svn version number
 # try:
@@ -106,10 +115,6 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
         logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
     else:
         logging.basicConfig(format='  %(message)s', level=logging.INFO)
-
-    if sys.version < "3":
-        logging.warning("You are running Python " + sys.version[0:3] + ": Python 3.x is recommended to run PyRat!!!")
-        logging.warning("Under Python2, funny things might happen. You have been warned!")
 
     logging.info('\n  Welcome to PyRAT (v%s)' % (__version__))
     logging.info('OS detected : ' + sys.platform)
