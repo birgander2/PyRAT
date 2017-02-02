@@ -175,7 +175,7 @@ class ESAR(pyrat.ImportWorker):
     @classmethod
     def guirun(cls, viewer):
         para_backup = copy.deepcopy(cls.para)  # keep a deep copy of the default parameters
-        wid = EsarImportWidget(dir=cls.para[[par['var'] for par in cls.para].index('filename')]['value'])
+        wid = EsarImportWidget(dir=cls.para[[par['var'] for par in cls.para].index('file')]['value'])
         wid.update()
         res = wid.exec_()
         if res == 1:
