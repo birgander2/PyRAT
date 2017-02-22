@@ -122,4 +122,4 @@ this should explain at least the basics of programming own modules. Put your own
 in the 'plugins' directory, it is automatically scanned at startup. PyRat will automatically
 attach your code to the GUI and run it using parallel processing.
 
-For more detailed questions, please contact the authors directly.
+For more detailed questions, please contact us directly (anderl@nought.de)
