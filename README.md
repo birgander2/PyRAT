@@ -123,3 +123,15 @@ in the 'plugins' directory, it is automatically scanned at startup. PyRat will a
 attach your code to the GUI and run it using parallel processing.
 
 For more detailed questions, please contact us directly (anderl@nought.de)
+
+## Getting involved
+
+PyRAT is an open project - we happily welcome external contributions. So if you are interested in joining the team
+or if you have own modules you would like to see in the official PyRAT distribution,  please get in touch with 
+us (Email: anderl@nought.de). If needed, we can provide you with more information on how to contribute and how to program PyRAT.
+
+In particular, we are currently looking for help in the following areas:
+* Processing modules of any kind (of course)
+* GUI programming (we are not good in this)
+* Windows integration / testing / packaging 
+* Better documentation
