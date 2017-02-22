@@ -1,4 +1,3 @@
-from __future__ import print_function
 import h5py, os, logging, tempfile
 import numpy as np
 from pyrat.tools import deshape

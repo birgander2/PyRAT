@@ -10,8 +10,6 @@ used by DLR-HR institute and some others.
 
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 from functools import reduce
 import ctypes
 import os
@@ -1161,14 +1159,17 @@ class Py2Xml(object):
                  int: (str,'long'), \
                  float:(str,'double'), \
                  complex:(lambda z:'({},{})'.format(z.real,z.imag),'complex')}
+        cdict[np.uint8] = cdict[int]
         cdict[np.int32] = cdict[int]
+        cdict[np.uint32] = cdict[int]
         cdict[np.int64] = cdict[int]
+        cdict[np.uint64] = cdict[int]
         cdict[np.float32] = (str,'float')
         cdict[np.float64] = cdict[float]
         cdict[np.complex64] = cdict[complex]
 
         if (isinstance(value, np.ndarray)):
-            t.attrib['length'] = ' '.join([str(l) for l in value.shape])
+            t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
             vtype = type(value.flat[0])
             t.text = cdict[vtype][1]
             v.text = '['+', '.join([cdict[vtype][0](val) for val in value.flat])+']'
@@ -1213,3 +1214,7 @@ class Py2Xml(object):
 
     def write(self, filename):
         self.tree.write(filename)
+
+
+    def tostring(self):
+        return ET.tostring(self.tree.getroot())

@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtWidgets
 import pyrat
-import copy
+import copy, sys
 import logging
 from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
 
@@ -455,7 +455,7 @@ class Worker(object):
                 Error : %s
                 %s in %s (line %s)
                 """ % (ex, str(type(ex).__name__), os.path.basename(tbinfo[0]), str(tbinfo[1]))
-                foo = QtGui.QMessageBox(parent=pyrat.app)
+                foo = QtWidgets.QMessageBox(parent=pyrat.app)
                 foo.setIcon(1)
                 foo.setText(textwrap.dedent(message))
                 foo.exec_()
@@ -491,25 +491,36 @@ class Worker(object):
         viewer.menue[cls.gui['menu']].insertAction(before, action)        # finally insert entry...
 
     @classmethod
-    def guirun(cls, viewer):
+    def guirun(cls, viewer, title=None):
+        if not hasattr(pyrat, "app"):
+            QtCore.pyqtRemoveInputHook()
+            app = QtWidgets.QApplication(sys.argv)
+
         para_backup = copy.deepcopy(cls.para)                # keep a deep copy of the default parameters
         res = 1
         if len(cls.para) > 0:
-            wid = pyrat.viewer.Dialogs.FlexInputDialog(cls.para, parent=viewer, doc=cls.__doc__)
+            if title is None:
+                title = cls().name
+            wid = pyrat.viewer.Dialogs.FlexInputDialog(cls.para, parent=viewer, title=title, doc=cls.__doc__)
             res = wid.exec_()
         if res == 1:
             plugin = cls()                                   # instance with new parameters
             setattr(cls, 'para', para_backup)                # copy back the defaults
-            viewer.statusBar.setMessage(message=' '+plugin.name+' ', colour = 'R')
+            if hasattr(pyrat, "app"):
+                viewer.statusBar.setMessage(message=' '+plugin.name+' ', colour = 'R')
             if pyrat._debug is False:
                 try:
                     layers = plugin.run()
                     del plugin
-                    viewer.updateViewer(layer=layers)
+                    if hasattr(pyrat, "app"):
+                        viewer.updateViewer(layer=layers)
                 except Exception as ex:
                     cls.crash_handler(ex)
             else:
                 layers = plugin.run()
                 del plugin
-                viewer.updateViewer(layer=layers)
-            viewer.statusBar.setMessage(message=' Ready ', colour='G')
+                if hasattr(pyrat, "app"):
+                    viewer.updateViewer(layer=layers)
+            if hasattr(pyrat, "app"):
+                viewer.statusBar.setMessage(message=' Ready ', colour='G')
+

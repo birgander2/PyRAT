@@ -17,8 +17,8 @@ class Rat(pyrat.ExportWorker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File', 'entry': 'Save RAT file', 'before': 'Save pixmap'}
-    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
+    gui = {'menu': 'File|Export to', 'entry': 'RAT (v2)', 'before': 'HDF5 file'}
+    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :', 'extensions': 'RAT (*.rat)'},
             {'var': 'geo_envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write ENVI header'}]
 
     def __init__(self, *args, **kwargs):
@@ -31,7 +31,8 @@ class Rat(pyrat.ExportWorker):
             self.header = None
 
     def open(self, *args, **kwargs):
-        # self.rat = RatFile(self.file)
+        if isinstance(self.file, tuple):                                       # remove file type if present
+            self.file = self.file[0]
         data = pyrat.data.queryLayer(self.layer)
         if isinstance(data, list):
             logging.error("Cannot export multiple layers at once!")
@@ -94,8 +95,8 @@ class RatHDF(pyrat.Worker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File', 'entry': 'Save PYRAT file', 'before': 'Save pixmap'}
-    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save PyRAT'}]
+    gui = {'menu': 'File', 'entry': 'Save PyRAT file', 'before': 'Export to'}
+    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save PyRAT', 'extensions': 'PyRAT (*.ra2)'}]
 
     def __init__(self, *args, **kwargs):
         super(RatHDF, self).__init__(*args, **kwargs)
@@ -105,6 +106,9 @@ class RatHDF(pyrat.Worker):
             self.file = args[0]
 
     def run(self, *args, **kwargs):
+        if isinstance(self.file, tuple):                                       # remove file type if present
+            self.file = self.file[0]
+
         para = [foo['var'] for foo in self.para]
         self.checkpara(kwargs, para)
         logging.info(

@@ -48,7 +48,13 @@ class FlexInputDialog(QtWidgets.QDialog):
                     wid.addItems(para['range'])
                     wid.setCurrentIndex(para['range'].index(val))
                 elif para['type'] in ['openfile', 'opendir', 'savefile']:
-                    wid = FlexFilesel(para['type'])
+                    if 'extensions' in para:
+                        extensions = para['extensions']
+                    else:
+                        extensions = ""
+                    wid = FlexFilesel(para['type'], extensions)
+                    if val:
+                        wid.setValue(val)
                 elif para['type'] == 'str':
                     wid = QtWidgets.QLineEdit()
                     wid.setText(val)
@@ -77,14 +83,15 @@ class FlexInputDialog(QtWidgets.QDialog):
                     val.append(str(wid.currentText()))
                 elif readline['type'] == 'str':
                     val.append(str(wid.text()))
-                elif readline['type'] in ['openfile', 'opendir', 'savefile']:
-                    val.append(str(wid.text()))
+                elif readline['type'] in ['openfile', 'opendir']:
+                    val.append(str(wid.getValue()))
+                elif readline['type'] == 'savefile':
+                    val.append(str(wid.getValue()))
             if len(val) == 1:
                 val = val[0]
             # self.para[names.index(readline['name'])]['value'] = val
             # self.para[readline['var']]['value'] = val
             self.para[names.index(readline['var'])]['value'] = val
-
             setattr(self, readline['var'], val)
         super(FlexInputDialog, self).accept()
 
@@ -100,9 +107,11 @@ class FlexInputDialog(QtWidgets.QDialog):
 
 
 class FlexFilesel(QtWidgets.QWidget):
-    def __init__(self, type='filename', parent=None):
+    def __init__(self, type='filename', extensions='', parent=None):
         self.type = type
+        self.extensions = extensions
         self.value = ''
+        self.format = ''
         super(FlexFilesel, self).__init__(parent)
         layout = QtWidgets.QHBoxLayout(self)
         self.wid = QtWidgets.QLineEdit()
@@ -113,16 +122,22 @@ class FlexFilesel(QtWidgets.QWidget):
         self.button.clicked.connect(self.filesel)
 
     def filesel(self):
+        value = self.getValue()
         if self.type == 'openfile':
-            self.value = str(QtWidgets.QFileDialog.getOpenFileName()[0])
+            self.value = str(QtWidgets.QFileDialog.getOpenFileName(self, "Load data", value, self.extensions)[0])
+            self.wid.setText(self.value)
         elif self.type == 'opendir':
-            self.value = str(QtWidgets.QFileDialog.getExistingDirectory())
+            self.value = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Open directory", value))
+            self.wid.setText(self.value)
         elif self.type == 'savefile':
-            self.value = str(QtWidgets.QFileDialog.getSaveFileName()[0])
-        self.wid.setText(self.value)
+            self.value = QtWidgets.QFileDialog.getSaveFileName(self, "Save data", value, self.extensions)
+            self.wid.setText(self.value[0])
 
-    def text(self):
+    def getValue(self):
         return self.wid.text()
+
+    def setValue(self, text):
+        self.wid.setText(text)
 
 
 class PaletteSelector(QtWidgets.QDialog):
@@ -409,7 +424,6 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
         self.setFonts()
 
     def activate(self, layer):
-        print("activate:", layer)
         pyrat.data.activateLayer(layer)
         self.redraw()
         if 'D' in layer:

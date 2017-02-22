@@ -16,10 +16,13 @@ class ExportWorker(pyrat.Worker):
                 self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items() if k in para or k in kwargs)))
 
             foo = self.open(*args, **kwargs)
+
             if foo is None:                        # open not overloaded -> use full image import
                 if 'layer' in kwargs:
+                    kwargs["meta"] = pyrat.data.getAnnotation(layer=kwargs['layer'])
                     self.writer(pyrat.data.getData(layer=kwargs['layer']), *args, **kwargs)
                 else:
+                    kwargs["meta"] = pyrat.data.getAnnotation()
                     self.writer(pyrat.data.getData(), *args, **kwargs)
                 return self.layer
             elif foo is False:                     # open failed in some sense -> return False

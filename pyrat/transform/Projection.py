@@ -1,15 +1,8 @@
-import logging
-
 import numpy as np
-
 import pyrat
+from pyrat.lib.ste import interpol_cubic
+from pyrat.lib.ste import interpol_lin1d
 
-try:
-    from pyrat.lib.interpolation import interpol_cubic
-except ImportError:
-    from pyrat.tools import interpol_cubic
-
-    logging.error("Error loading cython interpolation module")
 
 
 class Slant2Ground(pyrat.FilterWorker):
@@ -63,7 +56,7 @@ class Slant2Ground(pyrat.FilterWorker):
 
         tin = np.arange(meta['nrg'])
         gr_out = gr_near + np.arange(nout) * ps_gr
-        tout = np.float32(pyrat.tools.interpol_lin1d(gr, tin, gr_out))
+        tout = np.float32(interpol_lin1d(gr, tin, gr_out))
 
         for ch in range(nchannels):
             for x in range(array.shape[-2]):

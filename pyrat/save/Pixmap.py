@@ -31,6 +31,9 @@ class Pixmap(pyrat.ExportWorker):
             self.order = [0, 1, 2]
 
     def writer(self, array, *args, **kwargs):
+        if isinstance(self.file, tuple):                                       # remove file type if present
+            self.file = self.file[0]
+
         if self.method == 'amplitude' or self.method == 'intensity' and np.iscomplexobj(array):
             array = np.abs(array)
 
@@ -79,7 +82,7 @@ class JPG(Pixmap):
     """
     JPG format writer
     """
-    gui = {'menu': 'File|Save pixmap', 'entry': 'JPEG'}
+    gui = {'menu': 'File|Save as pixmap', 'entry': 'JPEG'}
     key = "JPEG"
 
 
@@ -92,7 +95,7 @@ class PNG(Pixmap):
     """
     PNG format writer
     """
-    gui = {'menu': 'File|Save pixmap', 'entry': 'PNG'}
+    gui = {'menu': 'File|Save as pixmap', 'entry': 'PNG'}
     key = "PNG"
 
 
@@ -105,7 +108,7 @@ class TIFF(Pixmap):
     """
     TIFF format writer
     """
-    gui = {'menu': 'File|Save pixmap', 'entry': 'TIFF'}
+    gui = {'menu': 'File|Save as pixmap', 'entry': 'TIFF'}
     key = "TIFF"
 
 
@@ -118,7 +121,7 @@ class PDF(Pixmap):
     """
     PDF format writer
     """
-    gui = {'menu': 'File|Save pixmap', 'entry': 'PDF'}
+    gui = {'menu': 'File|Save as pixmap', 'entry': 'PDF'}
     key = "PDF"
 
 
@@ -131,7 +134,7 @@ class EPS(Pixmap):
     """
     EPS format writer
     """
-    gui = {'menu': 'File|Save pixmap', 'entry': 'EPS'}
+    gui = {'menu': 'File|Save as pixmap', 'entry': 'EPS'}
     key = "EPS"
 
 

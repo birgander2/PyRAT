@@ -306,7 +306,7 @@ def refinedlee(*args, **kwargs):
 # #---------------------------------------------------------------------------------------------------------------
 # #---------------------------------------------------------------------------------------------------------------
 # try:
-#     from .Cy_Despeckle import cy_leesigmaold
+#     from .Despeckle_extensions import cy_leesigmaold
 #     class LeeSigmaOld(pyrat.FilterWorker):
 #         """
 #         Lee's original sigma speckle filter...
@@ -356,7 +356,7 @@ def refinedlee(*args, **kwargs):
 #---------------------------------------------------------------------------------------------------------------
 
 try:
-    from .Cy_Despeckle import cy_leesigma
+    from .Despeckle_extensions import cy_leesigma
 
     class LeeSigma(pyrat.FilterWorker):
         """
@@ -421,7 +421,7 @@ except ImportError:
 # ---------------------------------------------------------------------------------------------------------------
 
 try:
-    from .Cy_Despeckle import cy_leeimproved
+    from .Despeckle_extensions import cy_leeimproved
 
     class LeeSigma2(pyrat.Worker):
         """
@@ -554,7 +554,7 @@ except ImportError:
 # # ---------------------------------------------------------------------------------------------------------------
 #
 # try:
-#     from .Cy_Despeckle import cy_leeimproved_old
+#     from .Despeckle_extensions import cy_leeimproved_old
 #
 #     class LeeSigmaImprovedOld(pyrat.Worker):
 #         """
@@ -716,7 +716,7 @@ except ImportError:
 # ---------------------------------------------------------------------------------------------------------------
 
 try:
-    from .Cy_Despeckle import cy_bilateral
+    from .Despeckle_extensions import cy_bilateral
 
     class Bilateral(pyrat.FilterWorker):
         """
@@ -896,7 +896,7 @@ def bilateralfilter(*args, **kwargs):
 
 try:
     from pyrat.tools import ProgressBar
-    from .Cy_Despeckle import cy_srad
+    from .Despeckle_extensions import cy_srad
 
     class SRAD(pyrat.Worker):
         """
@@ -980,7 +980,7 @@ except ImportError:
 # #---------------------------------------------------------------------------------------------------------------
 # try:
 #     from pyrat.tools import ProgressBar
-#     from .Cy_Despeckle import cy_srad_old
+#     from .Despeckle_extensions import cy_srad_old
 #
 #     class SRAD_OLD(pyrat.Worker):
 #         """
@@ -1053,7 +1053,7 @@ except ImportError:
 #---------------------------------------------------------------------------------------------------------------
 
 try:
-    from .Cy_Despeckle import cy_emdes as cy_emdes
+    from .Despeckle_extensions import cy_emdes as cy_emdes
     class EMDES(pyrat.FilterWorker):
         """
         Test filter

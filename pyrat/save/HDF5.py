@@ -5,12 +5,12 @@ import h5py
 class HDF5(pyrat.Worker):
     """
     Generic HDF5 writer (experimental)
-    It should work, but is not compatible with some other code we use. Needs to be improved!!!
+    It should work, but might not be compatible with some other code we use. Probably needs to be improved!!!
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File|Export to', 'entry': 'HDF5 file'}
-    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save as HDF5'}]
+    gui = {'menu': 'File|Export to', 'entry': 'HDF5'}
+    para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save as HDF5', 'extensions': 'HDF5 (*.hd5)'}]
 
     def __init__(self, *args, **kwargs):
         super(HDF5, self).__init__(*args, **kwargs)
@@ -20,6 +20,9 @@ class HDF5(pyrat.Worker):
             self.file = args[0]
 
     def run(self, *args, **kwargs):
+        if isinstance(self.file, tuple):                                       # remove file type if present
+            self.file = self.file[0]
+
         if isinstance(self.layer, list):
             layers = self.layer
         else:
@@ -34,7 +37,8 @@ class HDF5(pyrat.Worker):
             for key, val in meta.items():
                 self.dset.attrs[key] = val
         self.file.close()
-        return True
+        return layers
+
 
     def block_writer(self, array, **kwargs):
         self.dset[..., kwargs['block'][0] + kwargs['valid'][0]:kwargs['block'][0] + kwargs['valid'][1], :] \

@@ -1,8 +1,9 @@
+import scipy as sp
 from scipy import interpolate
 import numpy as np
 
 
-def interpol_spline(x, y, xout):
+def interpol_spline1d(x, y, xout):
     """
     Performs a cubic spline interpolation of an irregularily sampled 1D signal
 
@@ -334,11 +335,55 @@ def interpol2D_lanczos(array, yi, xi, a=2, **kwargs):
     return out
 
 
+def interpol_lin1d(x, y, xout):
+    """
+    Performs a linear interpolation of an irregularily sampled 1D signal
+
+    :author: Andreas Reigber
+    :param x: The abscissa values of the signal
+    :type x: 1-D ndarray float
+    :param y: The ordinate values of the signal
+    :type y: 1D ndarray
+    :param xout: The abscissa values where the interpolates are desired
+    :type xout: 1D ndarray float
+    :returns: The interpolated values
+    """
+    f = sp.interpolate.interp1d(x, y, kind='linear')
+    return f(xout)
+
+
+def interpol_lin2d(x, y, z, xout, yout):
+    """
+    Performs a linear interpolation of a 2D matrix/image irregularily sampled on both axes
+
+    :author: Andreas Reigber
+    :param x: The x values of the first axis of z
+    :type x: 1-D ndarray float
+    :param y: The y values of the second axis of z
+    :type y: 1-D ndarray float
+    :param z: The input matrix
+    :type z: 2D ndarray
+    :param xout: The values on the first axis where the interpolates are desired
+    :type xout: 1D ndarray float
+    :param yout: The values on the second axis where the interpolates are desired
+    :type yout: 1D ndarray float
+    :returns: The interpolated matrix /  image
+    """
+    if np.iscomplexobj(z):
+        f_real = sp.interpolate.interp2d(x, y, z.real, kind='linear')
+        f_imag = sp.interpolate.interp2d(x, y, z.imag, kind='linear')
+        return f_real(xout, yout) + 1j * f_imag(xout, yout)
+    else:
+        f = sp.interpolate.interp2d(x, y, z, kind='linear')
+        return f(xout, yout)
+
 
 try:
-    from .interpolation_extensions import cinterpol_cubic
-    from .interpolation_extensions import cinterpol_cubic_irr
-    from .interpolation_extensions import cinterpol_lanczos
-    from .interpolation_extensions import cinterpol2D_lanczos
+    from .interpolation_extensions import cinterpol_cubic as interpol_cubic
+    from .interpolation_extensions import cinterpol_cubic_irr as interpol_cubic_irr
+    from .interpolation_extensions import cinterpol_lanczos as interpol_lanczos
+    from .interpolation_extensions import cinterpol2D_lanczos as interpol2D_lanczos
 except ImportError:
     print("STEtools: Fast cython interpolators not found. (run build process?)")
+
+

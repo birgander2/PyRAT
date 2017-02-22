@@ -128,13 +128,14 @@ class MainWindow(QtWidgets.QMainWindow):
             "PolSAR": self.menubar.addMenu('PolSAR'),
             "Help": self.menubar.addMenu('Help')}
 
-        self.menue.update({"File|Open pixmap": self.menue["File"].addMenu('Open pixmap')})
+        self.menue.update({"File|Import raster": self.menue["File"].addMenu('Import raster')})
         self.menue.update({"File|Import spaceborne": self.menue["File"].addMenu('Import spaceborne')})
         self.menue.update({"File|Import airborne": self.menue["File"].addMenu('Import airborne')})
+        self.menue.update({"File|Import pixmap": self.menue["File"].addMenu('Import pixmap')})
         foo = self.menue["File"].addSeparator()
         foo.setWhatsThis("File|line1")
-        self.menue.update({"File|Save pixmap": self.menue["File"].addMenu('Save pixmap')})
         self.menue.update({"File|Export to": self.menue["File"].addMenu('Export to')})
+        self.menue.update({"File|Save as pixmap": self.menue["File"].addMenu('Save as pixmap')})
         foo = self.menue["File"].addSeparator()
         foo.setWhatsThis("File|line2")
         self.menue["File"].addAction(self.exitAct)
@@ -575,10 +576,10 @@ class MainWindow(QtWidgets.QMainWindow):
         x = event.x() - self.central.x() - self.frame.x()                      # easier with self.frame.mapFrom()
         y = event.y() - self.central.y() - self.frame.y()
 
-        if event.delta() < 0:
+        if event.angleDelta().y() < 0:
             self.zoom(2.0 / 3.0, mx=x-self.imageLabel.width() // 2,
                       my=y-self.imageLabel.height() // 2)
-        if event.delta() > 0:
+        if event.angleDelta().y() > 0:
             self.zoom(3.0 / 2.0, mx=x-self.imageLabel.width() // 2,
                       my=y-self.imageLabel.height() // 2)
         if hasattr(self, 'data'):

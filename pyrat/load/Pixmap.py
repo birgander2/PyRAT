@@ -28,7 +28,8 @@ class JPG(Pixmap):
     """
     JPG format reader
     """
-    gui = {'menu': 'File|Open pixmap', 'entry': 'JPEG'}
+    gui = {'menu': 'File|Import pixmap', 'entry': 'JPEG'}
+    para = [{'var': 'file', 'value': '', 'type': 'openfile', 'text': 'file :', 'extensions': 'JPEG file (*.jpg, *.jpeg)'}]
 
 
 @pyrat.docstringfrom(JPG)
@@ -40,7 +41,8 @@ class PNG(Pixmap):
     """
     PNG format reader
     """
-    gui = {'menu': 'File|Open pixmap', 'entry': 'PNG'}
+    gui = {'menu': 'File|Import pixmap', 'entry': 'PNG'}
+    para = [{'var': 'file', 'value': '', 'type': 'openfile', 'text': 'file :', 'extensions': 'PNG file (*.png)'}]
 
 
 @pyrat.docstringfrom(PNG)
@@ -52,7 +54,8 @@ class TIFF(Pixmap):
     """
     Tiff format reader
     """
-    gui = {'menu': 'File|Open pixmap', 'entry': 'TIFF'}
+    gui = {'menu': 'File|Import pixmap', 'entry': 'TIFF'}
+    para = [{'var': 'file', 'value': '', 'type': 'openfile', 'text': 'file :', 'extensions': 'TIFF file (*.tif *.tiff)'}]
     key = "TIFF"
 
 

@@ -4,5 +4,6 @@ help = pyrat_help(__name__, "\n  Data import")
 from .Rat import *
 from .HDF5 import *
 from .Pixmap import *
+from .Binary_GDAL import *
 
 
