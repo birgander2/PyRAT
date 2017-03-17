@@ -13,6 +13,13 @@ except ImportError:
     logging.error("PyQt5 is required to run PyRAT. Please install requirements (see README.md) and try again !")
     sys.exit()
 
+try:
+    from osgeo import gdal
+    gdal.UseExceptions()
+except ImportError:
+    logging.error("GDAL is required to run PyRAT. Please install requirements (see README.md) and try again !")
+    sys.exit()
+
 # # extract svn version number
 # try:
 #     import subprocess
@@ -99,7 +106,7 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     cfg = read_config_file(verbose=debug)
 
     # import plugins
-    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=True)
+    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=debug)
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
@@ -251,8 +258,10 @@ def import_plugins(plugin_paths=[], verbose=False):
                         setattr(plugins, attr, getattr(mod, attr))
                     if verbose:
                         logging.info(" + Imported external plugin: " + bcolors.OKGREEN + filename + bcolors.ENDC)
-                except Exception:
-                    logging.info("Unable to import the code in plugin: %s" % filename)
+                except Exception as exvar:
+                    logging.info(bcolors.FAIL + "Unable to import the code in plugin: %s" % filename + bcolors.ENDC )
+                    if verbose:
+                        logging.debug(exvar)
 
 
 def foo(bar):
