@@ -2,15 +2,8 @@
 from distutils.core import setup
 from Cython.Build import cythonize
 import numpy
-
-# # write svn version number (if possible)
-# try:
-#     import subprocess
-#     __svnversion__ = subprocess.check_output(['svnversion', '-n']).decode()
-# except:
-#     __svnversion__ = 'unknown'
-# with open('pyrat/VERSION', 'w') as f:
-#     f.write(__svnversion__)
+import os
+os.environ['CFLAGS'] = '-Wno-maybe-uninitialized -Wno-cpp'
 
 # extract internal version number (hehe, what a trick!)
 
@@ -29,6 +22,6 @@ setup(name='PyRAT',
       include_dirs=[numpy.get_include()],
       packages=['pyrat', 'pyrat.save', 'pyrat.filter', 'pyrat.load', 'pyrat.filter', 'pyrat.viewer',
                 'pyrat.layer', 'pyrat.insar', 'pyrat.transform', 'pyrat.polar', 'pyrat.plugins'],
-      scripts=['PyRat'],
+      scripts=['pyrat.run'],
       data_files=[('.', ['README.txt', 'requirements.txt', 'MANIFEST.in'])]
       )
