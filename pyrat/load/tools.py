@@ -2,7 +2,6 @@ import ctypes
 import os
 import string
 import numpy as np
-import xml.etree.ElementTree as ET
 from lxml import etree as xml_tools
 import argparse
 import glob
@@ -350,190 +349,204 @@ class RatFile():
         return version, xdrflag
 
 
-class Xml2Py(object):
-    """Turns a STEP XML document (e.g. processing parameters) into a structure.
 
-    Example usage:
-    pp = Xml2Py(<path to pp file>)
-    pp.v0
-    (Python prints 89.1)
-    pp.v0?
-    (Type is numpy double)
-    pp.r?
-    (Numpy ndarray of doubles)
 
-    Currently does not support complex data, pointer arrays and structure
-    arrays.
+class Py2Xml(object):
+    """
+    Class to read/write DLR-STE XML documents (primarily used by the STEP processor for processing parameters)
 
-     :author: Marc Jaeger
+    Allows python object-like access to parameters.
 
-     :param fileName: Path to XML document.
-     :type fileName: string
+    For example, for STEP processing parameters (XML files in RGI/RGI-RDP):
 
-     :param elem: For internal use only! Do not use.
-     :type elem: XML element object
+    pp = Py2Xml('path_to_pp.xml')
+    print(pp.v0)     # v0 is automatically converted to floating point
+    print(pp.r[:10]) # first 10 values of range vector, also floating point
+
+    The parameter object also allows dictionary-like access to handle problematic parameter names
+    (which clash with python keywords). For example:
+
+    print(pp['lambda']) # pp.lambda would be a syntax error
+    print(pp['pass'])   # same as above
+    print(pp['v0'])     # dictionary style access works for other parameters, too!
+
+    The class provides full read/write support. Parameter values are changed by standard assignment
+    and structures can be saved using the write method:
+
+    pp.v0 = 100
+    pp.write('path_to_new_pp.xml')
 
     """
+    def __init__(self, root):
+        if isinstance(root,str):
+            self.__dict__['__root__'] = xml_tools.parse(root).find('object')
+        else:
+            self.__dict__['__root__'] = root
 
-    def __init__(self, fileName, elem=None):
-        if (elem == None):
-            tree = ET.parse(fileName)
-            root = tree.getroot()
-            elem = root[0]
+        if self.__root__ is None:
+            raise ValueError('Expected an "object" element below the root element!')
 
-        self.xml2struct(elem)
+        self.__dict__['__iterend__'] = False
 
 
-    def xml2struct(self, elem):
-        for f in elem:
-            self.xml2field(f)
+    def __getstate__(self):
+        return self.__root__
+
+    def __setstate__(self, root):
+        self.__dict__['__root__'] = root
+        self.__dict__['__iterend__'] = False
+
+
+    def __getparam__(self, name):
+        p = [p for p in self.__root__.iter('parameter') if p.attrib['name'] == name]
+        if len(p) != 1:
+            raise AttributeError('Expected a unique match parameter name "%s", got %i matches.'%(name,len(p)))
+
+        return [p[0].find(tag) for tag in ('remark','datatype','value')]
 
 
     @staticmethod
-    def xml2val(elem):
-        typElem = elem.find('datatype')
-        dType = typElem.text
-        dDim = typElem.attrib['length']
-        dDim = np.asarray([np.long(d) for d in dDim.split()])[::-1]
-        dLen = np.prod(dDim)
+    def xml2val(v, t):
+        type = t.text
+        shape = t.attrib['length']
+        shape = np.asarray([np.uint64(d) for d in shape.split()])[::-1]
+        size = np.prod(shape)
 
-        valElem = elem.find('value')
-        if (dType == 'pointer'):
-            return Xml2Py.xml2val(valElem.find('parameter'))
+        if (type == 'pointer'):
+            p = v.find('parameter')
+            return Py2Xml.xml2val(*[p.find(t) for t in ('value','datatype')])
 
-        if (dType == 'struct'):
-            return Xml2Py(None, valElem[0])
+        if (type == 'struct'):
+            obj_arr = [Py2Xml(obj) for obj in v.iter('object')]
+            return obj_arr[0] if size<=1 else obj_arr
 
-        val = elem.find('value').text
-        if (dLen > 1):
-            val = val.strip('[]').split(',')
-
-        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'string': lambda s:s}
+        conv = {'int': int, 'long': int, 'float': np.float, 'double': np.double, 'string': lambda s: s}
         try:
-            if (dLen > 1):
-                val = np.asarray([conv[dType](v) for v in val]).reshape(dDim)
+            if size > 1:
+                val = np.asarray([conv[type](v) for v in v.text.strip('[]').split(',')]).reshape(shape)
             else:
-                val = conv[dType](val)
+                val = conv[type](v.text)
         except KeyError:
-            print('WARNING: Unsupported data type {} in field {}! Ignoring...'.format(dType, 'n.a.'))
+            print('PY2XML WARNING: Unsupported data type "%s" encountered. Skipping!'%(type))
             return None
 
         return val
 
 
-
-    def xml2field(self, elem):
-        name = elem.attrib['name']
-        setattr(self,name,self.xml2val(elem))
-
-
-
-
-class Py2Xml(object):
-    def __init__(self, template):
-        self.__dict__['tree'] = ET.parse(template)
-        self.__dict__['attrs'] = {}
-
-        obj = self.tree.getroot().find('object')
-        if (obj == None):
-            raise ValueError('Expected an "object" element below the root!')
-
-        self.get_attrs(obj)
-
-
-    def get_attrs(self, obj, prefix=[]):
-        for f in obj.iter('parameter'):
-            name = prefix+[f.attrib['name']]
-
-            while (f.find('./value/parameter') is not None):
-                f = f.find('./value/parameter')
-
-            v = f.find('value')
-            t = f.find('datatype')
-
-            if (v.find('object') is not None):
-                self.get_attrs(v.find('object'),name)
-                continue
-
-            self.attrs['_'.join(name)] = (v,t,f)
-
-
-    def __getattr__(self,name):
-        if (name in self.__dict__):
-            return self.__dict__[name]
-        v,t,f = self.__dict__['attrs'][name]
-        return Xml2Py.xml2val(f)
-
-
-    def __setattr__(self,name,value):
-        if (name in self.__dict__):
-            self.__dict__[name] = value
-        v,t,f = self.attrs[name]
-        return self.val2xml(v,t,value)
-
-#,long: (str,'long')
     @staticmethod
     def val2xml(v, t, value):
-        cdict = {str: (str, 'string'),float:(str,'double'),int: (str,'long'),complex:(lambda z:'({},{})'.format(z.real,z.imag),'complex')}
-
+        cdict = {str: (str, 'string'), \
+                 int: (str,'long'), \
+                 float:(str,'double'), \
+                 complex:(lambda z:'({},{})'.format(z.real,z.imag),'complex')}
+        cdict[np.uint8] = cdict[int]
         cdict[np.int32] = cdict[int]
+        cdict[np.uint32] = cdict[int]
         cdict[np.int64] = cdict[int]
+        cdict[np.uint64] = cdict[int]
         cdict[np.float32] = (str,'float')
         cdict[np.float64] = cdict[float]
         cdict[np.complex64] = cdict[complex]
+        cdict[bool] = cdict[str]
 
-        # arrays with this shape in xml, e.g. [x1,y1,...,xN,yN] :
-        # <datatype length="2 4">double</datatype>
-        # have this shape (4, 2) in python/numpy
-        # therefore value.shape is reversed : value.shape[::-1]
-        if (isinstance(value, np.ndarray)):
-            t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
-            vtype = type(value.flat[0])
-            t.text = cdict[vtype][1]
-            v.text = '['+', '.join([cdict[vtype][0](val) for val in value.flat])+']'
-        else:
-            try:
-                if isinstance(value,str):
-                    raise ValueError()
-                t.attrib['length'] = str(len(value))
-                t.text = cdict[type(value[0])][1]
-                v.text = '['+', '.join([cdict[type(value[0])][0](val) for val in value])+']'
-            except:
-                t.attrib['length'] = '1'
-                t.text = cdict[type(value)][1]
-                v.text = cdict[type(value)][0](value)
-
-
-    def set_attr(self, name, value, prefix=[]):
-
-        if isinstance(value,dict):
-            for k in value:
-                self.set_attr(k,value[k],prefix+[name])
-            return
+        if (t.text == 'pointer'):
+            p = v.find('parameter')
+            return Py2Xml.val2xml(*([p.find(t) for t in ('value','datatype')]+[value]))
 
         try:
-            v,t,f = self.attrs['_'.join(prefix+[name])]
-            self.val2xml(v, t, value)
-        except KeyError:
-            pass
+            vsize = 1 if isinstance(value,str) else len(value)
+        except TypeError:
+            vsize = 1
+
+        t.attrib['length'] = str(vsize)
+        v.clear()
+        if vsize == 1 and not isinstance(value,Py2Xml):
+            t.text = cdict[type(value)][1]
+            v.text = cdict[type(value)][0](value)
+        elif all([isinstance(v,Py2Xml) for v in value]):
+            t.text = 'struct'
+            for obj in value:
+                v.append(copy.deepcopy(obj.__root__))
+        else:
+            if isinstance(value, np.ndarray):
+                t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
+                value = value.flat
+            vtype = type(value[0])
+            t.text = cdict[vtype][1]
+            v.text = '[' + ', '.join([cdict[vtype][0](val) for val in value]) + ']'
+
+
+    def __getattr__(self, key):
+        if key in self.__dict__:
+            return self.__dict__[key]
+        if key == 0:
+            return self
+        r,t,v = self.__getparam__(key)
+        return Py2Xml.xml2val(v,t)
+
+    def __getitem__(self, key):
+        return self.__getattr__(key)
+
+
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            self.__dict__[name] = value
+            return
+        r,t,v = self.__getparam__(name)
+        Py2Xml.val2xml(v,t,value)
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
+
+
+    def __contains__(self, key):
+        try:
+            _ = self.__getparam__(key)
+        except AttributeError:
+            return False
+        return True
+
+
+    def __len__(self):
+        return 1
+
+    def __iter__(self):
+        self.__iterend__ = False
+        return self
+
+    def __next__(self):
+        if self.__iterend__:
+            raise StopIteration()
+        self.__iterend__ = True
+        return self
 
 
     def update(self, obj):
-        d = obj
-        if (hasattr(obj,'__dict__')):
+        try:
             d = obj.__dict__
-
+        except AttributeError:
+            d = obj
         if not isinstance(d,dict):
             raise ValueError('Expected a dictionary or an object with a __dict__ attribute!')
 
         for k in d:
-            self.set_attr(k,d[k])
+            self.__setattr__(k,d[k])
 
-    def write(self, filename, overwrite=False):
-        if not overwrite:
-            if os.path.isfile(filename):
-                raise FileExistsError
-        self.tree.write(filename)
+    def __totree(self):
+        ste_root = xml_tools.Element('stexml')
+        ste_root.text = '\n'
+        ste_root.append(copy.deepcopy(self.__root__))
+        ste_root.addprevious(xml_tools.PI('xml-stylesheet', 'type="text/xsl" href="stexml.xsl"'))
+        tree = xml_tools.ElementTree(ste_root)
+        return tree
 
-    def __str__(self):
-        return str(self.__dict__)
+
+    def write(self, filename):
+        self.__totree().write(filename, pretty_print=True, encoding='UTF-8', xml_declaration=True)
+
+
+    def tostring(self):
+        return xml_tools.tostring(self.__totree().getroot(), encoding='UTF-8')
+
+# for backwards-compatiblity (the old Xml2Py class is now obsolete!)
+Xml2Py = Py2Xml

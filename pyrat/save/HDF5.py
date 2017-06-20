@@ -9,7 +9,7 @@ class HDF5(pyrat.Worker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File|Export to', 'entry': 'HDF5'}
+    gui = {'menu': 'File|Export to raster', 'entry': 'HDF5'}
     para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save as HDF5', 'extensions': 'HDF5 (*.hd5)'}]
 
     def __init__(self, *args, **kwargs):

@@ -1,4 +1,4 @@
-__version__ = '0.4.3-oss'
+__version__ = '0.4.4-oss'
 
 import logging, sys
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
@@ -60,7 +60,7 @@ def pyrat_help(modulename, docstring):
                 logging.info((mod[0].lower() + "()").ljust(30) + doc)
         logging.info("")
         logging.info(
-            "Use info(" + modulename.split(".", 1)[-1] + ".function_name) for further documentation "
+            "Use help(" + modulename.split(".", 1)[-1] + ".function_name) for further documentation "
                                                          "on individual functions")
         logging.info("")
 

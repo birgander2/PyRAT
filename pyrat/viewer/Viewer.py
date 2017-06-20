@@ -40,6 +40,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1000, 800)
         self.central.setSizes([150, 800])
         self.updateDisplayList()
+        self.dragX = 0
+        self.dragY = 0
+        self.imgwidth = 0
+        self.imgheight = 0
         self.show()
         self.rubberband = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, self.imageLabel)
         self.palette = 0
@@ -134,8 +138,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"File|Import pixmap": self.menue["File"].addMenu('Import pixmap')})
         foo = self.menue["File"].addSeparator()
         foo.setWhatsThis("File|line1")
-        self.menue.update({"File|Export to": self.menue["File"].addMenu('Export to')})
-        self.menue.update({"File|Save as pixmap": self.menue["File"].addMenu('Save as pixmap')})
+        self.menue.update({"File|Export to raster": self.menue["File"].addMenu('Export to raster')})
+        self.menue.update({"File|Export to pixmap": self.menue["File"].addMenu('Export to pixmap')})
         foo = self.menue["File"].addSeparator()
         foo.setWhatsThis("File|line2")
         self.menue["File"].addAction(self.exitAct)
@@ -230,7 +234,7 @@ class MainWindow(QtWidgets.QMainWindow):
     #     print("Event", self.frame.width(), self.frame.height())
 
     def paletteChooser(self):
-        wid = PaletteSelector(colortables(), current=self.palette, parent=self)
+        wid = PaletteSelector(colortables(), current=0, parent=self)
         res = wid.exec_()
         if res == 1:
             self.display[self.current]['palette'] = wid.palette
@@ -327,6 +331,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # img = img[..., 0:img.shape[-2] // 4 * 4, 0:img.shape[-1] // 4 * 4]    # QT Limitation!!
         img = np.rollaxis(np.rollaxis(img, axis=2), axis=2)
+
+        if self.config['palette'] != 0:
+            self.img = colortables(self.config['palette'])[1][img]
+        else:
+            self.img = img
+
         # img = np.rot90(np.rollaxis(np.rollaxis(img, axis=2), axis=2))
 
         if self.config['colour'] is True:
@@ -368,23 +378,23 @@ class MainWindow(QtWidgets.QMainWindow):
         yWin = self.imageLabel.height()
         winRatio = 1.0 * xWin / yWin
 
-        self.width = img.width()
-        self.height = img.height()
+        self.imgwidth = img.width()
+        self.imgheight = img.height()
 
-        imgRatio = 1.0 * self.width / self.height
+        imgRatio = 1.0 * self.imgwidth / self.imgheight
 
         if imgRatio >= winRatio:                                               # match widths
-            self.width = xWin
-            self.height =int( xWin / imgRatio)
+            self.imgwidth = xWin
+            self.imgheight =int(xWin / imgRatio)
         else:                                                                  # match heights
-            self.height = yWin
-            self.width = int(yWin * imgRatio)
+            self.imgheight = yWin
+            self.imgwidth = int(yWin * imgRatio)
 
-        self.factor = int(100.0 * self.width / (self.box[1] - self.box[0]))
+        self.factor = int(100.0 * self.imgwidth / (self.box[1] - self.box[0]))
         if self.factor <= 100:
-            img = img.scaled(self.width, self.height)  # Bilinear?
+            img = img.scaled(self.imgwidth, self.imgheight)  # Bilinear?
         else:
-            img = img.scaled(self.width, self.height)  # Nearest Neighbour
+            img = img.scaled(self.imgwidth, self.imgheight)  # Nearest Neighbour
 
         self.statusBar.setMessage(size=1, zoom=1, level=1, scale=1)
         self.viewCombo.setItemText(0, str(int(self.factor)) + '%')
@@ -395,7 +405,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         img.setColorTable(colortable)
         self.imageLabel.setPixmap(QtGui.QPixmap.fromImage(img))
-
 
     def zoom(self, factor, mx=0, my=0):
         px = self.box[0] + int(
@@ -519,12 +528,13 @@ class MainWindow(QtWidgets.QMainWindow):
         vscale = (self.box[3] - self.box[2]) / self.frame.rect().height()
         scale = max(hscale, vscale)
 
-        dpx = (self.imageLabel.width()-self.width)//2
-        dpy = (self.imageLabel.height()-self.height)//2
+        dpx = (self.imageLabel.width() - self.imgwidth) // 2
+        dpy = (self.imageLabel.height() - self.imgheight) // 2
 
         posx = self.box[0] + int((x-dpx) * scale)
         posy = self.box[2] + int((y-dpy) * scale)
-
+        if self.current is None:
+            return None
         if 0 <= posx < self.size[0] and 0 <= posy < self.size[1]:
             values = pyrat.data.getData(block=(posy, posy+1, posx, posx+1), layer=self.current)
             if values.shape == ():
@@ -575,14 +585,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def wheelEvent(self, event):
         x = event.x() - self.central.x() - self.frame.x()                      # easier with self.frame.mapFrom()
         y = event.y() - self.central.y() - self.frame.y()
-
-        if event.angleDelta().y() < 0:
-            self.zoom(2.0 / 3.0, mx=x-self.imageLabel.width() // 2,
-                      my=y-self.imageLabel.height() // 2)
-        if event.angleDelta().y() > 0:
-            self.zoom(3.0 / 2.0, mx=x-self.imageLabel.width() // 2,
-                      my=y-self.imageLabel.height() // 2)
-        if hasattr(self, 'data'):
+        if hasattr(self, 'data') and self.current is not None:
+            if event.angleDelta().y() < 0:
+                self.zoom(2.0 / 3.0, mx=x-self.imageLabel.width() // 2,
+                          my=y-self.imageLabel.height() // 2)
+            if event.angleDelta().y() > 0:
+                self.zoom(3.0 / 2.0, mx=x-self.imageLabel.width() // 2,
+                          my=y-self.imageLabel.height() // 2)
             self.processPicture()
 
     def mousePressEvent(self, event):
@@ -592,7 +601,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rubberband.setGeometry(QtCore.QRect(self.origin, QtCore.QSize()))
             self.rubberband.show()
         else:
-            if event.button() == QtCore.Qt.RightButton:
+            if event.button() == QtCore.Qt.RightButton and self.current is not None:
                 xoff = self.central.x() + self.frame.x()                       # easier with self.frame.mapFrom()
                 yoff = self.central.y() + self.frame.y()
                 x = event.x() - xoff

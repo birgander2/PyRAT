@@ -118,7 +118,7 @@ class FSAR(pyrat.ImportWorker):
                 bmeta['rsf'] = pp.rsf
                 bmeta['nrg'] = drg
                 bmeta['naz'] = daz
-                bmeta['lam'] = pp.__dict__['lambda']
+                bmeta['lam'] = pp['lambda']
                 bmeta['band'] = pp.band
                 bmeta['antdir'] = pp.antdir
                 bmeta['v0'] = pp.v0

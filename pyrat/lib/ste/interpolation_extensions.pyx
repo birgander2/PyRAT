@@ -25,7 +25,6 @@ def cinterpol_cubic(fltcpl_t [:] y, myfloat[:] xi, int threads=0):
 
     cdef int i
     cdef int n = len(y)
-    cdef float[:] x = np.arange(n, dtype=np.float32)
     if cython.float is fltcpl_t:
         foo = np.empty((xi.shape[0], ), dtype='float32')
     elif cython.floatcomplex is fltcpl_t:
@@ -44,7 +43,7 @@ def cinterpol_cubic(fltcpl_t [:] y, myfloat[:] xi, int threads=0):
     cdef int lxi = len(xi)
 
     for i in prange(lxi, nogil=True, num_threads=threads):
-        if xi[i] < x[0] or xi[i] > x[-1]:
+        if xi[i] < 0.0 or xi[i] > n-1:
             yi[i] = nan
 
         klo = int(xi[i])
@@ -110,7 +109,7 @@ def cinterpol_cubic_irr(myfloat[:] x, fltcpl_t [:] y, myfloat[:] xi, sort=True, 
         y = np.asarray(y)[sidx]
 
     for i in prange(lxi, nogil=True, num_threads=threads):
-        if xi[i] < x[0] or xi[i] > x[-1]:
+        if xi[i] < x[0] or xi[i] > x[n-1]:
             yi[i] = nan
 
         klo = 0

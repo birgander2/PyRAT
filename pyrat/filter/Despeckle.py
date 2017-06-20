@@ -80,7 +80,7 @@ class Lee(pyrat.FilterWorker):
             span = np.sum(array ** 2, axis=0)
             array = array[np.newaxis, ...]
         elif len(shape) == 4:
-            span = np.trace(array, axis1=0, axis2=1)
+            span = np.abs(np.trace(array, axis1=0, axis2=1))
         else:
             array = np.abs(array)
             span = array ** 2
@@ -196,7 +196,7 @@ class RefinedLee(pyrat.FilterWorker):
             span = np.sum(array ** 2, axis=0)
             array = array[np.newaxis, ...]
         elif len(shape) == 4:
-            span = np.trace(array, axis1=0, axis2=1)
+            span = np.abs(np.trace(array, axis1=0, axis2=1))
         else:
             array = np.abs(array)
             span = array ** 2

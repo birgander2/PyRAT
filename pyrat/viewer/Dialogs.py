@@ -168,8 +168,8 @@ class PaletteSelector(QtWidgets.QDialog):
 
     def update(self, n):
         self.palette = n
-        img = QtWidgets.QImage(self.pcolors[n].tostring(), 256, 1, QtWidgets.QImage.Format_RGB888)
-        self.showpalette.setPixmap(QtWidgets.QPixmap.fromImage(img).scaled(300,50))
+        img = QtGui.QImage(self.pcolors[n].tostring(), 256, 1, QtGui.QImage.Format_RGB888)
+        self.showpalette.setPixmap(QtGui.QPixmap.fromImage(img).scaled(300,50))
 
 
 class LayerWidget(QtWidgets.QWidget):

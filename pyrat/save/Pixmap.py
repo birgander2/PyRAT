@@ -18,27 +18,29 @@ class Pixmap(pyrat.ExportWorker):
         {'var': 'method', 'value': 'amplitude', 'type': 'list',
          'range': ['amplitude', 'intensity', 'phase', 'coherence'], 'text': 'Method'},
         {'var': 'scaling', 'value': 2.5, 'type': 'float', 'range': [0.1, 20.0], 'text': 'SAR scaling factor'},
-        {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'}
+        {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'},
+        {'var': 'order', 'value': [0, 2, 1], 'text': 'Channel selection'}
     ]
-    key = None
+    key = 'PIXMAP'
 
     def __init__(self, *args, **kwargs):
         super(Pixmap, self).__init__(*args, **kwargs)
-        self.name = "EXPORT TO PIXMAP"
+        self.name = "EXPORT TO " + self.key
         if len(args) == 1:
             self.file = args[0]
-        if 'order' not in self.__dict__:
-            self.order = [0, 1, 2]
 
     def writer(self, array, *args, **kwargs):
-        if isinstance(self.file, tuple):                                       # remove file type if present
+        if isinstance(self.file, tuple):  # remove file type if present
             self.file = self.file[0]
 
-        if self.method == 'amplitude' or self.method == 'intensity' and np.iscomplexobj(array):
+        if (self.method == 'amplitude' or self.method == 'intensity') and np.iscomplexobj(array):
             array = np.abs(array)
 
         array = np.squeeze(array)
-        out = np.zeros_like(array, dtype='uint8')
+        if array.ndim == 4:
+            nchannels = np.prod(array.shape[0:array.ndim-2])
+            array = np.reshape(array, (nchannels, )+array.shape[array.ndim-2:])
+
         if array.ndim == 3 and self.chscl == True:
             for k in range(array.shape[0]):
                 array[k, ...] = array[k, ...] / np.mean(array[k, ...])
@@ -58,12 +60,13 @@ class Pixmap(pyrat.ExportWorker):
             return False
 
         if array.ndim == 3:
-            out = out[self.order, ...]
+            out = np.rollaxis(np.rollaxis(out[self.order, ...], 2), 2)
         else:
             out = colortables(self.palette)[1][out]
 
         try:
             misc.imsave(self.file, out, format=self.key)
+            logging.info("FINISHED SAVING IMAGE")
             return True
         except IOError as err:
             logging.error("ERROR:" + str(err))
@@ -71,6 +74,51 @@ class Pixmap(pyrat.ExportWorker):
         else:
             logging.error("UNKNOWN ERROR")
             return False
+
+    @classmethod
+    def guirun(cls, viewer, title=None):
+        if not hasattr(pyrat, "app"):
+            return
+
+        paras = [
+            {'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
+            {'var': 'zoom', 'value': True, 'type': 'bool', 'text': 'Save only current window content'}
+        ]
+
+        if cls.key == 'JPEG':
+            paras[0]['extensions'] = 'JPEG file (*.jpg, *.jpeg)'
+        elif cls.key == 'PNG':
+            paras[0]['extensions'] = 'PNG file (*.png)'
+        elif cls.key == 'TIFF':
+            paras[0]['extensions'] = 'TIFF file (*.tif *.tiff)'
+        elif cls.key == 'PDF':
+            paras[0]['extensions'] = 'PDF file (*.pdf)'
+        elif cls.key == 'EPS':
+            paras[0]['extensions'] = 'EPS file (*.eps)'
+        else:
+            cls.key = None
+
+        wid = pyrat.viewer.Dialogs.FlexInputDialog(paras, parent=viewer, title="Save to " + cls.key, doc=cls.__doc__)
+        res = wid.exec_()
+
+        if res == 1:
+            para = {}
+            for p in paras:
+                para[p['var']] = p['value']
+
+            if para['zoom'] is True:  # save only window content
+                img = np.squeeze(viewer.img)
+                try:
+                    misc.imsave(para['file'], img, format=cls.key)
+                    return True
+                except IOError as err:
+                    logging.error("ERROR:" + str(err))
+                    return False
+            else:  # save entire image
+                channels = [int(foo.split('D')[1]) for foo in viewer.config['rgblayer']]
+                plugin = cls(file=para['file'], method=viewer.config['scaling'], scaling=viewer.sarscale,
+                             palette=viewer.display[viewer.current]['palette'], order=channels)
+                plugin.run()
 
 
 @pyrat.docstringfrom(Pixmap)
@@ -82,7 +130,7 @@ class JPG(Pixmap):
     """
     JPG format writer
     """
-    gui = {'menu': 'File|Save as pixmap', 'entry': 'JPEG'}
+    gui = {'menu': 'File|Export to pixmap', 'entry': 'JPEG'}
     key = "JPEG"
 
 
@@ -95,7 +143,7 @@ class PNG(Pixmap):
     """
     PNG format writer
     """
-    gui = {'menu': 'File|Save as pixmap', 'entry': 'PNG'}
+    gui = {'menu': 'File|Export to pixmap', 'entry': 'PNG'}
     key = "PNG"
 
 
@@ -108,7 +156,7 @@ class TIFF(Pixmap):
     """
     TIFF format writer
     """
-    gui = {'menu': 'File|Save as pixmap', 'entry': 'TIFF'}
+    gui = {'menu': 'File|Export to pixmap', 'entry': 'TIFF'}
     key = "TIFF"
 
 
@@ -121,7 +169,7 @@ class PDF(Pixmap):
     """
     PDF format writer
     """
-    gui = {'menu': 'File|Save as pixmap', 'entry': 'PDF'}
+    gui = {'menu': 'File|Export to pixmap', 'entry': 'PDF'}
     key = "PDF"
 
 
@@ -134,7 +182,7 @@ class EPS(Pixmap):
     """
     EPS format writer
     """
-    gui = {'menu': 'File|Save as pixmap', 'entry': 'EPS'}
+    gui = {'menu': 'File|Export to pixmap', 'entry': 'EPS'}
     key = "EPS"
 
 

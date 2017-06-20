@@ -17,7 +17,7 @@ class Rat(pyrat.ExportWorker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File|Export to', 'entry': 'RAT (v2)', 'before': 'HDF5 file'}
+    gui = {'menu': 'File|Export to raster', 'entry': 'RAT (v2)', 'before': 'HDF5 file'}
     para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :', 'extensions': 'RAT (*.rat)'},
             {'var': 'geo_envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write ENVI header'}]
 
@@ -95,7 +95,7 @@ class RatHDF(pyrat.Worker):
 
     :author: Andreas Reigber
     """
-    gui = {'menu': 'File', 'entry': 'Save PyRAT file', 'before': 'Export to'}
+    gui = {'menu': 'File', 'entry': 'Save PyRAT file', 'before': 'Export to raster'}
     para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save PyRAT', 'extensions': 'PyRAT (*.ra2)'}]
 
     def __init__(self, *args, **kwargs):
