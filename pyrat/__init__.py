@@ -1,4 +1,4 @@
-__version__ = '0.4.4-oss'
+__version__ = '0.4.5-oss'
 
 import logging, sys
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
@@ -120,6 +120,8 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
         logging.root.removeHandler(handler)
     if debug is True:
         logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
+        from PyQt5 import QtCore
+        QtCore.pyqtRemoveInputHook()
     else:
         logging.basicConfig(format='  %(message)s', level=logging.INFO)
 

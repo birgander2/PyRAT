@@ -24,6 +24,7 @@ class Worker(object):
     blocksize = 128
     blockprocess = True
     delete = False
+    scaling_hint = None
 
     def __init__(self, *args, **kwargs):
         super(Worker, self).__init__()
@@ -511,16 +512,18 @@ class Worker(object):
             if pyrat._debug is False:
                 try:
                     layers = plugin.run()
+                    scaling_hint = plugin.scaling_hint
                     del plugin
                     if hasattr(pyrat, "app"):
-                        viewer.updateViewer(layer=layers)
+                        viewer.updateViewer(layer=layers, method=scaling_hint)
                 except Exception as ex:
                     cls.crash_handler(ex)
             else:
                 layers = plugin.run()
+                scaling_hint = plugin.scaling_hint
                 del plugin
                 if hasattr(pyrat, "app"):
-                    viewer.updateViewer(layer=layers)
+                    viewer.updateViewer(layer=layers, method=scaling_hint)
             if hasattr(pyrat, "app"):
                 viewer.statusBar.setMessage(message=' Ready ', colour='G')
 

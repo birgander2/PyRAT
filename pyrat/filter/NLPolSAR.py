@@ -47,10 +47,7 @@ class NLPolSAR(pyrat.FilterWorker):
     def filter(self, array, *args, **kwargs):
 
         if not haveLib:
-            raise Exception('NLSAR C library not found!\n' + \
-                            'Please compile it by issuing the command\n' + \
-                            '"./configure --disable-matlab && make" in in the "lib/nlsar"\n' + \
-                            'directory of the PyRAT distribution.')
+            raise Exception('NLSAR C library not found. You need to compile your C extensions!')
 
         try:
             if isinstance(array,list):

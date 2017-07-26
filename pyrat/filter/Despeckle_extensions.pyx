@@ -6,6 +6,9 @@ import scipy as sp
 import numpy as np
 cimport numpy as np
 from libc.math cimport sqrt, abs, exp, lgamma, tgamma
+from scipy.ndimage.filters import median_filter
+
+
 
 ctypedef fused fltcpl_t:
     cython.float
@@ -518,6 +521,133 @@ def cy_emdes(float [:, :] span, fltcpl_t [:, :, :, :] array, float looks=1.0, wi
                 for z in range(nz):
                     if pi != 0.0:
                         out[v, z, k, l] = res[v, z] / pi
+
+    return np.asarray(out)
+
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def cy_idanq(span, fltcpl_t [:, :, :, :] array, float looks=1.0, int nmax=50, bint llmmse=True):
+    cdef fltcpl_t [:, :, :, :] out = np.empty_like(array)
+    cdef float sig2 = 1.0 / looks
+    cdef float sfak = 1.0 + sig2
+    cdef float klee, varx, vary, imean
+    cdef float limit = 1.0 / sqrt(looks) * 2.0 / 3.0
+    cdef int ny = array.shape[2]
+    cdef int nx = array.shape[3]
+    cdef int nv = array.shape[0]
+    cdef int nz = array.shape[1]
+    cdef float [:] seeds = median_filter(span, (3, 3)).flatten()
+
+    span[0, :] = 1e10
+    span[-1, :] = 1e10
+    span[:, 0] = 1e10
+    span[:, -1] = 1e10
+    cdef float [:] amp = span.flatten()
+
+    if cython.float is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float32')
+    elif cython.floatcomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex64')
+    elif cython.double is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='float64')
+    elif cython.doublecomplex is fltcpl_t:
+        foo = np.zeros((nv, nz), dtype='complex128')
+    cdef fltcpl_t [:, :] res = foo
+    cdef int nb3[8]
+    cdef unsigned long region[10000]
+    cdef unsigned long backgr[10000]
+    cdef int i, j, x, y, k, l
+    cdef int nold, nnew, nbak
+    cdef unsigned long ix, idx, pos
+    cdef float seed, limit3 = limit*3.0
+    cdef bint check
+    nb3[:] = [-nx-1, -nx, -nx+1, -1, 1, nx+1, nx, nx-1]
+    for x in range(1, nx-1):
+        for y in range(1, ny-1):
+            pos = y * nx + x
+            seed = seeds[pos]
+            region[0] = pos
+            nold = 1
+            nbak = 0
+
+            while True:
+                nnew = nold
+                for i in range(nold):
+                    idx = region[i]
+                    for j in range(8):
+                        ix = idx + nb3[j]
+                        check = False
+                        for k in range(nnew):
+                            if ix == region[k]:
+                                check = True
+                        if check is False:
+                            if (abs(amp[ix] - seed) / seed) < limit:
+                                region[nnew] = ix
+                                nnew += 1
+                            else:
+                                check = False
+                                for k in range(nbak):
+                                    if ix == backgr[k]:
+                                        check = True
+                                if check is False:
+                                    backgr[nbak] = ix
+                                    nbak += 1
+                if nnew >= nmax:
+                    break
+                if nnew == nold:
+                    break
+                nold = nnew
+
+            # update seed
+            seed = 0.0
+            for ix in region[0:nnew]:
+                seed += amp[ix]
+            seed /= nnew
+
+            # check remaining background pixels
+            for ix in backgr[0:nbak]:
+                if (abs(amp[ix] - seed) / seed) < limit3:
+                    region[nnew] = ix
+                    nnew += 1
+
+            for v in range(nv):
+                for z in range(nz):
+                    res[v, z] = 0.0
+
+            for v in range(nv):
+                for z in range(nz):
+                    for ix in region[0:nnew]:
+                        res[v, z] = res[v, z] + array[v, z, ix // nx, ix % nx]
+
+            if llmmse == True:
+                # calculate LLMMSE (Lee) factor
+                imean = 0.0
+                vary = 0
+                for ix in region[0:nnew]:
+                    imean += amp[ix]
+                imean /= nnew
+                for ix in region[0:nnew]:
+                    vary += (amp[ix] - imean)**2
+                vary /= (nnew - 1)
+                varx = ((vary - sig2 * imean ** 2) / sfak)
+                if varx < 0.0:
+                    varx = 0.0
+                klee = varx / vary
+
+                # LLMMSE filtering of region
+                for v in range(nv):
+                    for z in range(nz):
+                        out[v, z, y, x] = (array[v, z, y, x] - res[v, z] / nnew) * klee + res[v, z] / nnew
+            else:
+                for v in range(nv):
+                    for z in range(nz):
+                        out[v, z, y, x] = res[v, z] / nnew
 
     return np.asarray(out)
 

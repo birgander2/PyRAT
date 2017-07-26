@@ -106,6 +106,17 @@ def setmeta(meta, **kwargs):
     data.setAnnotation(meta, **kwargs)
 
 
+def setlayername(name, **kwargs):
+    """
+    Sets the name of a layer
+    :param name: string with a descriptive name
+    :param layer: layer name to extract meta data (optional, default=active)
+    """
+    from pyrat import data
+
+    data.setLayerName(name, **kwargs)
+
+
 def expose(**kwargs):
     """
     Expose the layer content for direct manipulation
@@ -194,7 +205,7 @@ def defreeze(filename, *args, **kwargs):
         return local_var
 
 
-def show():
+def show(method='amplitude'):
     """
     Launches the PyRat GUI
     """
@@ -204,22 +215,12 @@ def show():
     import sys
     from PyQt5 import QtWidgets
 
-    # active = pyrat.data.active
-    # if isinstance(active, list):
-     # if arr.ndim == 3 or arr.ndim == 4:
-    #     arr = arr[0:3, ...]
-    #
-    # arr = pyrat.data.getData(layer=active)
-    #
-    # if isinstance(arr, list):
-    #     arr = arr[0]
-    #
-    # if arr.ndim == 3 or arr.ndim == 4:
-    #     arr = arr[0:3, ...]
+    if method not in ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']:
+        method = 'amplitude'
 
     app = QtWidgets.QApplication(sys.argv)
     pyrat.app = pyrat.viewer.MainWindow()
-    pyrat.app.updateViewer()
+    pyrat.app.updateViewer(method=method)
     app.exec_()
 
 gui = show

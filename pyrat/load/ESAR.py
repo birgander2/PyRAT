@@ -19,18 +19,17 @@ class ESAR(pyrat.ImportWorker):
     """
     gui = {'menu': 'File|Import airborne', 'entry': 'E-SAR'}
     para = [
-        {'var': 'file', 'value': ''},
+        {'var': 'dir', 'value': ''},
         {'var': 'polarisations', 'value': '*'},
         {'var': 'product', 'value': ['DCSLC', 'SLC']},
         {'var': 'crop', 'value': [0, 0, 0, 0]},
         {'var': 'bands', 'value': '*'}]
-    file = ""
 
     def __init__(self, *args, **kwargs):
         super(ESAR, self).__init__(*args, **kwargs)
         self.name = "ESAR IMPORT"
         if len(args) == 1:
-            self.file = args[0]
+            self.dir = args[0]
 
         if 'crop' not in self.__dict__:
             self.crop = (0, 0, 0, 0)
@@ -45,7 +44,7 @@ class ESAR(pyrat.ImportWorker):
 
         # if no product argument is given
         if not isinstance(self.product, str):
-            if 'dcslc' in self.file:
+            if 'dcslc' in self.dir:
                 self.product = 'DCSLC'
                 logging.info('Info: use dcslc settings')
             else:
@@ -54,12 +53,12 @@ class ESAR(pyrat.ImportWorker):
         else:
             self.product = self.product.upper()
 
-        if os.path.isdir(self.file):
+        if os.path.isdir(self.dir):
             # polarisations aren't included in the filenames(in difference to FSAR)
             # files is a list with all files with eventually different polarisation and/or bands
             productname = 'slc' if self.product == 'SLC' else 'dc_slc'
-            files = glob.glob(os.path.join(self.file, '*_ch*' + productname + '.dat'))
-            files += glob.glob(os.path.join(self.file + "/*/", '*_ch*' + productname + '.dat'))
+            files = glob.glob(os.path.join(self.dir, '*_ch*' + productname + '.dat'))
+            files += glob.glob(os.path.join(self.dir + "/*/", '*_ch*' + productname + '.dat'))
 
             # pick only the required files
             tmpfilelist = []
@@ -70,7 +69,7 @@ class ESAR(pyrat.ImportWorker):
             files = tmpfilelist
 
         else:
-            files = [self.file]
+            files = [self.dir]
 
         # number of items to read
         number = 2 if self.product == 'SLC' else 3
@@ -101,8 +100,8 @@ class ESAR(pyrat.ImportWorker):
         # ----------------------------------------------------------------
 
         else:
-            logging.error("File not found: " + ESAR.file)
-            return
+            logging.error("Directory not found: " + self.dir)
+            return None, None
 
         for k, file in enumerate(files):
             logging.info("Found " + file)
@@ -175,11 +174,11 @@ class ESAR(pyrat.ImportWorker):
     @classmethod
     def guirun(cls, viewer):
         para_backup = copy.deepcopy(cls.para)  # keep a deep copy of the default parameters
-        wid = EsarImportWidget(dir=cls.para[[par['var'] for par in cls.para].index('file')]['value'])
+        wid = EsarImportWidget()
         wid.update()
         res = wid.exec_()
         if res == 1:
-            plugin = cls(filename=wid.dir, product=wid.product, bands=wid.band, polarisations=wid.polar, crop=wid.crop)
+            plugin = cls(dir=wid.dir, product=wid.product, bands=wid.band, polarisations=wid.polar, crop=wid.crop)
             viewer.statusBar.setMessage(message=plugin.name + ' running', colour='R')
             plugin.run()
             del plugin
@@ -218,7 +217,6 @@ class EsarImportWidget(QtWidgets.QDialog):
 
     def update(self, mode=0):
         self.dir = str(self.dirwidget.getvalue())
-        ESAR.file = self.dir
         self.product = self.productwidget.getvalue(0)
         self.polar = self.productwidget.getvalue(2)
 

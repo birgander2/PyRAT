@@ -1,9 +1,9 @@
+import logging
+
 import pyrat
 import scipy as sp
 from scipy import optimize as opt
 import numpy as np
-import logging
-from scipy.ndimage import filters
 
 
 class Boxcar(pyrat.FilterWorker):
@@ -33,13 +33,13 @@ class Boxcar(pyrat.FilterWorker):
             win = [1, 1] + self.win
         array[np.isnan(array)] = 0.0
         if np.iscomplexobj(array):
-            return filters.uniform_filter(array.real, win) + 1j * filters.uniform_filter(array.imag, win)
+            return sp.ndimage.filters.uniform_filter(array.real, win) + 1j * sp.ndimage.filters.uniform_filter(array.imag, win)
         elif self.phase is True:
             tmp = np.exp(1j * array)
-            tmp = filters.uniform_filter(tmp.real, win) + 1j * filters.uniform_filter(tmp.imag, win)
+            tmp = sp.ndimage.filters.uniform_filter(tmp.real, win) + 1j * sp.ndimage.filters.uniform_filter(tmp.imag, win)
             return np.angle(tmp)
         else:
-            return filters.uniform_filter(array.real, win)
+            return sp.ndimage.filters.uniform_filter(array.real, win)
 
 
 @pyrat.docstringfrom(Boxcar)
@@ -112,6 +112,284 @@ def lee(*args, **kwargs):
     return Lee(*args, **kwargs).run(**kwargs)
 
 
+class Kuan(pyrat.FilterWorker):
+    """
+    Kuan filter. Similar performance to the Lee filter but with a different weighting function.
+    
+    further information:
+    D.T.Kuan et al. “Adaptive restoration of images with speckle,” JEEE Trans. Acoustics, Speech and Sig. 
+    Proc., vol. ASSP-35, pp. 373-383, March 1987
+
+    :author: Joel Amao
+    :param array: The image to filter (2D np.ndarray)
+    :type array: float
+    :param win: The filter window size (default: [7,7])
+    :type win: integer
+    :param looks=1.0: The effective number of looks of the input image.
+    :type looks: float
+    :returns: filtered image
+    """
+    gui = {'menu': 'SAR|Speckle filter', 'entry': 'Kuan'}
+    para = [
+        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+        {'var': 'looks', 'value': 1.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(Kuan, self).__init__(*args, **kwargs)
+        self.name = "KUAN FILTER"
+        self.blockprocess = True
+        self.blockoverlap = self.win[0] // 2 + 1
+
+    def filter(self, array, *args, **kwargs):
+        array[np.isnan(array)] = 0.0
+        shape = array.shape
+        if len(shape) == 3:
+            array = np.abs(array)
+            span = np.sum(array ** 2, axis=0)
+            array = array[np.newaxis, ...]
+        elif len(shape) == 4:
+            span = np.abs(np.trace(array, axis1=0, axis2=1))
+        else:
+            array = np.abs(array)
+            span = array ** 2
+            array = array[np.newaxis, np.newaxis, ...]
+        lshape = array.shape[0:2]
+
+        #Calculates the squared mean of the array (marr) and the mean squared array (m2arr)
+        m2arr = sp.ndimage.filters.uniform_filter(span ** 2, size=self.win)
+        marr = sp.ndimage.filters.uniform_filter(span, size=self.win)
+        # Variance within window, follows the identity Var(x) = E(x**2) - [E(X)]**2
+        vary = (m2arr - marr ** 2).clip(1e-10)
+        # Standard deviation within window
+        stdDev = np.sqrt(vary)
+        #cu and ci are the main parameters of the weight function w
+        cu = np.sqrt(1/self.looks)
+        if not cu:
+            cu = 0.25
+
+        ci = (stdDev/marr)
+        if not ci.any():
+            ci = 0.0001
+
+        #Clipped weighted function
+        w = (1 - ((cu ** 2) / (ci ** 2))).clip(0) / ((1 + (cu ** 2)).clip(1e-10))
+
+        #Filters each channel separately
+        out = np.empty_like(array)
+        for k in range(lshape[0]):
+            for l in range(lshape[1]):
+                if np.iscomplexobj(array):
+                    out[k, l, ...] = sp.ndimage.filters.uniform_filter(array[k, l, ...].real, size=self.win) + \
+                                     1j * sp.ndimage.filters.uniform_filter(array[k, l, ...].imag, size=self.win)
+                else:
+                    out[k, l, ...] = sp.ndimage.filters.uniform_filter(array[k, l, ...], size=self.win)
+                # Main output
+                out[k, l, ...] = (array[k, l, ...] * w) + out[k, l, ...]*(1 - w)
+        return np.squeeze(out)
+
+
+@pyrat.docstringfrom(Kuan)
+def kuan(*args, **kwargs):
+    return Kuan(*args, **kwargs).run(*args, **kwargs)
+
+
+class IDAN(pyrat.FilterWorker):
+    """
+    IDAN filter. Intensity driven adaptive neighborhood filter.
+
+    further information:
+    G. Vasile et al. “Intensity-Driven Adaptive-Neighborhood Technique for Polarimetric and Interferometric
+    SAR Parameters Estimation” IEEE TRANSACTIONS ON GEOSCIENCE AND REMOTE SENSING,Vol 44. No. 6, 2006
+
+
+    :author: Joel Amao
+    :param array: The image to filter (2D np.ndarray)
+    :type array: float
+    :param looks = 1.0: The effective number of looks of the input image.
+    :param nmax = 50: The maximum number of neighbours to add
+    :param LLMMSE: Activates LLMMSE processing after the region growing
+    :type looks: float
+    :returns: filtered image
+    """
+    gui = {'menu': 'SAR|Speckle filter', 'entry': 'IDAN filter'}
+    para = [
+        {'var': 'looks', 'value': 1.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
+        {'var': 'nmax', 'value': 50, 'type': 'int', 'range': [40, 200], 'text': 'Max # of Neighbors'},
+        {'var': 'LLMMSE', 'value': True, 'type': 'bool', 'text': 'Activates LLMMSE processing'}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(IDAN, self).__init__(*args, **kwargs)
+        self.name = "IDAN FILTER"
+        self.blockprocess = True
+        self.blocksize = self.nmax * 4
+        self.blockoverlap = self.nmax
+        # self.nthreads = 1
+        #todo: add a mininum nmax parameters
+        #todo: test InSAR data
+
+    def filter(self, array, *args, **kwargs):
+
+        MMSEproc = self.LLMMSE
+        array[np.isnan(array)] = 0.0
+        shape = array.shape
+        if len(shape) == 3:
+            array = np.abs(array)
+            span = np.sum(array ** 2, axis=0)
+            array = array[np.newaxis, ...]
+        elif len(shape) == 4:
+            span = np.abs(np.trace(array, axis1=0, axis2=1))
+        else:
+            array = np.abs(array)
+            span = array ** 2
+            array = array[np.newaxis, np.newaxis, ...]
+
+        win = np.array([3, 3])
+        ldim = array.shape[0:2]
+        rdim = array.shape[2:4]
+        nmax = self.nmax
+        nlook = 1/(np.sqrt(self.looks))/3.0
+
+        # ==============================================================================
+        # 1.1 Rough estimation of the seed value
+        # ==============================================================================
+
+        intensities = np.zeros((ldim[0], rdim[0], rdim[1]), dtype = np.float32)
+        med_arr = np.zeros_like(intensities)
+        for i in range(ldim[0]):
+            intensities[i, :] = array[i, i, :, :].real
+            med_arr[i, :] = sp.ndimage.filters.median_filter(intensities[i, :], size=win)
+
+        data = array
+        ldim = data.shape[0:2]
+        rdim = data.shape[2:4]
+        maxp = rdim[0] * rdim[1]
+
+        mask_vec = np.zeros(shape=[maxp, nmax], dtype=np.int64)
+        background = np.zeros_like(mask_vec)
+        nnList = np.zeros((maxp, 1), dtype=np.int64)
+
+        # k = (xx)*rdim[1] + (yy)
+
+        # ==============================================================================
+        # 1.2 Region growing
+        # ==============================================================================
+
+        thres = 2 * nlook
+        intensities = intensities.reshape((ldim[0], maxp))
+        med_arr = med_arr.reshape(ldim[0], maxp)
+        neighbours = [1, -1, -rdim[1], rdim[1], rdim[1] + 1, rdim[1] - 1, -rdim[1] + 1, -rdim[1] - 1]
+
+        for k in range(maxp):
+            stack = [(k)]
+            nn = 0
+            bg_nn = 0
+            while stack:
+                y = stack.pop(0)
+                nnList[k] = nn
+                if nn == 0:
+                    mask_vec[k, 0] = y
+
+                for dy in neighbours:
+                    ny = y + dy
+                    # and >>> and
+                    if (not (ny in background[k, :]) and 0 <= ny  and not (ny in mask_vec[k, :]) and nn < nmax and ny < maxp):
+
+                        up = np.abs(intensities[:, ny] - med_arr[:, k])
+                        down = np.maximum(np.abs(med_arr[:, k]), 1e-10)
+                        sum = (up / down).sum()
+
+                        if (sum <= thres):
+                            stack.append(ny)
+                            if nn < nmax:
+                                nn += 1
+                            if nn < nmax:
+                                mask_vec[k, nn] = ny
+                        else:
+                            if bg_nn < nmax:
+                                background[k, bg_nn] = ny
+                                bg_nn += 1
+
+        # ==============================================================================
+        # 2.1 Refined estimation of the seed value
+        # ==============================================================================
+        dataV = data.reshape(ldim[0], ldim[1], maxp)
+        updatedSeed = np.zeros_like(med_arr)
+
+        for k in range(maxp):
+            for i in range(ldim[0]):
+                if np.where(mask_vec[k, :] > 0)[0].size > 0:
+                    updatedSeed[i, k] = np.mean(dataV[i, i, mask_vec[k, :][np.where(mask_vec[k, :] > 0)]].real)
+
+        # ==============================================================================
+        # 2.2 Reinspection of the background pixels
+        # ==============================================================================
+        thres = 6 * nlook
+
+        for k in range(maxp):
+            if nnList[k] < nmax:
+                stack = background[k][np.where(background[k] > 0)].tolist()
+                while stack:
+                    nnList[k] += 1
+                    y = stack.pop(0)
+                    up = np.abs(intensities[:, y] - updatedSeed[:, k])
+                    down = np.maximum(np.abs(updatedSeed[:, k]), 1e-10)
+                    sum = (up / down).sum()
+                    if (sum <= thres):
+                        if nnList[k] < nmax:
+                            mask_vec[k, nnList[k]] = y
+
+        # ==============================================================================
+        # 3.1 Parameter estimation
+        # ==============================================================================
+        avg = np.zeros(shape=[ldim[0], ldim[1], maxp], dtype = np.complex64)
+
+        for k in range(maxp):
+           for i in range (ldim[0]):
+               for j in range(ldim[1]):
+                    if np.where(mask_vec[k,:] > 0)[0].size > 0:
+                       idx =  mask_vec[k,:][np.where(mask_vec[k,:] > 0)]
+                       avg[i,j,k] = np.mean(dataV[i,j,idx])
+                    else:
+                       avg[i, j, k] = dataV[i, j, k]
+
+        # Calculates the squared mean of the array (marr) and the mean squared array (m2arr)
+        m2arr = sp.ndimage.filters.uniform_filter(span ** 2, size = win)
+        marr = sp.ndimage.filters.uniform_filter(span, size = win)
+        # Variance within window, follows the identity Var(x) = E(x**2) - [E(X)]**2
+        vary = (m2arr - marr ** 2).clip(1e-10)
+        # Standard deviation within window
+        stdDev = np.sqrt(vary)
+        # cu and ci are the main parameters of the weight function w
+        cu = np.sqrt(1 / self.looks)
+        ci = (stdDev / marr)
+
+        # Clipped weighted function
+        w = (1 - ((cu ** 2) / (ci ** 2))).clip(0) / ((1 + (cu ** 2)).clip(1e-10))
+        w = w.reshape(maxp)
+
+        #LLMMSE
+        if MMSEproc:
+            LLMMSE = np.zeros_like(avg, dtype = np.complex64)
+            for k in range(maxp):
+               for i in range (ldim[0]):
+                   for j in range(ldim[1]):
+                          LLMMSE[i,j,k] = avg[i,j,k] + w[k]*(dataV[i,j,k] - avg[i,j,k])
+            LLMMSE = LLMMSE.reshape(ldim[0], ldim[1], rdim[0], rdim[1])
+            return np.squeeze(LLMMSE)
+        else:
+            #Reshaping the array and removing the borders
+            avg = avg.reshape(ldim[0], ldim[1], rdim[0], rdim[1])
+            return np.squeeze(avg)
+
+
+
+
+@pyrat.docstringfrom(IDAN)
+def idan(*args, **kwargs):
+    return IDAN(*args, **kwargs).run(*args, **kwargs)
+
 class Gauss(pyrat.FilterWorker):
     """
     Gaussian (speckle) filter...
@@ -139,13 +417,13 @@ class Gauss(pyrat.FilterWorker):
             win = [1, 1] + self.win
         array[np.isnan(array)] = 0.0
         if np.iscomplexobj(array):
-            return filters.gaussian_filter(array.real, win) + 1j * filters.gaussian_filter(array.imag, win)
+            return sp.ndimage.filters.gaussian_filter(array.real, win) + 1j * sp.ndimage.filters.gaussian_filter(array.imag, win)
         elif self.phase is True:
             tmp = np.exp(1j * array)
-            tmp = filters.gaussian_filter(tmp.real, win) + 1j * filters.gaussian_filter(tmp.imag, win)
+            tmp = sp.ndimage.filters.gaussian_filter(tmp.real, win) + 1j * sp.ndimage.filters.gaussian_filter(tmp.imag, win)
             return np.angle(tmp)
         else:
-            return filters.gaussian_filter(array.real, win)
+            return sp.ndimage.filters.gaussian_filter(array.real, win)
 
 
 @pyrat.docstringfrom(Gauss)
@@ -248,8 +526,8 @@ class RefinedLee(pyrat.FilterWorker):
         ampf1 = np.empty((9,) + span.shape)
         ampf2 = np.empty((9,) + span.shape)
         for k in range(9):
-            ampf1[k, ...] = filters.correlate(span ** 2, cbox[k, ...])
-            ampf2[k, ...] = filters.correlate(span, cbox[k, ...]) ** 2
+            ampf1[k, ...] = sp.ndimage.filters.correlate(span ** 2, cbox[k, ...])
+            ampf2[k, ...] = sp.ndimage.filters.correlate(span, cbox[k, ...]) ** 2
 
         # ---------------------------------------------
         # GRADIENT ESTIMATION
@@ -259,7 +537,7 @@ class RefinedLee(pyrat.FilterWorker):
         if self.method == 'original':
             xs = [+2, +2, 0, -2, -2, -2, 0, +2]
             ys = [0, +2, +2, +2, 0, -2, -2, -2]
-            samp = filters.uniform_filter(span, self.win // 2)
+            samp = sp.ndimage.filters.uniform_filter(span, self.win // 2)
             grad = np.empty((8,) + span.shape)
             for k in range(8):
                 grad[k, ...] = np.abs(np.roll(np.roll(samp, ys[k], axis=0), xs[k], axis=1) / samp - 1.0)
@@ -289,9 +567,9 @@ class RefinedLee(pyrat.FilterWorker):
             varx = ((vary - mamp * sig2) / sfak).clip(0)
             kfac = varx / vary
             if np.iscomplexobj(array):
-                mamp = filters.correlate(array.real, dbox) + 1j * filters.convolve(array.imag, dbox)
+                mamp = sp.ndimage.filters.correlate(array.real, dbox) + 1j * sp.ndimage.filters.convolve(array.imag, dbox)
             else:
-                mamp = filters.correlate(array, dbox)
+                mamp = sp.ndimage.filters.correlate(array, dbox)
             idx = np.argwhere(direc == l)
             out[:, :, idx[:, 0], idx[:, 1]] = (mamp + (array - mamp) * kfac)[:, :, idx[:, 0], idx[:, 1]]
 
@@ -360,7 +638,7 @@ try:
 
     class LeeSigma(pyrat.FilterWorker):
         """
-        Lee's original sigma speckle filter...
+        Lee's original sigma speckle filter. Fast implementation in Cython.
 
         J.S. Lee: A Simple Speckle Smoothing  Algorithm for Synthetic Aperture Radar Images.
         IEEE Transactions on System, Man, and Cybernetics, Vol. SMC-13, No.1, pp.85-89, 1983']
@@ -425,7 +703,7 @@ try:
 
     class LeeSigma2(pyrat.Worker):
         """
-        Lee's improved sigma speckle filter...
+        Lee's improved sigma speckle filter. Fast implementation in Cython.
 
         J.S. Lee et al.: Improved Sigma Filter for Speckle Filtering of SAR Imagery.
         IEEE Transactions on Geoscience and Remote Sensing, Vol. 47, No.1, pp. 202-213, 2009']
@@ -720,7 +998,7 @@ try:
 
     class Bilateral(pyrat.FilterWorker):
         """
-        Simple bilateral speckle filter
+        Simple bilateral speckle filter (not SAR specific). Fast implementation in Cython.
 
         :author: Andreas Reigber
         """
@@ -900,7 +1178,7 @@ try:
 
     class SRAD(pyrat.Worker):
         """
-        Anisotropic diffusion speckle filter...
+        Anisotropic diffusion speckle filter. Fast implementation in Cython.
         Y. You and S.T. Acton: Speckle Reducing Anisotropic diffusion
         IEEE Transactions on Image Processing, Vol. 11, No.11, pp. 1260-1269-213, 2002']
 
@@ -1107,4 +1385,73 @@ try:
 
 except ImportError:
     logging.info("EMDES cython module not found. (run build process?)")
+
+
+try:
+    from .Despeckle_extensions import cy_idanq as cy_idanq
+    from scipy.ndimage.filters import median_filter
+
+    class IDANQ(pyrat.FilterWorker):
+        """
+        IDAN Speckle Filter (Intensity Driven Adaptive Neighbourhood).
+
+        This is a "quick'n'dirty" implementation, using only the span
+        of multidimensional data for region growing. Fast implementation in Cython.
+
+        for details see: G. Vasile et al.: "Intensity-Driven Adaptive-Neighborhood
+        Technique for Polarimetric and Interferometric SAR Parameters Estimation",
+        IEEE Trans. Geosc. Remote Sensing, 44(6), 2006
+
+        :author: Andreas Reigber
+        """
+        gui = {'menu': 'SAR|Speckle filter', 'entry': 'IDAN quick'}
+        para = [
+            {'var': 'size', 'value': 50, 'type': 'int', 'range': [3, 999], 'text': 'Neighbourhood size'},
+            {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'], 'text': 'SAR data type'},
+            {'var': 'llmmse', 'value': True, 'type': 'bool', 'text': 'LLMMSE filtering'}
+        ]
+
+        def __init__(self, *args, **kwargs):
+            super(IDANQ, self).__init__(*args, **kwargs)
+            self.name = "IDAN-Q SPECKLE FILTER"
+            self.blockprocess = True
+            # self.nthreads = 1
+            self.blockoverlap = self.size + 1
+            self.blocksize = self.blockoverlap * 4
+
+        def filter(self, array, *args, **kwargs):
+            if array.ndim == 3:                                                # polarimetric vector
+                if np.iscomplexobj(array) or self.type == "amplitude":
+                    array = np.abs(array)**2
+                    self.type = "amplitude"
+                else:
+                    array = np.abs(array)
+                span = np.sum(array, axis=0)
+                array = array[np.newaxis, ...]
+                self.type = "amplitude"
+            elif array.ndim == 4:                                              # covariance data
+                span = np.abs(np.trace(array, axis1=0, axis2=1))
+                self.type = "intensity"
+            else:                                                              # single channel data
+                if np.iscomplexobj(array) or self.type == "amplitude":
+                    array = np.abs(array)**2
+                    self.type = "amplitude"
+                else:
+                    array = np.abs(array)
+                span = array.copy()
+                array = array[np.newaxis, np.newaxis, ...]
+            array = cy_idanq(span, array, looks=self.looks, nmax=self.size, llmmse=self.llmmse)
+            array[~np.isfinite(array)] = 0.0
+            if self.type == "amplitude":
+                array[array < 0] = 0.0
+                array = np.sqrt(array)
+            return np.squeeze(array)
+
+    @pyrat.docstringfrom(IDANQ)
+    def idanq(*args, **kwargs):
+        return IDANQ(*args, **kwargs).run(*args, **kwargs)
+
+except ImportError:
+    logging.info("IDANQ cython module not found. (run build process?)")
 

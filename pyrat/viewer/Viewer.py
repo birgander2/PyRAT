@@ -52,8 +52,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.central.setMinimumSize(100, 100)
 
     def makeToolbar(self):
-        self.openTB = QtWidgets.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self)
-        self.closeTB = QtWidgets.QAction(QtGui.QIcon('icons/document-close.png'), 'Close', self)
+        self.openTB = QtWidgets.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self, triggered=lambda: pyrat.load.RatHDF.guirun(self))
+        # self.closeTB = QtWidgets.QAction(QtGui.QIcon('icons/document-close.png'), 'Close', self)
         # self.zoominTB = QtGui.QAction(QtGui.QIcon('icons/zoom-in.png'), 'Zoom in', self)
         # self.zoomoutTB = QtGui.QAction(QtGui.QIcon('icons/zoom-out.png'), 'Zoom out', self)
         #self.zoomresetTB = QtGui.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), 'Fit zoom', self)
@@ -61,7 +61,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.toolbar1 = self.addToolBar("File")
         self.toolbar1.addAction(self.openTB)
-        self.toolbar1.addAction(self.closeTB)
+        # self.toolbar1.addAction(self.closeTB)
 
         self.toolbar2 = self.addToolBar("Display")
         self.toolbar2.addAction(self.zoomOutAct)
@@ -110,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def initPlugins(self):
         from inspect import getmembers, isclass
 
-        modules = [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform, pyrat.polar, pyrat.plugins, pyrat.viewer]
+        modules = [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform, pyrat.polar, pyrat.insar, pyrat.plugins, pyrat.viewer]
         logging.debug("Scanning for GUI elements:")
         for current_module in modules:
             modules = getmembers(current_module, isclass)
@@ -130,6 +130,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "Tools": self.menubar.addMenu('Tools'),
             "SAR": self.menubar.addMenu('SAR'),
             "PolSAR": self.menubar.addMenu('PolSAR'),
+            "InSAR": self.menubar.addMenu('InSAR'),
             "Help": self.menubar.addMenu('Help')}
 
         self.menue.update({"File|Import raster": self.menue["File"].addMenu('Import raster')})
@@ -176,6 +177,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"PolSAR|Decompositions": self.menue["PolSAR"].addMenu('Decompositions')})
         self.menue.update({"PolSAR|Parameters": self.menue["PolSAR"].addMenu('Parameters')})
         self.menue.update({"PolSAR|Transform": self.menue["PolSAR"].addMenu('Transform')})
+        self.menue.update({"InSAR|Phase noise filter": self.menue["InSAR"].addMenu('Phase noise filter')})
         self.menue.update({"Tools|Geometry": self.menue["Tools"].addMenu('Geometry')})
 
         #self.menue["View"].addAction(self.viewAmpAct)
@@ -241,7 +243,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.processPicture()
 
     def updateDisplayList(self):
-        layers = pyrat.data.getLayerNames()
+        layers = pyrat.data.getLayerIDs()
         if not isinstance(layers, list):
             layers = [layers]
 
@@ -251,7 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if layer not in self.display:
                 config = {'colour': None, 'bwlayer': None, 'rgblayer': [None, None, None],
                           'palette': 0, 'scaling': 'amplitude'}
-                dsets = pyrat.data.getDataLayerNames(layer)
+                dsets = pyrat.data.getDataLayerIDs(layer)
                 if len(dsets) == 1:
                     config['bwlayer'] = dsets[0]
                     config['colour'] = False
@@ -265,7 +267,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     config['colour'] = True
                 self.display.update({layer: config})
 
-    def updateViewer(self, layer=None):
+    def updateViewer(self, method=None, layer=None):
 
         if layer is None:
             current = pyrat.data.active
@@ -273,12 +275,21 @@ class MainWindow(QtWidgets.QMainWindow):
             current = layer
         if isinstance(current, list):
             current = current[-1]
-
+        if current is None:
+            if len(pyrat.data.layers) != 0:              # show first layer if existing
+                current = list(pyrat.data.layers.keys())[0]
+            else:
+                if hasattr(self, 'data'):
+                    del self.data
+                self.current = None
+                self.imageLabel.clear()
         if current is not None:
-            self.undolist.append((list(pyrat.data.getLayerNames()), pyrat.data.active))
+            self.undolist.append((list(pyrat.data.getLayerIDs()), pyrat.data.active))
             self.current = '/'+current.split('/')[1]
             self.updateDisplayList()
             self.config = self.display[self.current]
+            if method is not None:
+                self.config['scaling'] = method
             self.tree.redraw()
             self.showCurrentLayer()
 
@@ -310,11 +321,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if img.dtype == 'uint8':
             img = img.copy()
-        elif method == 'amplitude' or method == 'intensity':
+        elif method == 'amplitude' or method == 'intensity' or method == None:
             if method == 'intensity':
-                img **= 0.35
+                img = np.abs(img)**0.35
             else:
-                img **= 0.7
+                img = np.abs(img)**0.7
             if self.config['colour'] is True:
                 for k in range(img.shape[0]):
                     img[k, ...] /= np.mean(img[k, ...])
@@ -577,7 +588,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.box = [midx - newx // 2, midx + newx // 2, midy - newy // 2, midy + newy // 2]
 
-            if len(self.data) > 0:
+            if hasattr(self, 'data') and len(self.data) > 0:
                 self.processPicture()
             self.resizeframeevent(event)
             self.block_redraw = False

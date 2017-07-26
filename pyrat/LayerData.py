@@ -243,6 +243,28 @@ class LayerData(object):
         else:
             return array
 
+    def setLayerName(self, names, layer=None):
+        """
+        Sets name to a layer or dataset.
+        """
+        if layer is None:
+            layer = self.active
+        if not isinstance(layer, list):
+            layers = [layer]
+        else:
+            layers = layer
+
+        if not isinstance(names, list):
+            names = [names]
+        while len(layers) > len(names):
+            names.append(names[-1])
+
+        for layer, name in zip(layers, names):
+            valid = self.existLayer(layer)
+            if valid is True:
+                group = '/' + layer.split('/')[1]
+                self.layers[group].name = name
+
     def setAnnotation(self, annotation, layer=None):
         """
         Sets annotations (dict) to a layer or dataset.
@@ -342,10 +364,10 @@ class LayerData(object):
         else:
             self.dshape = tuple(dshape)
 
-    def getLayerNames(self):
+    def getLayerIDs(self):
         return list(self.layers.keys())
 
-    def getDataLayerNames(self, layer=None):
+    def getDataLayerIDs(self, layer=None):
         if layer is None:
             layer = self.active
         layers = layer if isinstance(layer, list) else [layer]
@@ -397,7 +419,7 @@ class LayerData(object):
         """
         for group in ['/L' + str(l) for l in sorted([int(k[2:]) for k in self.layers.keys()])]:
             active = ' *' if self.active is not None and group in self.active else ''
-            print((self.layers[group].name + active).ljust(9), self.layers[group].attrs['_type'].ljust(15),
+            print((self.layers[group].id + active).ljust(9), self.layers[group].name.ljust(15),
                   self.layers[group].attrs['_block'], self.layers[group].attrs['_dtype'].ljust(10),
                   tuple(self.layers[group].attrs['_shape']))
 
@@ -440,9 +462,10 @@ class LayerData(object):
 
 
 class DiscLayer():
-    def __init__(self, filename, group, shape, dtype, block='D', *args, **kwargs):
+    def __init__(self, filename, group, shape, dtype, block='D', *args, name='', **kwargs):
         self.fn = filename
-        self.name = group
+        self.id = group
+        self.name = name
         if os.path.isfile(self.fn):                                            # import existing layer file
             self.file = h5py.File(self.fn, 'a')
             self.group = self.file['D']
@@ -521,7 +544,7 @@ class DiscLayer():
         else:
             block[3] += offset[1]
 
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             nchannels = np.prod(self.attrs["_lshape"])
             if self.attrs['_block'] == 'D':
                 self.group["D"][..., block[0]:block[1], block[2]:block[3]] = array.reshape(
@@ -555,7 +578,7 @@ class DiscLayer():
             block[3] = self.attrs['_dshape'][1] + offset[1]
         else:
             block[3] += offset[1]
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             lshape = tuple(self.attrs["_lshape"])
             dshape = tuple(self.attrs["_dshape"])
             if self.attrs['_block'] == 'D':
@@ -582,14 +605,15 @@ class DiscLayer():
             stop()
 
     def exposeRaw(self, layer=None):
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             return self.group["D"]
         elif 'D' in layer:
             logging.error('Only support for entire layers: '+layer)
 
 
 class MemoryLayer():
-    def __init__(self, name, shape, dtype, *args, **kwargs):
+    def __init__(self, group, shape, dtype, *args, name='', **kwargs):
+        self.id = group
         self.name = name
         self.attrs = {}
         self.attrs['_type'] = 'Memory'
@@ -650,7 +674,7 @@ class MemoryLayer():
         else:
             block[3] += offset[1]
 
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             nchannels = np.prod(self.attrs["_lshape"])
             self.data[..., block[0]:block[1], block[2]:block[3]] = array.reshape((nchannels,) + array.shape[-2:])
         elif 'D' in layer:
@@ -674,7 +698,7 @@ class MemoryLayer():
         else:
             block[3] += offset[1]
 
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             bshape = (block[1] - block[0], block[3] - block[2])
             lshape = tuple(self.attrs["_lshape"])
             return np.squeeze(np.reshape(self.data[..., block[0]:block[1], block[2]:block[3]], lshape + bshape))
@@ -685,7 +709,7 @@ class MemoryLayer():
             logging.error('Layer name unknown') 
 
     def exposeRaw(self, layer=None):
-        if layer is None or layer == self.name:
+        if layer is None or layer == self.id:
             return self.data
         elif 'D' in layer:
             logging.error('Only support for entire layers: '+layer)

@@ -235,7 +235,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
 
     def redraw(self):
 
-        layers = pyrat.data.getLayerNames()
+        layers = pyrat.data.getLayerIDs()
         layers = sorted(layers, key=lambda foo: int(foo.lstrip('/L')))         # sort layers (dict!)
         self.clear()
 
@@ -283,7 +283,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
             meta.setWhatsThis(0, 'meta')
             self.treelements[lname].addChild(meta)
 
-            channels = pyrat.data.getDataLayerNames(layer)
+            channels = pyrat.data.getDataLayerIDs(layer)
             metadata = pyrat.data.getAnnotation(layer)
             for k, channel in enumerate(channels):
                 cname = channel.split('/')[-1]
@@ -465,7 +465,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
             if viewlayer == layer:
                 self.viewer.showCurrentLayer(force=True)
             else:
-                GenPyramid(layer=layer, force=True).run()
+                pyrat.viewer.GenPyramid(layer=layer, force=True).run()
 
     def newLayerName(self, item):
         text = item.text(0)
