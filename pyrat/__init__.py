@@ -291,7 +291,7 @@ def pyrat_exit():
             if os.path.exists(layer.fn):
                 layer.file.close()
                 os.remove(layer.fn)
-            logging.info('Deleting temporary file: ' + layer.fn)
+            logging.debug('Deleting temporary file: ' + layer.fn)
 
 
 interpreter = False

@@ -9,6 +9,14 @@ disc containers for temporary storage. It features automatic multithreaded block
 processing for speed and memory efficiency, a powerful batch system and a Qt-based GUI. 
 It is expandable by plugins without deep knowledge of framework itself.
 
+## Screenshots
+
+<div align="left">
+<a href="doc/screenshot01.jpg"><img width="200" height="200" hspace="20" src="doc/screenshot01.jpg" alt="Screenshot 1"</img></a>
+<a href="doc/screenshot02.jpg"><img width="200" height="200" hspace="20" src="doc/screenshot02.jpg" alt="Screenshot 2"</img></a>
+<a href="doc/screenshot03.jpg"><img width="200" height="200" hspace="20" src="doc/screenshot03.jpg" alt="Screenshot 3"</img></a>
+</div>
+
 ## Requirements
 
 Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
