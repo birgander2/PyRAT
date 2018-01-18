@@ -1,0 +1,14 @@
+python>=3
+pyqt>=5
+numpy
+numexpr
+scipy
+h5py
+gdal
+pillow
+cython
+matplotlib
+lxml
+scikit-image
+readline
+mako
