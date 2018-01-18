@@ -3,9 +3,10 @@ from distutils.core import setup
 from Cython.Build import cythonize
 import numpy
 import os
-import pyrat.lib.nlsar.nlsetup as nlsetup
 
 os.environ['CFLAGS'] = '-Wno-maybe-uninitialized -Wno-cpp'
+
+import pyrat.lib.nlsar.nlsetup as nlsetup
 
 # extract internal version number (hehe, what a hack!)
 pyrat_version = 'unknown'
