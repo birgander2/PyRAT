@@ -73,6 +73,9 @@ class Yamaguchi3(pyrat.FilterWorker):
     Expects as input a C3 or C4 polarimetric covariance matrix. Returns the three estimated power
     components in the order even-odd-volume.
 
+    Y. Yamaguchi et al: A four-component decomposition of POLSAR images based on the coherency matrix,
+    IEEE GRSL, Volume 3, Issue 3, July 2006 Page(s):292 - 296
+
     :author: Andreas Reigber
     """
     gui = {'menu': 'PolSAR|Decompositions', 'entry': 'Yamaguchi3'}

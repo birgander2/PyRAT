@@ -1,5 +1,10 @@
-import h5py, os, logging, tempfile
+import h5py
+import logging
 import numpy as np
+import os, copy
+import tempfile
+
+import pyrat
 from pyrat.tools import deshape
 
 
@@ -71,7 +76,11 @@ class LayerData(object):
             valid = [valid, ]
         elif len(layers) == 1:
             valid = [valid, ]
-        self.active = [layer for (layer, val) in zip(layers, valid) if val]
+        active = [layer for (layer, val) in zip(layers, valid) if val]
+        if len(active) == 0:
+            return
+        else:
+            self.active = active
         if len(self.active) == 1:
             self.active = self.active[0]
 
@@ -87,26 +96,28 @@ class LayerData(object):
         shape = []
         offset = []
         for layer in layers:
-            group = '/' + layer.split('/')[1]
-            s_dtype = self.layers[group].attrs["_dtype"]
-            s_lshape = self.layers[group].attrs["_lshape"]
-            s_dshape = self.layers[group].attrs["_dshape"]
-            s_shape = self.layers[group].attrs["_shape"]
-            s_offset = self.layers[group].attrs["_offset"]
-            if 'D' in layer:
-                s_lshape = (1, 0)
-                s_shape = s_dshape
-            s_ndim = 3
-            if s_lshape[0] == 1:
-                s_ndim = 2
-            elif len(s_lshape) == 2:
-                s_ndim = 4
-            dtype.append(s_dtype)
-            ndim.append(s_ndim)
-            dshape.append(s_dshape)
-            lshape.append(s_lshape)
-            shape.append(s_shape)
-            offset.append(s_offset)
+            valid = self.existLayer(layer)
+            if valid is True:
+                group = '/' + layer.split('/')[1]
+                s_dtype = self.layers[group].attrs["_dtype"]
+                s_lshape = self.layers[group].attrs["_lshape"]
+                s_dshape = self.layers[group].attrs["_dshape"]
+                s_shape = self.layers[group].attrs["_shape"]
+                s_offset = self.layers[group].attrs["_offset"]
+                if 'D' in layer:
+                    s_lshape = (1, 0)
+                    s_shape = s_dshape
+                s_ndim = 3
+                if s_lshape[0] == 1:
+                    s_ndim = 2
+                elif len(s_lshape) == 2:
+                    s_ndim = 4
+                dtype.append(s_dtype)
+                ndim.append(s_ndim)
+                dshape.append(s_dshape)
+                lshape.append(s_lshape)
+                shape.append(s_shape)
+                offset.append(s_offset)
 
         if len(layers) == 1:
             self.dtype = dtype[0]
@@ -123,11 +134,20 @@ class LayerData(object):
             self.ndim = ndim
             self.offset = offset
 
-    def queryLayer(self, layers):
+    def queryLayer(self, layer=None):
         """
         Returns a dict with layer information
         """
+        if layer is None:
+            layer = self.active
+        layers = [layer] if not isinstance(layer, list) else layer
         valid = self.existLayer(layers)
+        if isinstance(valid, bool):
+            if valid is False:
+                return
+        if isinstance(valid, list):
+            if False in valid:
+                return
         if not isinstance(layers, list):
             layers = [layers, ]
             valid = [valid, ]
@@ -155,12 +175,13 @@ class LayerData(object):
                 s_ndim = 4
             query.append({'dtype': s_dtype, 'ndim': s_ndim, 'dshape': s_dshape, 'lshape': s_lshape, 'shape': s_shape})
 
+        query = copy.deepcopy(query)
         if len(layers) == 1:
             return query[0]
         else:
             return query
 
-    def setData(self, array, layer=None, block=(0, 0, 0, 0)):
+    def setData(self, array, layer=None, block=(0, 0, 0, 0), **kwargs):
         """
         Fills a data layer with data. Gets called by addLayer method.
         """
@@ -417,9 +438,13 @@ class LayerData(object):
         """
         Prints a list of existing layers. The active layers are marked with a star.
         """
+        print()
+        activelist = self.active
+        if not isinstance(activelist, list):
+            activelist = [activelist]
         for group in ['/L' + str(l) for l in sorted([int(k[2:]) for k in self.layers.keys()])]:
-            active = ' *' if self.active is not None and group in self.active else ''
-            print((self.layers[group].id + active).ljust(9), self.layers[group].name.ljust(15),
+            active = ' *' if activelist is not None and group in activelist else ''
+            print(" ", (self.layers[group].id + active).ljust(9), self.layers[group].name.ljust(20)[:20],
                   self.layers[group].attrs['_block'], self.layers[group].attrs['_dtype'].ljust(10),
                   tuple(self.layers[group].attrs['_shape']))
 
@@ -459,6 +484,8 @@ class LayerData(object):
                         self.active = active
 
                     del self.layers[layer]
+            else:
+                logging.warning("Layer " + layer + " not existing!")
 
 
 class DiscLayer():
@@ -579,27 +606,26 @@ class DiscLayer():
         else:
             block[3] += offset[1]
         if layer is None or layer == self.id:
-            lshape = tuple(self.attrs["_lshape"])
+            lshape = tuple(s for s in self.attrs["_lshape"] if s != 1)
             dshape = tuple(self.attrs["_dshape"])
             if self.attrs['_block'] == 'D':
                 bshape = (block[1] - block[0], block[3] - block[2])
                 # print(block,lshape+bshape)
-                return np.squeeze(
-                    np.reshape(self.group["D"][..., block[0]:block[1], block[2]:block[3]], lshape + bshape))
+                return np.reshape(self.group["D"][..., block[0]:block[1], block[2]:block[3]], lshape + bshape)
             elif self.attrs['_block'] == 'T':
                 bshape = (block[1] - block[0], dshape[-1])
-                return np.squeeze(np.reshape(self.group["D"][..., block[0]:block[1], :], lshape + bshape))
+                return np.reshape(self.group["D"][..., block[0]:block[1], :], lshape + bshape)
             elif self.attrs['_block'] == 'O':
                 bshape = tuple(self.attrs["_dshape"])
-                return np.squeeze(np.reshape(self.group["D"][...], lshape + bshape))
+                return np.reshape(self.group["D"][...], lshape + bshape)
         elif 'D' in layer:
             channel = int(layer.split('/')[2][1:])
             if self.attrs['_block'] == 'D':
-                return np.squeeze(self.group["D"][channel, block[0]:block[1], block[2]:block[3]])
+                return self.group["D"][channel, block[0]:block[1], block[2]:block[3]]
             elif self.attrs['_block'] == 'T':
-                return np.squeeze(self.group["D"][channel, block[0]:block[1], :])
+                return self.group["D"][channel, block[0]:block[1], :]
             elif self.attrs['_block'] == 'O':
-                return np.squeeze(self.group["D"][channel, ...])
+                return self.group["D"][channel, ...]
         else:
             logging.error('Layer name unknown')
             stop()

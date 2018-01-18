@@ -4,9 +4,10 @@ import tempfile
 import numpy as np
 import pickle
 import pyrat
+from .tools import AttrDict
 
 
-def listlayer():
+def listlayer(*args, **kwargs):
     """
     Prints a list of existing layers. The active layers are marked with a star.
     """
@@ -14,10 +15,11 @@ def listlayer():
 
     data.listLayer()
 
+
 info = listlayer
 
 
-def active():
+def active(*args, **kwargs):
     """
     Returns the names of the currently active layers.
     """
@@ -26,17 +28,24 @@ def active():
     return data.active
 
 
-def activate(layer, silent=False):
+def activate(*args, silent=False, **kwargs):
     """
     Activates one or several layers.
     :param layer: String with layer name to activate (alternatively: list of layer names)
+    :param silent: stay silent, do not print output
     """
     from pyrat import data
 
-    data.activateLayer(layer, silent=silent)
+    if 'layer' in kwargs:
+        layer = kwargs['layer']
+    elif len(args) > 0:
+        layer = args[0]
+
+    if len(layer) > 0:
+        data.activateLayer(layer, silent=silent)
 
 
-def adddata(array, block='D'):
+def adddata(array, block='D', **kwargs):
     """
     Generates a new pyrat layer from a numpy ndarray
     :param array: The numpy array to be saved in the new layer
@@ -47,6 +56,7 @@ def adddata(array, block='D'):
     layer = data.addLayer(array=array, block=block)
     activate(layer)
     return layer
+
 
 addlayer = adddata
 
@@ -63,17 +73,51 @@ def updatelayer(array, **kwargs):
     data.setData(array, **kwargs)
 
 
-def delete(layer, silent=False):
+def delete(*args, silent=False, **kwargs):
     """
     Deletes one or several layers.
+    :param layer: String with layer name to delete (alternatively: list of layer names)
+    :param silent: stay silent, do not print output
+    """
+    from pyrat import data
+
+    if 'layer' in kwargs:
+        layer = kwargs['layer']
+    elif len(args) > 0:
+        layer = args[0]
+    else:
+        layer = active()
+
+    if len(layer) > 0:
+        data.delLayer(layer, silent=silent)
+
+
+def query(*args, **kwargs):
+    """
+    Query the content / data structure of a layer
+
     :param layer: String with layer name to delete (alternatively: list of layer names)
     """
     from pyrat import data
 
-    data.delLayer(layer, silent=silent)
+    if 'layer' in kwargs:
+        pass
+    elif len(args) > 0:
+        kwargs['layer'] = args[0]
+    else:
+        kwargs['layer'] = active()
+
+    if isinstance(kwargs['layer'], str) or len(kwargs['layer']) == 1:
+        val = data.queryLayer(**kwargs)
+        if val is None:
+            return
+        else:
+            return AttrDict(val)
+    else:
+        logging.error("This works only for a single layer (up to now)")
 
 
-def getdata(**kwargs):
+def getdata(*args, **kwargs):
     """
     Copies the content of a layer into a numpy array
     :param layer: layer name to extract (optional, default=active)
@@ -81,16 +125,30 @@ def getdata(**kwargs):
     """
     from pyrat import data
 
+    if 'layer' in kwargs:
+        pass
+    elif len(args) > 0:
+        kwargs['layer'] = args[0]
+    else:
+        kwargs['layer'] = active()
+
     return data.getData(**kwargs)
 
 
-def getmeta(**kwargs):
+def getmeta(*args, **kwargs):
     """
     Returns the meta data of a layer as dict
     :param layer: layer name to extract meta data (optional, default=active)
     :return: meta data
     """
     from pyrat import data
+
+    if 'layer' in kwargs:
+        pass
+    elif len(args) > 0:
+        kwargs['layer'] = args[0]
+    else:
+        kwargs['layer'] = active()
 
     return data.getAnnotation(**kwargs)
 
@@ -117,7 +175,7 @@ def setlayername(name, **kwargs):
     data.setLayerName(name, **kwargs)
 
 
-def expose(**kwargs):
+def expose(*args, **kwargs):
     """
     Expose the layer content for direct manipulation
     The returned object should behave as a numpy array (but might be of type hdf5). Manipulations of it
@@ -128,7 +186,18 @@ def expose(**kwargs):
     """
     from pyrat import data
 
-    return data.exposeRaw(**kwargs)
+    layer = []
+    if 'layer' in kwargs:
+        layer.append(kwargs['layer'])
+    elif len(args) > 0:
+        layer = args[0]
+    else:
+        layer = active()
+
+    if len(layer) == 1:
+        return data.exposeRaw(layer=layer)
+    else:
+        logging.error("This works only for a single layer (up to now)")
 
 
 def freeze(filename, *args, **kwargs):
@@ -184,12 +253,12 @@ def defreeze(filename, *args, **kwargs):
             fn = tempfile.mktemp(suffix='.hd5', prefix='pyrat_', dir=data.tmpdir)
             print("Reading layer", layer, fn)
             out = h5py.File(fn, 'w')
-            h5py.h5o.copy(file.id, str.encode(layer+'/D'), out.id, str.encode("D"))
+            h5py.h5o.copy(file.id, str.encode(layer + '/D'), out.id, str.encode("D"))
             obj = pickle.loads((bytes(file[layer]['pickle'][...])))
-            data.layers['/'+layer] = obj
-            data.layers['/'+layer].fn = fn
-            data.layers['/'+layer].file = h5py.File(fn, 'a')
-            data.layers['/'+layer].group = data.layers['/'+layer].file['/D']
+            data.layers['/' + layer] = obj
+            data.layers['/' + layer].fn = fn
+            data.layers['/' + layer].file = h5py.File(fn, 'a')
+            data.layers['/' + layer].group = data.layers['/' + layer].file['/D']
         else:
             local_var = pickle.loads((bytes(file['locals'][...])))
     data.laynam = file.attrs["laynam"]
@@ -205,11 +274,10 @@ def defreeze(filename, *args, **kwargs):
         return local_var
 
 
-def show(method='amplitude'):
+def show(*args, method='amplitude', **kwargs):
     """
     Launches the PyRat GUI
     """
-    # TODO: Currently only the last active data set can be viewed!
 
     import pyrat
     import sys
@@ -218,15 +286,21 @@ def show(method='amplitude'):
     if method not in ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']:
         method = 'amplitude'
 
+    if 'layer' in kwargs:
+        activate(kwargs['layer'])
+    elif len(args) == 1:
+        activate(args[0])
+
     app = QtWidgets.QApplication(sys.argv)
     pyrat.app = pyrat.viewer.MainWindow()
     pyrat.app.updateViewer(method=method)
     app.exec_()
 
+
 gui = show
 
 
-def help(*args):
+def help(*args, **kwargs):
     import sys, types
     from inspect import getmembers, isfunction, ismodule
 
@@ -252,7 +326,7 @@ def help(*args):
                     doc = doc.split('\n')[1].lstrip()
                 else:
                     doc = "-"
-                logging.info((mod[0]+"()").ljust(20) + doc)
+                logging.info((mod[0] + "()").ljust(20) + doc)
 
         logging.info("")
         logging.info("Available pyrat modules:")
@@ -263,7 +337,7 @@ def help(*args):
 
         for mod in modules:
             if 'pyrat' in mod[1].__name__ and hasattr(mod[1], 'help') and \
-                            mod[1].__name__ not in ['pyrat.cli', 'pyrat']:
+                    mod[1].__name__ not in ['pyrat.cli', 'pyrat']:
                 doc = str(mod[1].help.__doc__)
                 if doc != 'None':
                     doc = doc.split('\n')[1].lstrip()
@@ -274,5 +348,3 @@ def help(*args):
         logging.info("Use help(function_name) for further documentation")
         logging.info("Use help(module_name) for detailed content list")
         logging.info("")
-
-

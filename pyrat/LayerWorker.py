@@ -19,7 +19,7 @@ class LayerWorker(object):
             self.attrs.update(meta)
         self.name = pyrat.data.registerLayer(self)
 
-    def run(self):
+    def main(self):
         pyrat.data.activateLayer(self.name)
         return self.name
 

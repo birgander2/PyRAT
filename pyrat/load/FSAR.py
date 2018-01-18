@@ -33,6 +33,7 @@ class FSAR(pyrat.ImportWorker):
         {'var': 'product', 'value': 'RGI-SLC'},
         {'var': 'suffix', 'value': ''},
         {'var': 'crop', 'value': [0, 0, 0, 0]},
+        {'var': 'sym', 'value': False, 'type': 'bool', 'text': 'Cross-polar symmetrisation'},
         {'var': 'mask', 'type': bool, 'value': False}]
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +52,7 @@ class FSAR(pyrat.ImportWorker):
             src = ('RGI', 'RGI-SR')
         if self.product == 'INF-SLC':
             head = 'slc_coreg'
-            src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
+            src = ('INF' + ('_' + self.suffix if len(self.suffix) > 0 else ''), 'INF-SR')
         if self.product == 'INF-CIR':
             head = 'slcpol'
             src = ('INF', 'INF-SR')
@@ -112,6 +113,18 @@ class FSAR(pyrat.ImportWorker):
                         ppfile = os.path.join(self.dir, 'GTC', 'GTC-RDP', ppname)
                     pp = Xml2Py(ppfile)
                     bmeta['CH_pol'][k] = pp.polarisation
+
+                if self.sym is True and barr.ndim == 3 and barr.shape[0] == 4:
+                    pol = bmeta['CH_pol']
+                    idx_hh = pol.index('HH')
+                    idx_vv = pol.index('VV')
+                    idx_hv = pol.index('HV')
+                    idx_vh = pol.index('VH')
+                    barr[idx_hv, ...] =  (barr[idx_hv, ...] + barr[idx_vh, ...]) / np.sqrt(2)
+                    barr = np.delete(barr, idx_vh, axis=0)
+                    bmeta['CH_pol'][idx_hv] = 'XX'
+                    bmeta['CH_pol'].remove('VH')
+
                 bmeta['prf'] = pp.prf
                 bmeta['c0'] = pp.c0
                 bmeta['rd'] = pp.rd
@@ -175,7 +188,7 @@ class FsarImportWidget(QtWidgets.QDialog):
         mainlayout.addWidget(self.cropwidget)
 
         self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
-                                              QtCore.Qt.Horizontal, self)
+                                                  QtCore.Qt.Horizontal, self)
         mainlayout.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
@@ -329,6 +342,79 @@ def fsar_dem(*args, **kwargs):
     return FSAR_dem(*args, **kwargs).run(*args, **kwargs)
 
 
+class FSAR_offnadir(pyrat.ImportWorker):
+    """
+    Import of DLR F-SAR SLC product
+
+    :param dir: The F-SAR product directory.
+    :type dir: str
+    :param match: A matching string to select subset of files
+    :type match: string
+    :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
+    :type crop: tuple
+    :author: Andreas Reigber
+    """
+
+    para = [
+        {'var': 'dir', 'value': ''},
+        {'var': 'bands', 'value': '*'},
+        {'var': 'polarisations', 'value': '*'},
+        {'var': 'product', 'value': 'RGI-SLC'},
+        {'var': 'crop', 'value': [0, 0, 0, 0]}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(FSAR_offnadir, self).__init__(*args, **kwargs)
+        self.name = "FSAR OFFNADIR IMPORT"
+        if len(args) == 1:
+            self.dir = args[0]
+
+    def reader(self, *args, **kwargs):
+
+        head = 'offnadir'
+        src = ('RGI', 'RGI-AUX')
+
+        files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper() + '*.rat'))
+        bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
+        pols = list(set([os.path.basename(slc).split('_')[2][1:3] for slc in files]))
+
+        array = []
+        meta = []
+        meta.append({})
+        for band in bands:
+            if hasattr(self, 'band') and band not in self.band:
+                logging.warning(band + '-band data not found in specified directory')
+            else:
+                bandfiles = [f for f in files if '_' + band in f]
+                fil = RatFile(bandfiles[0])
+                naz = fil.dim[1]
+                nrg = fil.dim[0]
+                block = list(self.crop)
+                if block[1] == 0:
+                    block[1] = naz
+                if block[3] == 0:
+                    block[3] = nrg
+                daz = block[1] - block[0]
+                drg = block[3] - block[2]
+
+                barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
+                for k, f in enumerate(bandfiles):
+                    logging.info("Found " + f)
+                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                array.append(np.squeeze(barr))
+        if len(array) == 0:
+            return None, None
+        elif len(array) == 1:
+            return array[0], meta[0]
+        else:
+            return array, meta
+
+
+@pyrat.docstringfrom(FSAR_offnadir)
+def fsar_offnadir(*args, **kwargs):
+    return FSAR_offnadir(*args, **kwargs).run(*args, **kwargs)
+
+
 class FSAR_phadem(pyrat.ImportWorker):
     """
     Import of DLR F-SAR DEM PHASE product
@@ -361,7 +447,7 @@ class FSAR_phadem(pyrat.ImportWorker):
     def reader(self, *args, **kwargs):
 
         head = 'pha_dem'
-        src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
+        src = ('INF' + ('_' + self.suffix if len(self.suffix) > 0 else ''), 'INF-SR')
 
         files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper() + '*.rat'))
         bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
@@ -423,6 +509,7 @@ class FSAR_kz(pyrat.ImportWorker):
         {'var': 'bands', 'value': '*'},
         {'var': 'polarisations', 'value': '*'},
         {'var': 'suffix', 'value': ''},
+        {'var': 'sym', 'value': False, 'type': 'bool', 'text': 'Cross-polar symmetrisation'},
         {'var': 'crop', 'value': [0, 0, 0, 0]}
     ]
 
@@ -435,7 +522,7 @@ class FSAR_kz(pyrat.ImportWorker):
     def reader(self, *args, **kwargs):
 
         head = 'kz'
-        src = ('INF'+('_'+self.suffix if len(self.suffix)>0 else ''), 'INF-SR')
+        src = ('INF' + ('_' + self.suffix if len(self.suffix) > 0 else ''), 'INF-SR')
 
         files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*'
                                        + self.bands.upper() + self.polarisations.lower() + '*.rat'))
@@ -451,6 +538,11 @@ class FSAR_kz(pyrat.ImportWorker):
                 logging.warning(band + '-band data not found in specified directory')
             else:
                 bandfiles = [f for f in files if '_' + band in f]
+                if self.sym is True and len(bandfiles) == 4:           # Remove HV channel (data was symmetrised)
+                    for slc in bandfiles:
+                        if os.path.basename(slc).split('_')[3][1:3] == 'vh':
+                            bandfiles.remove(slc)
+
                 fil = RatFile(bandfiles[0])
                 naz = fil.dim[1]
                 nrg = fil.dim[0]

@@ -1,5 +1,5 @@
 import pyrat
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 import copy
 
 
@@ -39,10 +39,12 @@ class Crop(pyrat.FilterWorker):
     def guirun(cls, viewer):
         rubberband = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, viewer)
 
+        QtWidgets.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CrossCursor))
         viewer.show_rubberband = True
         while viewer.show_rubberband is True:
             QtCore.QCoreApplication.processEvents()
         crop = viewer.rubberband.geometry()
+        QtWidgets.QApplication.restoreOverrideCursor()
 
         wx = viewer.imageLabel.width()
         wy = viewer.imageLabel.height()

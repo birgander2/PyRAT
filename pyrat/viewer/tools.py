@@ -1,12 +1,15 @@
 import numpy as np
 
-
 def sarscale(img, factor=2.5):
     """
     Returns a SAR-bytscaled version of an array for visualisation, clipped
     between zero and 2.5 * mean(array)
     """
-    return np.uint8(np.clip(255.0 * img / factor / np.median(img), 0, 255))
+    scl = np.nanmean(img)
+    if scl == 0:
+        return np.zeros_like(img, dtype=np.uint8)
+    else:
+        return np.uint8(np.clip(255.0 * img / factor / scl, 0, 255))
 
 
 def phascale(img):

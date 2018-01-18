@@ -1,8 +1,11 @@
-from PyQt5 import QtCore, QtWidgets
-import pyrat
-import copy, sys
+import copy
 import logging
-from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors
+import sys
+
+from PyQt5 import QtCore, QtWidgets, QtGui
+
+import pyrat
+from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors, PyRATInputError, multimap
 
 
 def exec_out(args):
@@ -19,7 +22,6 @@ def exec_out(args):
 
 
 class Worker(object):
-
     para = {}
     blocksize = 128
     blockprocess = True
@@ -29,32 +31,56 @@ class Worker(object):
     def __init__(self, *args, **kwargs):
         super(Worker, self).__init__()
 
-        self.nthreads = pyrat.pool._processes                                  # number of threads for processing
+        self.nthreads = pyrat._nthreads  # number of threads for processing
+        if pyrat._debug is True:
+            self.nthreads = 1
+
+        try:
+            import mkl
+            if self.nthreads > 1:  # switch of mkl multithreading
+                mkl.set_num_threads(1)  # because we do it ourself
+            else:
+                mkl.set_num_threads(999)
+        except ImportError:
+            pass
+
         # self.blockprocess = True                                               # blockprocessing on/off
         # self.blocksize = 128                                                   # size of single block
 
-        for para in self.para:                                                 # copy defaults to self
+        for para in self.para:  # copy defaults to self
             setattr(self, para['var'], para['value'])
-        for (k, v) in kwargs.items():                                          # copy keywords to self
-            setattr(self, k, v)                                                # eventually overwriting defaults
-        if not hasattr(self, 'layer'):                                         # if no keyword was used
-            self.layer = pyrat.data.active                                     # use active layer
-# --------------------------------------------------
+        for (k, v) in kwargs.items():  # copy keywords to self
+            setattr(self, k, v)  # eventually overwriting defaults
+        if not hasattr(self, 'layer'):  # if no keyword was used
+            self.layer = pyrat.data.active  # use active layer
+        # --------------------------------------------------
 
-        self.name = self.__class__.__name__                                    # name of worker class (string)
-        self.input = ''                                                        # input layer(s)
-        self.output = ''                                                       # output layer(s)
-        self.blockoverlap = 0                                                  # block overlap
-        self.vblock = False                                                    # vertical blocks on/off
-        self.blocks = []                                                       # list of block boundaries
-        self.valid = []                                                        # valid part of each block
+        self.name = self.__class__.__name__  # name of worker class (string)
+        self.input = ''  # input layer(s)
+        self.output = ''  # output layer(s)
+        self.blockoverlap = 0  # block overlap
+        self.vblock = False  # vertical blocks on/off
+        self.blocks = []  # list of block boundaries
+        self.valid = []  # valid part of each block
         # self.block = False                                                     # actual block range / validity
         self.allowed_ndim = False
         self.require_para = False
         self.allowed_dtype = False
 
-        if pyrat._debug is True:
-            self.nthreads = 1
+    def run(self, *args, **kwargs):
+        """
+        The main routine, do some checks and then calls self.main() containing the actual
+        code to be executed.
+        """
+        try:
+            para = [foo['var'] for foo in self.para]
+            self.checkpara(kwargs, para)
+            logging.info(self.name + '  ' + str(dict((k, v) for k, v in self.__dict__.items()
+                                                     if k in para or k in kwargs)))
+            return self.main(*args, **kwargs)
+
+        except Exception as ex:
+            self.crash_handler(ex)
 
     def layer_process(self, func, silent=True, **kwargs):
         """
@@ -62,6 +88,7 @@ class Worker(object):
         in in the keyword 'args' as tuple). The size of the produced layer must be passed in the 'size'
         keyword. Returns the name of the new layer(s)
         """
+
         if 'layer' in kwargs:
             self.input = kwargs['layer']
         else:
@@ -80,27 +107,27 @@ class Worker(object):
         else:
             dshape = query['shape']
 
-        if self.vblock:                                                        # init block processing
+        if self.vblock:  # init block processing
             self.initBP(dshape[-1])
         else:
             self.initBP(dshape[-2])
 
-        if len(self.blocks) > 1 and self.nthreads > 1:                         # group chunks of blocks
+        if len(self.blocks) > 1 and self.nthreads > 1:  # group chunks of blocks
             idx = [self.blocks[i:i + self.nthreads] for i in range(0, len(self.blocks), self.nthreads)]
         else:
             idx = [[block] for block in self.blocks]
 
         metain = pyrat.data.getAnnotation(layer=self.input)
 
-        nb1 = 0                                                                # input block number
-        nb2 = 0                                                                # output block number
+        nb1 = 0  # input block number
+        nb2 = 0  # output block number
         if silent is False:
             P = ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
-        for bidx in idx:                                                       # loop over chunks of blocks
+        for bidx in idx:  # loop over chunks of blocks
             meta = copy.deepcopy(metain)
             inputs = []
-            for ix in bidx:                                                    # loop over blocks in chunk
+            for ix in bidx:  # loop over blocks in chunk
                 data = self.read_block(nb1)
                 if nested is True:
                     data = unflattenlist(data, layshp)
@@ -110,48 +137,48 @@ class Worker(object):
                 if self.vblock:
                     kwargs_copy['block'] = (0, dshape[-2]) + tuple(self.blocks[nb1])
                 else:
-                    kwargs_copy['block'] = tuple(self.blocks[nb1])+(0, dshape[-1])
+                    kwargs_copy['block'] = tuple(self.blocks[nb1]) + (0, dshape[-1])
                 kwargs_copy['valid'] = tuple(self.valid[nb1])
-                inputs.append((self, func.__name__, kwargs_copy))              # accumulate inputs
+                inputs.append((self, func.__name__, kwargs_copy))  # accumulate inputs
                 nb1 += 1
 
             if self.nthreads > 1:
-                result = pyrat.pool.imap(exec_out, inputs)                     # do the multiprocessing
+                result = multimap(inputs)  # do the multiprocessing
             else:
-                result = map(exec_out, inputs)                                 # or avoid it...
-            for res in result:                                                 # loop over output blocks (in chunk)
-                metaout = res[1]                                               # meta data (possibly modified)
-                if nb2 == 0:                                                   # first block -> generate new layer(s)
+                result = map(exec_out, inputs)  # or avoid it...
+            for res in result:  # loop over output blocks (in chunk)
+                metaout = res[1]  # meta data (possibly modified)
+                if nb2 == 0:  # first block -> generate new layer(s)
                     if isinstance(res[0], list) or isinstance(res[0], tuple):
                         self.output = []
                         for n, re in enumerate(res[0]):
-                            lshape = re.shape[0:-2]                            # layer geometry
+                            lshape = re.shape[0:-2]  # layer geometry
                             if self.vblock:
                                 dshape = (re.shape[-2], dshape[-1])
                             else:
                                 dshape = (dshape[-2], re.shape[-1])
-                            if self.blockprocess is False:                     # no blockprocessing
-                                lshape = ()                                    # -> entire image
+                            if self.blockprocess is False:  # no blockprocessing
+                                lshape = ()  # -> entire image
                                 dshape = re.shape
-                            self.output.append(pyrat.data.addLayer(dtype=re.dtype, shape=lshape+dshape))
+                            self.output.append(pyrat.data.addLayer(dtype=re.dtype, shape=lshape + dshape))
                     else:
-                        lshape = res[0].shape[0:-2]                            # layer geometry
+                        lshape = res[0].shape[0:-2]  # layer geometry
                         if self.vblock:
                             dshape = (res[0].shape[-2], dshape[-1])
                         else:
                             dshape = (dshape[-2], res[0].shape[-1])
-                        if self.blockprocess is False:                         # no blockprocessing
-                            lshape = ()                                        # -> entire image
+                        if self.blockprocess is False:  # no blockprocessing
+                            lshape = ()  # -> entire image
                             dshape = res[0].shape
-                        self.output = pyrat.data.addLayer(dtype=res[0].dtype, shape=lshape+dshape)
+                        self.output = pyrat.data.addLayer(dtype=res[0].dtype, shape=lshape + dshape)
                 self.save_block(res[0], nb2)
                 nb2 += 1
                 if silent is False:
                     P.update(nb2)
         if silent is False:
             del P
-        pyrat.data.setAnnotation(metaout, layer=self.output)                   # add meta data to output layer
-        return self.output                                                     # return output layer
+        pyrat.data.setAnnotation(metaout, layer=self.output)  # add meta data to output layer
+        return self.output  # return output layer
 
     def layer_fromfunc(self, func, size=(1, 1), silent=True, **kwargs):
         """
@@ -173,8 +200,8 @@ class Worker(object):
             idx = [[block] for block in self.blocks]
 
         kwargs["meta"] = {}
-        nb1 = 0                                                                # input block number
-        nb2 = 0                                                                # output block number
+        nb1 = 0  # input block number
+        nb2 = 0  # output block number
         if silent is False:
             P = ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
@@ -185,12 +212,12 @@ class Worker(object):
                 if self.vblock:
                     kwargs_copy['block'] = (0, size[-2]) + tuple(self.blocks[nb1])
                 else:
-                    kwargs_copy['block'] = tuple(self.blocks[nb1])+(0, size[-1])
+                    kwargs_copy['block'] = tuple(self.blocks[nb1]) + (0, size[-1])
                 kwargs_copy['valid'] = tuple(self.valid[nb1])
                 inputs.append((self, func.__name__, kwargs_copy))
                 nb1 += 1
             if self.nthreads > 1:
-                result = pyrat.pool.imap(exec_out, inputs)
+                result = multimap(inputs)
             else:
                 result = map(exec_out, inputs)
             for res in result:
@@ -231,7 +258,7 @@ class Worker(object):
         else:
             idx = [[block] for block in self.blocks]
 
-        if 'combine' in kwargs:                   # if a combine function is provided, extract it
+        if 'combine' in kwargs:  # if a combine function is provided, extract it
             combine_func = kwargs['combine']
             del kwargs['combine']
         else:
@@ -254,14 +281,14 @@ class Worker(object):
                 if self.vblock:
                     kwargs_copy['block'] = (0, dshape[-2]) + tuple(self.blocks[nb])
                 else:
-                    kwargs_copy['block'] = tuple(self.blocks[nb])+(0, dshape[-1])
+                    kwargs_copy['block'] = tuple(self.blocks[nb]) + (0, dshape[-1])
                 kwargs_copy['valid'] = tuple(self.valid[nb])
                 inputs.append((self, func.__name__, kwargs_copy))
                 nb += 1
                 if silent is False:
                     P.update(nb)
             if self.nthreads > 1:
-                result = pyrat.pool.imap(exec_out, inputs)
+                result = multimap(inputs)
             else:
                 result = map(exec_out, inputs)
             for res in result:
@@ -269,7 +296,7 @@ class Worker(object):
 
         if silent is False:
             del P
-        out = combine_func(out)                 # call the combine function
+        out = combine_func(out)  # call the combine function
         return out
 
     def layer_extract(self, func, silent=True, **kwargs):
@@ -311,14 +338,14 @@ class Worker(object):
                 if self.vblock:
                     kwargs_copy['block'] = (0, dshape[-2]) + tuple(self.blocks[nb])
                 else:
-                    kwargs_copy['block'] = tuple(self.blocks[nb])+(0, dshape[-1])
+                    kwargs_copy['block'] = tuple(self.blocks[nb]) + (0, dshape[-1])
                 kwargs_copy['valid'] = tuple(self.valid[nb])
                 inputs.append((self, func.__name__, kwargs_copy))
                 nb += 1
                 if silent is False:
                     P.update(nb)
             if self.nthreads > 1:
-                result = pyrat.pool.imap(exec_out, inputs)
+                result = multimap(inputs)
             else:
                 result = map(exec_out, inputs)
             for res in result:
@@ -333,34 +360,36 @@ class Worker(object):
         Calculates all block positions for a given array length, plus their valid parts, and saves them to the
         member variables self.blocks and self.valid.
         """
-        if self.blockprocess is False:                                         # no blockprocessing
+        if self.blockprocess is False:  # no blockprocessing
             self.blocksize = size
             self.blockoverlap = 0
             self.nthreads = 1
             self.blocks = [[0, size]]
-            self.valid = [[0,size]]
+            self.valid = [[0, size]]
 
-        while 4 * self.blockoverlap > self.blocksize:                          # ensure efficient blocksize
+        while 4 * self.blockoverlap > self.blocksize:  # ensure efficient blocksize
             self.blocksize *= 2
-        if self.blocksize > size:                                              # but maximum equal image size
+        if self.blocksize > size:  # but maximum equal image size
             self.blocksize = size
 
-        self.blocks = [[0, self.blocksize]]                      # calculate all block boundaries (considering overlap)
+        self.blocks = [[0, self.blocksize]]  # calculate all block boundaries (considering overlap)
         while self.blocks[-1][1] < size:
             self.blocks.append([self.blocks[-1][1] - 2 * self.blockoverlap, self.blocks[-1][1]
                                 - 2 * self.blockoverlap + self.blocksize])
-        offset = self.blocks[-1][1] - size                                     # last block starts earlier
-        self.blocks[-1][0] -= offset                                           # with increased overlap
+        offset = self.blocks[-1][1] - size  # last block starts earlier
+        self.blocks[-1][0] -= offset  # with increased overlap
         self.blocks[-1][1] -= offset
 
-        self.valid = [0] * len(self.blocks)     # calculate the valid part of each block (start, end)
+        self.valid = [0] * len(self.blocks)  # calculate the valid part of each block (start, end)
         for k, block in enumerate(self.blocks):
-            if k == 0:                          # first block
+            if k == 0:  # first block
                 self.valid[k] = [0, block[1] - block[0] - self.blockoverlap]
-            elif k == len(self.blocks)-1:       # last block
-                self.valid[k] = [self.blocks[-2][1]-self.blockoverlap-block[0], block[1] - block[0]]
-            else:                               # middle block
+            elif k == len(self.blocks) - 1:  # last block
+                self.valid[k] = [self.blocks[-2][1] - self.blockoverlap - block[0], block[1] - block[0]]
+            else:  # middle block
                 self.valid[k] = [self.blockoverlap, block[1] - block[0] - self.blockoverlap]
+        if len(self.blocks) == 1:  # only one block
+            self.valid = [[0, size]]
 
     def save_block(self, data, k):
         """
@@ -378,13 +407,17 @@ class Worker(object):
 
         for n, dat in enumerate(data):
             if self.blockprocess is True:
-                if self.vblock:           # vertical blocks
+                if self.vblock:  # vertical blocks
                     pyrat.data.setData(dat[..., self.valid[k][0]:self.valid[k][1]],
-                                       block=(0, 0, self.blocks[k][0]+self.valid[k][0], self.blocks[k][0]+self.valid[k][1]),
+                                       block=(0, 0, self.blocks[k][0] + self.valid[k][0],
+                                              self.blocks[k][0] + self.valid[k][1]),
                                        layer=output[n])
-                else:                     # horizontal blocks
+                else:  # horizontal blocks
                     pyrat.data.setData(dat[..., self.valid[k][0]:self.valid[k][1], :],
-                                       block=(self.blocks[k][0]+self.valid[k][0], self.blocks[k][0]+self.valid[k][1], 0, 0),
+                                       block=(
+                                           self.blocks[k][0] + self.valid[k][0], self.blocks[k][0] + self.valid[k][1],
+                                           0,
+                                           0),
                                        layer=output[n])
             else:
                 pyrat.data.setData(dat, layer=output[n])
@@ -412,8 +445,8 @@ class Worker(object):
         wrong_keys = []
         allowed = ['layer', 'nthreads', 'blockprocess', 'blocksize', 'delete']
         for (key, val) in kwargs.items():
-            if key not in para and key not in allowed:          # some keywords are always allowed!
-                logging.warning("WARNING: Parameter '"+key+"' not valid. Removing it!")
+            if key not in para and key not in allowed:  # some keywords are always allowed!
+                logging.warning("WARNING: Parameter '" + key + "' not valid. Removing it!")
                 wrong_keys.append(key)
         for key in wrong_keys:
             del kwargs[key]
@@ -426,17 +459,17 @@ class Worker(object):
 
         if self.allowed_ndim is not False:
             if query['ndim'] not in self.allowed_ndim:
-                raise PyratInputError('Input layer dimensionality mismatch')
+                raise PyRATInputError('Input layer dimensionality mismatch')
 
         if self.allowed_dtype is not False:
             if len(set(self.allowed_dtype).intersection(query['dtype'])) == 0:
-                raise PyRatInputError('Data type mismatch')
+                raise PyRATInputError('Data type mismatch')
 
         if self.require_para is not False:
             annotation = pyrat.data.getAnnotation(layer=self.layer)
             if not set(annotation.keys()).issuperset(self.require_para):
                 keys = list(set(self.require_para).difference(annotation.keys()))
-                raise PyRatInputError('Mandatory meta data missing: '+str(keys))
+                raise PyRATInputError('Mandatory meta data missing: ' + str(keys))
 
         return True
 
@@ -470,7 +503,7 @@ class Worker(object):
     def registerGUI(cls, viewer):
         shortcut = cls.gui['shortcut'] if 'shortcut' in cls.gui else ''
 
-        action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)                # generate new menu action
+        action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)  # generate new menu action
         # viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
         action.triggered.connect(lambda: cls.guirun(viewer))
 
@@ -478,18 +511,18 @@ class Worker(object):
             logging.warning("\nWARNING: The gui annotation '" +
                             cls.gui['menu'] +
                             "' of the plugin '" +
-                            cls.__name__+
+                            cls.__name__ +
                             "' is not present in the PyRat menue!\n")
             return
 
         before = viewer.exitAct
-        if 'before' in cls.gui:                                           # if there is a "before" specified,
-            entries = viewer.menue[cls.gui['menu']].actions()             # put new menu entry there
+        if 'before' in cls.gui:  # if there is a "before" specified,
+            entries = viewer.menue[cls.gui['menu']].actions()  # put new menu entry there
             for entry in entries:
                 if str(entry.text()) == cls.gui['before'] or str(entry.whatsThis()) == cls.gui['before']:
                     before = entry
                     break
-        viewer.menue[cls.gui['menu']].insertAction(before, action)        # finally insert entry...
+        viewer.menue[cls.gui['menu']].insertAction(before, action)  # finally insert entry...
 
     @classmethod
     def guirun(cls, viewer, title=None):
@@ -497,7 +530,7 @@ class Worker(object):
             QtCore.pyqtRemoveInputHook()
             app = QtWidgets.QApplication(sys.argv)
 
-        para_backup = copy.deepcopy(cls.para)                # keep a deep copy of the default parameters
+        para_backup = copy.deepcopy(cls.para)  # keep a deep copy of the default parameters
         res = 1
         if len(cls.para) > 0:
             if title is None:
@@ -505,10 +538,12 @@ class Worker(object):
             wid = pyrat.viewer.Dialogs.FlexInputDialog(cls.para, parent=viewer, title=title, doc=cls.__doc__)
             res = wid.exec_()
         if res == 1:
-            plugin = cls()                                   # instance with new parameters
-            setattr(cls, 'para', para_backup)                # copy back the defaults
+            plugin = cls()  # instance with new parameters
+            setattr(cls, 'para', para_backup)  # copy back the defaults
             if hasattr(pyrat, "app"):
-                viewer.statusBar.setMessage(message=' '+plugin.name+' ', colour = 'R')
+                viewer.statusBar.setMessage(message=' ' + plugin.name + ' ', colour='R')
+                QtWidgets.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.BusyCursor))
+
             if pyrat._debug is False:
                 try:
                     layers = plugin.run()
@@ -524,6 +559,7 @@ class Worker(object):
                 del plugin
                 if hasattr(pyrat, "app"):
                     viewer.updateViewer(layer=layers, method=scaling_hint)
+
             if hasattr(pyrat, "app"):
                 viewer.statusBar.setMessage(message=' Ready ', colour='G')
-
+                QtWidgets.QApplication.restoreOverrideCursor()

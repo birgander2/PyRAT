@@ -11,6 +11,8 @@ class Slant2Ground(pyrat.FilterWorker):
 
     :author: Andreas Reigber
     """
+    gui = {'menu': 'SAR|Geometry', 'entry': 'Slant->Ground range'}
+
     para = [
         {'var': 'minangle', 'value': 20.0, 'type': 'float', 'range': [1.0, 90.0], 'text': 'Minimum near range angle'}
     ]
@@ -19,6 +21,7 @@ class Slant2Ground(pyrat.FilterWorker):
         super(Slant2Ground, self).__init__(*args, **kwargs)
         self.name = "SLANT2GROUND"
         self.blockprocess = True
+        self.require_para = ["h0", "terrain", "rd", "nrg", "rsf"]
 
     def filter(self, array, *args, **kwargs):
         meta = kwargs["meta"]

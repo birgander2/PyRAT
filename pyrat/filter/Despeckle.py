@@ -15,7 +15,8 @@ class Boxcar(pyrat.FilterWorker):
 
     gui = {'menu': 'SAR|Speckle filter', 'entry': 'Boxcar'}
     para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
+         'subtext': ['range', 'azimuth']},
         {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}
     ]
 
@@ -33,10 +34,12 @@ class Boxcar(pyrat.FilterWorker):
             win = [1, 1] + self.win
         array[np.isnan(array)] = 0.0
         if np.iscomplexobj(array):
-            return sp.ndimage.filters.uniform_filter(array.real, win) + 1j * sp.ndimage.filters.uniform_filter(array.imag, win)
+            return sp.ndimage.filters.uniform_filter(array.real, win) + 1j * sp.ndimage.filters.uniform_filter(
+                array.imag, win)
         elif self.phase is True:
             tmp = np.exp(1j * array)
-            tmp = sp.ndimage.filters.uniform_filter(tmp.real, win) + 1j * sp.ndimage.filters.uniform_filter(tmp.imag, win)
+            tmp = sp.ndimage.filters.uniform_filter(tmp.real, win) + 1j * sp.ndimage.filters.uniform_filter(tmp.imag,
+                                                                                                            win)
             return np.angle(tmp)
         else:
             return sp.ndimage.filters.uniform_filter(array.real, win)
@@ -62,7 +65,8 @@ class Lee(pyrat.FilterWorker):
     """
     gui = {'menu': 'SAR|Speckle filter', 'entry': 'Lee MMSE'}
     para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
+         'subtext': ['range', 'azimuth']},
         {'var': 'looks', 'value': 1.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'}
     ]
 
@@ -115,9 +119,9 @@ def lee(*args, **kwargs):
 class Kuan(pyrat.FilterWorker):
     """
     Kuan filter. Similar performance to the Lee filter but with a different weighting function.
-    
+
     further information:
-    D.T.Kuan et al. “Adaptive restoration of images with speckle,” JEEE Trans. Acoustics, Speech and Sig. 
+    D.T.Kuan et al. “Adaptive restoration of images with speckle,” JEEE Trans. Acoustics, Speech and Sig.
     Proc., vol. ASSP-35, pp. 373-383, March 1987
 
     :author: Joel Amao
@@ -131,7 +135,8 @@ class Kuan(pyrat.FilterWorker):
     """
     gui = {'menu': 'SAR|Speckle filter', 'entry': 'Kuan'}
     para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
+         'subtext': ['range', 'azimuth']},
         {'var': 'looks', 'value': 1.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'}
     ]
 
@@ -156,26 +161,26 @@ class Kuan(pyrat.FilterWorker):
             array = array[np.newaxis, np.newaxis, ...]
         lshape = array.shape[0:2]
 
-        #Calculates the squared mean of the array (marr) and the mean squared array (m2arr)
+        # Calculates the squared mean of the array (marr) and the mean squared array (m2arr)
         m2arr = sp.ndimage.filters.uniform_filter(span ** 2, size=self.win)
         marr = sp.ndimage.filters.uniform_filter(span, size=self.win)
         # Variance within window, follows the identity Var(x) = E(x**2) - [E(X)]**2
         vary = (m2arr - marr ** 2).clip(1e-10)
         # Standard deviation within window
         stdDev = np.sqrt(vary)
-        #cu and ci are the main parameters of the weight function w
-        cu = np.sqrt(1/self.looks)
+        # cu and ci are the main parameters of the weight function w
+        cu = np.sqrt(1 / self.looks)
         if not cu:
             cu = 0.25
 
-        ci = (stdDev/marr)
+        ci = (stdDev / marr)
         if not ci.any():
             ci = 0.0001
 
-        #Clipped weighted function
+        # Clipped weighted function
         w = (1 - ((cu ** 2) / (ci ** 2))).clip(0) / ((1 + (cu ** 2)).clip(1e-10))
 
-        #Filters each channel separately
+        # Filters each channel separately
         out = np.empty_like(array)
         for k in range(lshape[0]):
             for l in range(lshape[1]):
@@ -185,7 +190,7 @@ class Kuan(pyrat.FilterWorker):
                 else:
                     out[k, l, ...] = sp.ndimage.filters.uniform_filter(array[k, l, ...], size=self.win)
                 # Main output
-                out[k, l, ...] = (array[k, l, ...] * w) + out[k, l, ...]*(1 - w)
+                out[k, l, ...] = (array[k, l, ...] * w) + out[k, l, ...] * (1 - w)
         return np.squeeze(out)
 
 
@@ -226,8 +231,8 @@ class IDAN(pyrat.FilterWorker):
         self.blocksize = self.nmax * 4
         self.blockoverlap = self.nmax
         # self.nthreads = 1
-        #todo: add a mininum nmax parameters
-        #todo: test InSAR data
+        # todo: add a mininum nmax parameters
+        # todo: test InSAR data
 
     def filter(self, array, *args, **kwargs):
 
@@ -249,13 +254,13 @@ class IDAN(pyrat.FilterWorker):
         ldim = array.shape[0:2]
         rdim = array.shape[2:4]
         nmax = self.nmax
-        nlook = 1/(np.sqrt(self.looks))/3.0
+        nlook = 1 / (np.sqrt(self.looks)) / 3.0
 
         # ==============================================================================
         # 1.1 Rough estimation of the seed value
         # ==============================================================================
 
-        intensities = np.zeros((ldim[0], rdim[0], rdim[1]), dtype = np.float32)
+        intensities = np.zeros((ldim[0], rdim[0], rdim[1]), dtype=np.float32)
         med_arr = np.zeros_like(intensities)
         for i in range(ldim[0]):
             intensities[i, :] = array[i, i, :, :].real
@@ -294,7 +299,8 @@ class IDAN(pyrat.FilterWorker):
                 for dy in neighbours:
                     ny = y + dy
                     # and >>> and
-                    if (not (ny in background[k, :]) and 0 <= ny  and not (ny in mask_vec[k, :]) and nn < nmax and ny < maxp):
+                    if (not (ny in background[k, :]) and 0 <= ny and not (
+                        ny in mask_vec[k, :]) and nn < nmax and ny < maxp):
 
                         up = np.abs(intensities[:, ny] - med_arr[:, k])
                         down = np.maximum(np.abs(med_arr[:, k]), 1e-10)
@@ -343,20 +349,20 @@ class IDAN(pyrat.FilterWorker):
         # ==============================================================================
         # 3.1 Parameter estimation
         # ==============================================================================
-        avg = np.zeros(shape=[ldim[0], ldim[1], maxp], dtype = np.complex64)
+        avg = np.zeros(shape=[ldim[0], ldim[1], maxp], dtype=np.complex64)
 
         for k in range(maxp):
-           for i in range (ldim[0]):
-               for j in range(ldim[1]):
-                    if np.where(mask_vec[k,:] > 0)[0].size > 0:
-                       idx =  mask_vec[k,:][np.where(mask_vec[k,:] > 0)]
-                       avg[i,j,k] = np.mean(dataV[i,j,idx])
+            for i in range(ldim[0]):
+                for j in range(ldim[1]):
+                    if np.where(mask_vec[k, :] > 0)[0].size > 0:
+                        idx = mask_vec[k, :][np.where(mask_vec[k, :] > 0)]
+                        avg[i, j, k] = np.mean(dataV[i, j, idx])
                     else:
-                       avg[i, j, k] = dataV[i, j, k]
+                        avg[i, j, k] = dataV[i, j, k]
 
         # Calculates the squared mean of the array (marr) and the mean squared array (m2arr)
-        m2arr = sp.ndimage.filters.uniform_filter(span ** 2, size = win)
-        marr = sp.ndimage.filters.uniform_filter(span, size = win)
+        m2arr = sp.ndimage.filters.uniform_filter(span ** 2, size=win)
+        marr = sp.ndimage.filters.uniform_filter(span, size=win)
         # Variance within window, follows the identity Var(x) = E(x**2) - [E(X)]**2
         vary = (m2arr - marr ** 2).clip(1e-10)
         # Standard deviation within window
@@ -369,26 +375,25 @@ class IDAN(pyrat.FilterWorker):
         w = (1 - ((cu ** 2) / (ci ** 2))).clip(0) / ((1 + (cu ** 2)).clip(1e-10))
         w = w.reshape(maxp)
 
-        #LLMMSE
+        # LLMMSE
         if MMSEproc:
-            LLMMSE = np.zeros_like(avg, dtype = np.complex64)
+            LLMMSE = np.zeros_like(avg, dtype=np.complex64)
             for k in range(maxp):
-               for i in range (ldim[0]):
-                   for j in range(ldim[1]):
-                          LLMMSE[i,j,k] = avg[i,j,k] + w[k]*(dataV[i,j,k] - avg[i,j,k])
+                for i in range(ldim[0]):
+                    for j in range(ldim[1]):
+                        LLMMSE[i, j, k] = avg[i, j, k] + w[k] * (dataV[i, j, k] - avg[i, j, k])
             LLMMSE = LLMMSE.reshape(ldim[0], ldim[1], rdim[0], rdim[1])
             return np.squeeze(LLMMSE)
         else:
-            #Reshaping the array and removing the borders
+            # Reshaping the array and removing the borders
             avg = avg.reshape(ldim[0], ldim[1], rdim[0], rdim[1])
             return np.squeeze(avg)
-
-
 
 
 @pyrat.docstringfrom(IDAN)
 def idan(*args, **kwargs):
     return IDAN(*args, **kwargs).run(*args, **kwargs)
+
 
 class Gauss(pyrat.FilterWorker):
     """
@@ -399,15 +404,16 @@ class Gauss(pyrat.FilterWorker):
 
     gui = {'menu': 'SAR|Speckle filter', 'entry': 'Gauss'}
     para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Sigma', 'subtext': ['range', 'azimuth']},
+        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Sigma',
+         'subtext': ['range', 'azimuth']},
         {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}
-        ]
+    ]
 
     def __init__(self, *args, **kwargs):
         super(Gauss, self).__init__(*args, **kwargs)
         self.name = "GAUSS FILTER"
         self.blockprocess = True
-        self.blockoverlap = 2*self.win[0] + 1
+        self.blockoverlap = 2 * self.win[0] + 1
 
     def filter(self, array, *args, **kwargs):
         win = self.win
@@ -417,10 +423,12 @@ class Gauss(pyrat.FilterWorker):
             win = [1, 1] + self.win
         array[np.isnan(array)] = 0.0
         if np.iscomplexobj(array):
-            return sp.ndimage.filters.gaussian_filter(array.real, win) + 1j * sp.ndimage.filters.gaussian_filter(array.imag, win)
+            return sp.ndimage.filters.gaussian_filter(array.real, win) + 1j * sp.ndimage.filters.gaussian_filter(
+                array.imag, win)
         elif self.phase is True:
             tmp = np.exp(1j * array)
-            tmp = sp.ndimage.filters.gaussian_filter(tmp.real, win) + 1j * sp.ndimage.filters.gaussian_filter(tmp.imag, win)
+            tmp = sp.ndimage.filters.gaussian_filter(tmp.real, win) + 1j * sp.ndimage.filters.gaussian_filter(tmp.imag,
+                                                                                                              win)
             return np.angle(tmp)
         else:
             return sp.ndimage.filters.gaussian_filter(array.real, win)
@@ -567,7 +575,8 @@ class RefinedLee(pyrat.FilterWorker):
             varx = ((vary - mamp * sig2) / sfak).clip(0)
             kfac = varx / vary
             if np.iscomplexobj(array):
-                mamp = sp.ndimage.filters.correlate(array.real, dbox) + 1j * sp.ndimage.filters.convolve(array.imag, dbox)
+                mamp = sp.ndimage.filters.correlate(array.real, dbox) + 1j * sp.ndimage.filters.convolve(array.imag,
+                                                                                                         dbox)
             else:
                 mamp = sp.ndimage.filters.correlate(array, dbox)
             idx = np.argwhere(direc == l)
@@ -579,6 +588,7 @@ class RefinedLee(pyrat.FilterWorker):
 @pyrat.docstringfrom(RefinedLee)
 def refinedlee(*args, **kwargs):
     return RefinedLee(*args, **kwargs).run(**kwargs)
+
 
 # #---------------------------------------------------------------------------------------------------------------
 # #---------------------------------------------------------------------------------------------------------------
@@ -629,12 +639,13 @@ def refinedlee(*args, **kwargs):
 #     logging.info("LeeSigma module not found. (run build process?)")
 
 
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
 
 try:
     from .Despeckle_extensions import cy_leesigma
+
 
     class LeeSigma(pyrat.FilterWorker):
         """
@@ -647,10 +658,12 @@ try:
         """
         gui = {'menu': 'SAR|Speckle filter', 'entry': 'Lee Sigma (old)'}
         para = [
-            {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+            {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
+             'subtext': ['range', 'azimuth']},
             {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
-            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'], 'text': 'SAR data type'}
-            ]
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'],
+             'text': 'SAR data type'}
+        ]
 
         def __init__(self, *args, **kwargs):
             super(LeeSigma, self).__init__(*args, **kwargs)
@@ -659,21 +672,21 @@ try:
             self.blockoverlap = self.win[0] // 2 + 1
 
         def filter(self, array, *args, **kwargs):
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
                 span = np.sum(array, axis=0)
                 array = array[np.newaxis, ...]
                 self.type = "amplitude"
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
                 self.type = "intensity"
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
@@ -700,6 +713,7 @@ except ImportError:
 
 try:
     from .Despeckle_extensions import cy_leeimproved
+
 
     class LeeSigma2(pyrat.Worker):
         """
@@ -730,10 +744,10 @@ try:
 
         def run(self, *args, **kwargs):
             P = ProgressBar('  ' + self.name, 10)
-            bounds = opt.fmin(self.optf, [0.5, 2.0], args=(self.looks, self.sigma), disp=False)    # calc sigma bounds
-            newsig = self.newsig(bounds[0], bounds[1], sigrng=self.sigma, looks=self.looks)        # calc new stddev
+            bounds = opt.fmin(self.optf, [0.5, 2.0], args=(self.looks, self.sigma), disp=False)  # calc sigma bounds
+            newsig = self.newsig(bounds[0], bounds[1], sigrng=self.sigma, looks=self.looks)  # calc new stddev
             P.update(0)
-            perc = 100.0-self.perc*100.0                                                       # point target theshold
+            perc = 100.0 - self.perc * 100.0  # point target theshold
             pthreshold = np.mean(self.layer_accumulate(self.estimate_percentile, type=self.type, perc=perc))
             P.update(2)
 
@@ -745,23 +759,24 @@ try:
             return layer
 
         @staticmethod
-        def leeimproved(array, bounds=(1, 2), thres=10.0, looks=1.0, win=(7, 7), newsig=0.5, type='amplitude', **kwargs):
+        def leeimproved(array, bounds=(1, 2), thres=10.0, looks=1.0, win=(7, 7), newsig=0.5, type='amplitude',
+                        **kwargs):
 
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     type = "amplitude"
                 else:
                     array = np.abs(array)
                 span = np.sum(array, axis=0)
                 array = array[np.newaxis, ...]
                 type = "amplitude"
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
                 type = "intensity"
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     type = "amplitude"
                 else:
                     array = np.abs(array)
@@ -776,16 +791,16 @@ try:
             return np.squeeze(array)
 
         def estimate_percentile(self, array, perc=98.0, type='amplitude', **kwargs):
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or type == "amplitude":
-                    span = np.sum(np.abs(array)**2, axis=0)
+                    span = np.sum(np.abs(array) ** 2, axis=0)
                 else:
                     span = np.sum(np.abs(array), axis=0)
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or type == "amplitude":
-                    span = np.abs(array)**2
+                    span = np.abs(array) ** 2
                 else:
                     span = np.abs(array)
             return np.percentile(span, perc)
@@ -795,29 +810,29 @@ try:
             if i < 0.0:
                 return 0.0
             else:
-                return ((looks**looks) * (i**(looks-1.0))) / sp.special.gamma(looks) * np.exp(-looks*i)
+                return ((looks ** looks) * (i ** (looks - 1.0))) / sp.special.gamma(looks) * np.exp(-looks * i)
 
         @staticmethod
         def meanpdf(i, looks=1.0):
             if i < 0.0:
                 return 0.0
             else:
-                return ((looks**looks) * (i**(looks-1.0))) / sp.special.gamma(looks) * np.exp(-looks*i) * i
+                return ((looks ** looks) * (i ** (looks - 1.0))) / sp.special.gamma(looks) * np.exp(-looks * i) * i
 
         def sigpdf(self, i, looks=1.0):
-            return (i - 1.0)**2 * self.specklepdf(i, looks=1.0)
+            return (i - 1.0) ** 2 * self.specklepdf(i, looks=1.0)
 
         def newsig(self, i1, i2, sigrng=0.9, looks=1.0):
-            return 1 / sigrng * sp.integrate.quad(self.sigpdf, i1, i2, args=(looks, ))[0]
+            return 1 / sigrng * sp.integrate.quad(self.sigpdf, i1, i2, args=(looks,))[0]
 
         def sigmarange(self, i1, i2, looks=1.0):
-            return np.clip(sp.integrate.quad(self.specklepdf, i1, i2, args=(looks, ))[0], 1e-10, 1.0)
+            return np.clip(sp.integrate.quad(self.specklepdf, i1, i2, args=(looks,))[0], 1e-10, 1.0)
 
         def intmean(self, i1, i2, looks=1.0):
-            return 1.0 / self.sigmarange(i1, i2, looks) * sp.integrate.quad(self.meanpdf, i1, i2, args=(looks, ))[0]
+            return 1.0 / self.sigmarange(i1, i2, looks) * sp.integrate.quad(self.meanpdf, i1, i2, args=(looks,))[0]
 
         def optf(self, i, looks, sigr):
-            return (self.sigmarange(i[0], i[1], looks) - sigr)**2 + (self.intmean(i[0], i[1], looks) - 1.0)**2
+            return (self.sigmarange(i[0], i[1], looks) - sigr) ** 2 + (self.intmean(i[0], i[1], looks) - 1.0) ** 2
 
 
     @pyrat.docstringfrom(LeeSigma2)
@@ -996,6 +1011,7 @@ except ImportError:
 try:
     from .Despeckle_extensions import cy_bilateral
 
+
     class Bilateral(pyrat.FilterWorker):
         """
         Simple bilateral speckle filter (not SAR specific). Fast implementation in Cython.
@@ -1006,8 +1022,9 @@ try:
         para = [
             {'var': 'win', 'value': 11, 'type': 'int', 'range': [3, 999], 'text': 'Window size'},
             {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
-            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude','intensity'], 'text': 'SAR data type'}
-            ]
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'],
+             'text': 'SAR data type'}
+        ]
 
         def __init__(self, *args, **kwargs):
             super(Bilateral, self).__init__(*args, **kwargs)
@@ -1037,6 +1054,7 @@ try:
 
 except ImportError:
     logging.info("Bilateral module not found. (run build process?)")
+
 
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
@@ -1168,6 +1186,7 @@ class BilateralFilter(pyrat.FilterWorker):
 def bilateralfilter(*args, **kwargs):
     return BilateralFilter(*args, **kwargs).run(**kwargs)
 
+
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
@@ -1175,6 +1194,7 @@ def bilateralfilter(*args, **kwargs):
 try:
     from pyrat.tools import ProgressBar
     from .Despeckle_extensions import cy_srad
+
 
     class SRAD(pyrat.Worker):
         """
@@ -1184,7 +1204,7 @@ try:
 
         :author: Andreas Reigber
         """
-        gui = {'menu': 'SAR|Speckle filter', 'entry': 'SRAD'}
+        gui = {'menu': 'SAR|Speckle filter', 'entry': 'Anisotropic diffusion'}
         para = [
             {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
             {'var': 'step', 'value': 0.15, 'type': 'float', 'range': [0.0, 1.0], 'text': 'step size'},
@@ -1198,7 +1218,6 @@ try:
             self.name = "SRAD SPECKLE FILTER"
             self.blockprocess = True
             self.blockoverlap = 1
-            self.nthreads = 1
 
         def run(self, *args, **kwargs):
             P = ProgressBar('  ' + self.name, self.iter)
@@ -1211,28 +1230,28 @@ try:
                 if k != 0:
                     pyrat.delete(oldlayer, silent=True)
                 pyrat.activate(newlayer, silent=True)
-                P.update(k+1)
+                P.update(k + 1)
             del P
             pyrat.activate(newlayer)
             return newlayer
 
         @staticmethod
         def srad(array, looks=1, step=0.05, iter=0, scale=1.0, type='amplitude', **kwargs):
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     type = "amplitude"
                 else:
                     array = np.abs(array)
                 span = np.sum(array, axis=0)
                 array = array[np.newaxis, ...]
                 type = "amplitude"
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
                 type = "intensity"
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     type = "amplitude"
                 else:
                     array = np.abs(array)
@@ -1326,12 +1345,14 @@ except ImportError:
 # except ImportError:
 #     logging.info("SRAD cython module not found. (run build process?)")
 #
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------
 
 try:
     from .Despeckle_extensions import cy_emdes as cy_emdes
+
+
     class EMDES(pyrat.FilterWorker):
         """
         Test filter
@@ -1340,10 +1361,12 @@ try:
         """
         gui = {'menu': 'SAR|Speckle filter', 'entry': 'EMDES'}
         para = [
-            {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size', 'subtext': ['range', 'azimuth']},
+            {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
+             'subtext': ['range', 'azimuth']},
             {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
-            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'], 'text': 'SAR data type'}
-            ]
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'],
+             'text': 'SAR data type'}
+        ]
 
         def __init__(self, *args, **kwargs):
             super(EMDES, self).__init__(*args, **kwargs)
@@ -1352,21 +1375,21 @@ try:
             self.blockoverlap = self.win[0] // 2 + 1
 
         def filter(self, array, *args, **kwargs):
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
                 span = np.sum(array, axis=0)
                 array = array[np.newaxis, ...]
                 self.type = "amplitude"
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
                 self.type = "intensity"
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
@@ -1379,6 +1402,7 @@ try:
                 array = np.sqrt(array)
             return np.squeeze(array)
 
+
     @pyrat.docstringfrom(EMDES)
     def emdes(*args, **kwargs):
         return EMDES(*args, **kwargs).run(**kwargs)
@@ -1386,10 +1410,10 @@ try:
 except ImportError:
     logging.info("EMDES cython module not found. (run build process?)")
 
-
 try:
     from .Despeckle_extensions import cy_idanq as cy_idanq
     from scipy.ndimage.filters import median_filter
+
 
     class IDANQ(pyrat.FilterWorker):
         """
@@ -1408,7 +1432,8 @@ try:
         para = [
             {'var': 'size', 'value': 50, 'type': 'int', 'range': [3, 999], 'text': 'Neighbourhood size'},
             {'var': 'looks', 'value': 2.0, 'type': 'float', 'range': [1.0, 99.0], 'text': '# of looks'},
-            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'], 'text': 'SAR data type'},
+            {'var': 'type', 'value': 'amplitude', 'type': 'list', 'range': ['amplitude', 'intensity'],
+             'text': 'SAR data type'},
             {'var': 'llmmse', 'value': True, 'type': 'bool', 'text': 'LLMMSE filtering'}
         ]
 
@@ -1421,21 +1446,21 @@ try:
             self.blocksize = self.blockoverlap * 4
 
         def filter(self, array, *args, **kwargs):
-            if array.ndim == 3:                                                # polarimetric vector
+            if array.ndim == 3:  # polarimetric vector
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
                 span = np.sum(array, axis=0)
                 array = array[np.newaxis, ...]
                 self.type = "amplitude"
-            elif array.ndim == 4:                                              # covariance data
+            elif array.ndim == 4:  # covariance data
                 span = np.abs(np.trace(array, axis1=0, axis2=1))
                 self.type = "intensity"
-            else:                                                              # single channel data
+            else:  # single channel data
                 if np.iscomplexobj(array) or self.type == "amplitude":
-                    array = np.abs(array)**2
+                    array = np.abs(array) ** 2
                     self.type = "amplitude"
                 else:
                     array = np.abs(array)
@@ -1447,6 +1472,7 @@ try:
                 array[array < 0] = 0.0
                 array = np.sqrt(array)
             return np.squeeze(array)
+
 
     @pyrat.docstringfrom(IDANQ)
     def idanq(*args, **kwargs):

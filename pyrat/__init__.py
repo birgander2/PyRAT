@@ -1,8 +1,10 @@
-__version__ = '0.4.5-oss'
+__version__ = '0.4.8-oss'
 
 import logging, sys
+
+sysexcepthook = sys.excepthook
 logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
-import scipy.misc                           # workaround for problems with pillow / gdal not working nicely together
+import scipy.misc  # workaround for problems with pillow / gdal not working nicely together
 
 if sys.version < "3":
     logging.error("You are running Python " + sys.version[0:3] + ": Python 3.x is required to run PyRAT!!!")
@@ -15,10 +17,12 @@ except ImportError:
 
 try:
     from osgeo import gdal
+
     gdal.UseExceptions()
 except ImportError:
     logging.error("GDAL is required to run PyRAT. Please install requirements (see README.md) and try again !")
     sys.exit()
+
 
 # # extract svn version number
 # try:
@@ -28,10 +32,17 @@ except ImportError:
 #     __svnversion__ = 'unknown'
 
 
+def exithook(var1, var2, var3):
+    pyrat_exit()
+    sysexcepthook(var1, var2, var3)
+    sys.exit()
+
+
 def docstringfrom(fromclass):
     def _decorator(func):
         func.__doc__ = fromclass.__doc__
         return func
+
     return _decorator
 
 
@@ -92,15 +103,15 @@ from configparser import ConfigParser
 import json
 
 data = False
-pool = False
 _debug = False
 
 
-def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 8)):
-    global data, pool
+def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 4)):
+    global data
 
-    global _debug
+    global _debug, _nthreads
     _debug = debug
+    _nthreads = nthreads
 
     # read config file (~/.pyratrc or the win version)
     cfg = read_config_file(verbose=debug)
@@ -110,11 +121,6 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
-
-    pool = multiprocessing.Pool(nthreads)
-    # if sys.platform.startswith('win'):
-    #     for res in pool.imap(foo, [None] * nthreads):  # Workaround for delayed worker initialisation on Windows
-    #         pass                                       # COMMENT: seems not to be necessary anymore !?
 
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
@@ -145,11 +151,11 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     logging.info("Temporary directory: " + str(tmpdir))
 
     data = LayerData(tmpdir)
-    # pool = multiprocessing.Pool(nthreads)
     logging.info("Pool with " + str(nthreads) + " workers initialised" + '\n')
     logging.info("help() will show a list of available commands!")
     logging.info("")
     atexit.register(pyrat_exit)
+    sys.excepthook = exithook
 
 
 def read_config_file(config_file=None, verbose=True, config_type='json'):
@@ -261,7 +267,7 @@ def import_plugins(plugin_paths=[], verbose=False):
                     if verbose:
                         logging.info(" + Imported external plugin: " + bcolors.OKGREEN + filename + bcolors.ENDC)
                 except Exception as exvar:
-                    logging.info(bcolors.FAIL + "Unable to import the code in plugin: %s" % filename + bcolors.ENDC )
+                    logging.info(bcolors.FAIL + "Unable to import the code in plugin: %s" % filename + bcolors.ENDC)
                     if verbose:
                         logging.debug(exvar)
 
@@ -276,16 +282,14 @@ def pyrat_reset():
     for layer in data.layers.values():
         if layer.attrs['_type'] == 'Disc':
             if os.path.exists(layer.fn):
-                layer.group.close()
+                layer.file.close()
                 os.remove(layer.fn)
             logging.info('   ' + layer.fn)
     data = LayerData(data.tmpdir)
 
 
 def pyrat_exit():
-    global data, pool
-    logging.info('  Exiting PyRat')
-    pool.close()
+    global data
     for layer in data.layers.values():
         if layer.attrs['_type'] == 'Disc':
             if os.path.exists(layer.fn):

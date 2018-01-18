@@ -45,36 +45,36 @@ def cinterpol_cubic(fltcpl_t [:] y, myfloat[:] xi, int threads=0):
     for i in prange(lxi, nogil=True, num_threads=threads):
         if xi[i] < 0.0 or xi[i] > n-1:
             yi[i] = nan
-
-        klo = int(xi[i])
-        khi = klo + 1
-
-        if float(klo) == xi[i]:
-            yi[i] = y[klo]
         else:
-            kmi = klo - 1
-            kpl = khi + 1
+            klo = int(xi[i])
+            khi = klo + 1
 
-            if kmi < 0:
-                a = 3 * y[klo] - 3 * y[khi] + y[kpl]
+            if float(klo) == xi[i]:
+                yi[i] = y[klo]
             else:
-                a = y[kmi]
+                kmi = klo - 1
+                kpl = khi + 1
 
-            if kpl > n-1:
-                d = 3 * y[khi] - 3 * y[klo] + y[kmi]
-            else:
-                d = y[kpl]
+                if kmi < 0:
+                    a = 3 * y[klo] - 3 * y[khi] + y[kpl]
+                else:
+                    a = y[kmi]
 
-            b = y[klo]
-            c = y[khi]
-            t = (xi[i] - klo)
-            t2 = t * t
-            t3 = t2 * t
-            c00 = (- t3 + 2 * t2 - t) / 2.0
-            c10 = (3 * t3 - 5 * t2 + 2) / 2.0
-            c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
-            c30 = (t3 - t2) / 2.0
-            yi[i] = a * c00 + b * c10 + c * c20 + d * c30
+                if kpl > n-1:
+                    d = 3 * y[khi] - 3 * y[klo] + y[kmi]
+                else:
+                    d = y[kpl]
+
+                b = y[klo]
+                c = y[khi]
+                t = (xi[i] - klo)
+                t2 = t * t
+                t3 = t2 * t
+                c00 = (- t3 + 2 * t2 - t) / 2.0
+                c10 = (3 * t3 - 5 * t2 + 2) / 2.0
+                c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
+                c30 = (t3 - t2) / 2.0
+                yi[i] = a * c00 + b * c10 + c * c20 + d * c30
     return np.asarray(yi)
 
 
@@ -111,43 +111,43 @@ def cinterpol_cubic_irr(myfloat[:] x, fltcpl_t [:] y, myfloat[:] xi, sort=True, 
     for i in prange(lxi, nogil=True, num_threads=threads):
         if xi[i] < x[0] or xi[i] > x[n-1]:
             yi[i] = nan
+        else:
+            klo = 0
+            khi = n-1
+            while khi - klo > 1:
+                k = int((khi + klo) / 2.0)
+                if x[k] > xi[i]:
+                    khi = k
+                else:
+                    klo = k
+            h = x[khi] - x[klo]
+            if h == 0.0:
+                yi[i] = nan
 
-        klo = 0
-        khi = n-1
-        while khi - klo > 1:
-            k = int((khi + klo) / 2.0)
-            if x[k] > xi[i]:
-                khi = k
+            kmi = klo - 1
+            kpl = khi + 1
+
+            if kmi < 0:
+                a = 3 * y[klo] - 3 * y[khi] + y[kpl]
             else:
-                klo = k
-        h = x[khi] - x[klo]
-        if h == 0.0:
-            yi[i] = nan
+                a = y[kmi]
 
-        kmi = klo - 1
-        kpl = khi + 1
+            if kpl > n-1:
+                d = 3 * y[khi] - 3 * y[klo] + y[kmi]
+            else:
+                d = y[kpl]
 
-        if kmi < 0:
-            a = 3 * y[klo] - 3 * y[khi] + y[kpl]
-        else:
-            a = y[kmi]
-
-        if kpl > n-1:
-            d = 3 * y[khi] - 3 * y[klo] + y[kmi]
-        else:
-            d = y[kpl]
-
-        b = y[klo]
-        c = y[khi]
-        t = (xi[i] - x[klo]) / h
-        t2 = t * t
-        t3 = t2 * t
-        h2 = h * h
-        c00 = (- t3 + 2 * t2 - t) / 2.0
-        c10 = (3 * t3 - 5 * t2 + 2) / 2.0
-        c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
-        c30 = (t3 - t2) / 2.0
-        yi[i] = a * c00 + b * c10 + c * c20 + d * c30
+            b = y[klo]
+            c = y[khi]
+            t = (xi[i] - x[klo]) / h
+            t2 = t * t
+            t3 = t2 * t
+            h2 = h * h
+            c00 = (- t3 + 2 * t2 - t) / 2.0
+            c10 = (3 * t3 - 5 * t2 + 2) / 2.0
+            c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
+            c30 = (t3 - t2) / 2.0
+            yi[i] = a * c00 + b * c10 + c * c20 + d * c30
     return np.asarray(yi)
 
 

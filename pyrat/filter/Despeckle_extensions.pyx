@@ -5,16 +5,341 @@ import scipy as sp
 
 import numpy as np
 cimport numpy as np
+from cpython cimport array
 from libc.math cimport sqrt, abs, exp, lgamma, tgamma
 from scipy.ndimage.filters import median_filter
-
-
 
 ctypedef fused fltcpl_t:
     cython.float
     cython.double
     cython.floatcomplex
     cython.doublecomplex
+
+ctypedef cython.doublecomplex DTYPE_t
+
+cdef extern from "math.h":
+    double sqrt(double)
+    double sin(double)
+    double cos(double)
+    double atan2(double, double)
+    double fabs(double)
+    double log(double)
+    double exp(double)
+cdef extern from "complex.h":
+    double creal(double complex)
+    double cimag(double complex)
+    double complex conj(double complex)
+    double complex clog(double complex)
+cdef extern from "eigenH.h":
+    double SQR(double)
+    double SQR_ABS(double complex)
+    cdef double DBL_EPSILON "_DBL_EPSILON"
+    cdef double sqrt3 "_sqrt3"
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cy_MCBdist(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
+    cdef double complex [3][3] Sig1 = A
+    cdef double complex [3][3] Sig2 = B
+    cdef double complex [3][3] sqrt_invA
+    cdef double complex [3][3] v
+    cdef double complex [3][3] tmp
+    cdef double complex [3][3] tmp2
+    cdef double complex [3][3] m1
+    cdef double complex [3][3] m2
+    cdef double complex [3][3] m3
+    cdef double [3] w
+    cdef double out
+
+    cdef int i, j
+    #Initializing...
+    for i in range(3):
+        for j in range(3):
+            sqrt_invA[i][j] = 0
+
+    w = eigVal(Sig1)
+    v = eigVec(Sig1, w)
+#    Obtaining the inverse sqrt of A
+    for i in range(3):
+        for j in range(3):
+            if (j == i): sqrt_invA[i][j] = sqrt(1/w[i])
+
+    tmp = matMulH(sqrt_invA, v)
+    m1 = matMul(v,tmp)
+    tmp2 = matMul(Sig2, m1)
+    m2 = matMul(m1, tmp2)
+    m3 = matLog(m2)
+    out = frob(m3)
+    return out
+
+def cy_eigen(np.ndarray[DTYPE_t, ndim=2] B):
+    cdef double complex [3][3] A = B
+    cdef double complex [3][3] Q
+    cdef double [3] w
+    w = eigVal(A)
+    Q = eigVec(A, w)
+    return np.asarray(w), np.asarray(Q)
+
+cdef matLog(double complex [3][3] a):
+    cdef double complex [3][3] diagPrime
+    cdef double complex [3][3] tmp2
+    cdef double complex [3][3] tmp3
+    cdef double complex [3][3] tmp0
+    cdef double complex [3][3] logm
+    cdef double complex [3][3] out
+    cdef double complex [3][3] aprime
+    cdef double complex [3][3] v
+    cdef double [3] w
+    cdef int i, j
+    cdef int x, y
+    #Initializing...
+    for x in range(3):
+        for y in range(3):
+            diagPrime[x][y] = 0 + 0j
+
+    w = eigVal(a)
+    v = eigVec(a, w)
+    tmp0 = matMul(a, v)
+    aprime = matHMul(v, tmp0)
+
+    for i in range(3):
+        for j in range(3):
+            if (j == i):
+                diagPrime[i][j] = clog(aprime[i][j])
+    tmp2 = matMulH(diagPrime, v)
+    logm = matMul(v, tmp2)
+    return logm
+
+
+cdef frob(double complex [3][3] a):
+    cdef double result = 0
+    cdef double complex value = 0
+    cdef int i,j
+    for i in range(3):
+        for j in range(3):
+            value = a[i][j]
+            result += SQR_ABS(value)
+    return sqrt(result)
+
+cdef matMul(double complex [3][3] a, double complex [3][3] b):
+    #Simple matrix multiplication
+    cdef double complex [3][3] c
+    cdef int i, j, k
+    cdef int x, y
+    #Initializing...
+    for x in range(3):
+        for y in range(3):
+            c[x][y] = 0 + 0j
+
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                c[i][j] = c[i][j] + (a[i][k]*b[k][j])
+    return c
+
+cdef matMulH(double complex [3][3] a, double complex [3][3] b):
+    #Matrix multiplication with conj(b).T as the second input
+    cdef double complex [3][3] c
+    cdef int i, j, k
+
+    #Initializing...
+    for i in range(3):
+        for j in range(3):
+            c[i][j] = 0 + 0j
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                c[i][j] += (a[i][k]*conj(b[j][k]))
+    return c
+
+cdef matHMul(double complex [3][3] a, double complex [3][3] b):
+    #Matrix multiplication with conj(b).T as the second input
+    cdef double complex [3][3] c
+    cdef int i, j, k
+
+    #Initializing...
+    for i in range(3):
+        for j in range(3):
+            c[i][j] = 0 + 0j
+
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                c[i][j] += (conj(a[k][i])*(b[k][j]))
+    return c
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef eigVal(double complex [3][3] B):
+    cdef double complex [3][3] A = B
+    cdef double [3] w
+    cdef double m, c1, c0, p, sqrt_p, q, c, s, phi
+    cdef double complex de = A[0][1] * A[1][2]
+    cdef double dd = SQR_ABS(A[0][1])
+    cdef double ee = SQR_ABS(A[1][2])
+    cdef double ff = SQR_ABS(A[0][2])
+
+    m  = creal(A[0][0]) + creal(A[1][1]) + creal(A[2][2]);
+    c1 = (creal(A[0][0])*creal(A[1][1])  + creal(A[0][0])*creal(A[2][2]) + creal(A[1][1])*creal(A[2][2]))- (dd + ee + ff)
+    c0 = creal(A[2][2])*dd + creal(A[0][0])*ee + creal(A[1][1])*ff - creal(A[0][0])*creal(A[1][1])*creal(A[2][2])- 2.0 * (creal(A[0][2])*creal(de) + cimag(A[0][2])*cimag(de))
+
+    p = SQR(m) - 3.0*c1
+    q = m*(p - (3.0/2.0)*c1) - (27.0/2.0)*c0
+    sqrt_p = sqrt(fabs(p))
+
+    phi = 27.0 * ( 0.25*SQR(c1)*(p - c1) + c0*(q + 27.0/4.0*c0))
+    phi = (1.0/3.0) * atan2(sqrt(fabs(phi)), q)
+
+    c = sqrt_p*cos(phi);
+    s = (1.0/sqrt3)*sqrt_p*sin(phi)
+
+    w[1]  = (1.0/3.0)*(m - c)
+    w[2]  = w[1] + s
+    w[0]  = w[1] + c
+    w[1] -= s
+    return w
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef eigVec(double complex [3][3] B, double [3] w):
+    cdef double complex [3][3] A = B
+    cdef double complex [3][3] Q
+    cdef double norm, n0, n1, n0tmp, n1tmp, thresh, error, wmax
+    cdef int i, j
+    cdef double complex f
+
+    wmax = fabs(w[0])
+    if (fabs(w[1]) > wmax):
+        wmax = fabs(w[1])
+    if (fabs(w[2]) > wmax):
+        wmax = fabs(w[2])
+
+    thresh = SQR(8.0 * DBL_EPSILON * wmax)
+
+    # Prepare calculation of eigenvectors
+    n0tmp   = SQR_ABS(A[0][1]) + SQR_ABS(A[0][2])
+    n1tmp   = SQR_ABS(A[0][1]) + SQR_ABS(A[1][2])
+    Q[0][1] = A[0][1]*A[1][2] - A[0][2]*creal(A[1][1])
+    Q[1][1] = A[0][2]*conj(A[0][1]) - A[1][2]*creal(A[0][0])
+    Q[2][1] = SQR_ABS(A[0][1])
+
+    #Calculate first eigenvector by the formula
+    # v[0] = conj( (A - w[0]).e1 x (A - w[0]).e2 )
+
+    A[0][0] = A[0][0] - w[0]
+    A[1][1] = A[1][1] - w[0]
+    Q[0][0] = Q[0][1] + A[0][2]*w[0]
+    Q[1][0] = Q[1][1] + A[1][2]*w[0]
+    Q[2][0] = creal(A[0][0])*creal(A[1][1]) - Q[2][1]
+    norm    = SQR_ABS(Q[0][0]) + SQR_ABS(Q[1][0]) + SQR(creal(Q[2][0]))
+    n0      = n0tmp + SQR(creal(A[0][0]))
+    n1      = n1tmp + SQR(creal(A[1][1]))
+    error   = n0 * n1
+
+    if (n0 <= thresh):  # If the first column is zero, then (1,0,0) is an eigenvector
+        Q[0][0] = 1.0
+        Q[1][0] = 0.0
+        Q[2][0] = 0.0
+    elif (n1 <= thresh):# If the second column is zero, then (0,1,0) is an eigenvector
+        Q[0][0] = 0.0
+        Q[1][0] = 1.0
+        Q[2][0] = 0.0
+    elif (norm < SQR(64.0 * DBL_EPSILON) * error):
+                                # If angle between A[0] and A[1] is too small, don't use
+        t = SQR_ABS(A[0][1])   # cross product, but calculate v ~ (1, -A0/A1, 0)
+        f = -A[0][0] / A[0][1]
+        if (SQR_ABS(A[1][1]) > t):
+          t = SQR_ABS(A[1][1])
+          f = -conj(A[0][1]) / A[1][1]
+        if (SQR_ABS(A[1][2]) > t):
+          f = -conj(A[0][2] / A[1][2])
+        norm = 1.0/sqrt(1 + SQR_ABS(f))
+        Q[0][0] = norm
+        Q[1][0] = f * norm
+        Q[2][0] = 0.0
+    else:
+        norm = sqrt(1.0 / norm)
+        for j in range(3):
+            Q[j][0] = Q[j][0] * norm
+
+#    Prepare calculation of second eigenvector
+    t = w[0] - w[1]
+    if (fabs(t) > 8.0 * DBL_EPSILON * wmax):
+        # For non-degenerate eigenvalue, calculate second eigenvector by the formula
+        #   v[1] = conj( (A - w[1]).e1 x (A - w[1]).e2 )
+        A[0][0]  = A[0][0] + t
+        A[1][1]  = A[1][1] + t
+        Q[0][1]  = Q[0][1] + A[0][2]*w[1]
+        Q[1][1]  = Q[1][1] + A[1][2]*w[1]
+        Q[2][1]  = creal(A[0][0])*creal(A[1][1]) - creal(Q[2][1])
+        norm     = SQR_ABS(Q[0][1]) + SQR_ABS(Q[1][1]) + SQR(creal(Q[2][1]))
+        n0       = n0tmp + SQR(creal(A[0][0]))
+        n1       = n1tmp + SQR(creal(A[1][1]))
+        error    = n0 * n1
+
+        if (n0 <= thresh):       # If the first column is zero, then (1,0,0) is an eigenvector
+          Q[0][1] = 1.0
+          Q[1][1] = 0.0
+          Q[2][1] = 0.0
+        elif (n1 <= thresh):  # If the second column is zero, then (0,1,0) is an eigenvector
+          Q[0][1] = 0.0
+          Q[1][1] = 1.0
+          Q[2][1] = 0.0
+        elif (norm < SQR(64.0 * DBL_EPSILON) * error):
+                                   # If angle between A[0] and A[1] is too small, don't use
+          t = SQR_ABS(A[0][1])   # cross product, but calculate v ~ (1, -A0/A1, 0)
+          f = -A[0][0] / A[0][1]
+          if (SQR_ABS(A[1][1]) > t):
+            t = SQR_ABS(A[1][1])
+            f = -conj(A[0][1]) / A[1][1]
+          if (SQR_ABS(A[1][2]) > t):
+            f = -conj(A[0][2] / A[1][2])
+            norm = 1.0/sqrt(1 + SQR_ABS(f))
+
+          Q[0][1] = norm
+          Q[1][1] = f * norm
+          Q[2][1] = 0.0
+        else:
+          norm = sqrt(1.0 / norm)
+          for j in range(3):
+              Q[j][1] = Q[j][1] * norm
+    else:
+      # For degenerate eigenvalue, calculate second eigenvector according to
+      #   v[1] = conj( v[0] x (A - w[1]).e[i] )
+
+      # This would really get to complicated if we could not assume all of A to
+      # contain meaningful values.
+      A[1][0]  = conj(A[0][1])
+      A[2][0]  = conj(A[0][2])
+      A[2][1]  = conj(A[1][2])
+      A[0][0]  = A[0][0] + w[0]
+      A[1][1]  = A[1][1] + w[0]
+      for i in range(3):
+         A[i][i] = A[i][i] - w[1]
+         n0        = SQR_ABS(A[0][i]) + SQR_ABS(A[1][i]) + SQR_ABS(A[2][i])
+         if (n0 > thresh):
+            Q[0][1]  = conj(Q[1][0]*A[2][i] - Q[2][0]*A[1][i])
+            Q[1][1]  = conj(Q[2][0]*A[0][i] - Q[0][0]*A[2][i])
+            Q[2][1]  = conj(Q[0][0]*A[1][i] - Q[1][0]*A[0][i])
+            norm     = SQR_ABS(Q[0][1]) + SQR_ABS(Q[1][1]) + SQR_ABS(Q[2][1])
+            if (norm > SQR(256.0 * DBL_EPSILON) * n0):  # Accept cross product only if the angle between
+                                                        # the two vectors was not too small
+              norm = sqrt(1.0 / norm)
+
+              for j in range(3):
+                Q[j][1] = Q[j][1] * norm
+
+    # Calculate third eigenvector according to
+    #   v[2] = conj(v[0] x v[1])
+    Q[0][2] = conj(Q[1][0]*Q[2][1] - Q[2][0]*Q[1][1])
+    Q[1][2] = conj(Q[2][0]*Q[0][1] - Q[0][0]*Q[2][1])
+    Q[2][2] = conj(Q[0][0]*Q[1][1] - Q[1][0]*Q[0][1])
+
+    return Q
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

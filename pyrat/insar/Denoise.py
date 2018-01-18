@@ -3,7 +3,7 @@ from scipy.ndimage import filters
 from functools import reduce
 
 import pyrat
-from pyrat.tools import Blocxy
+from pyrat.lib.ste import Blocxy
 from pyrat.tools import linspace_nd
 
 

@@ -45,8 +45,10 @@ def rebin(arr, *shape, **kwargs):
                 oarr = np.angle(np.exp(1j * oarr.reshape(s)).mean(d + 1))
             else:
                 oarr = oarr.reshape(s).mean(d + 1)
-        else:
+        elif n1 > n2:
             oarr = oarr.repeat(n1 // n2, axis=d)
+        else:
+            pass
     return oarr
 
 

@@ -5,6 +5,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from .Dialogs import PaletteSelector, LayerWidget
 from .StatusBar import *
 from . import egg
+from pyrat.tools import multimap
 
 from pyrat.tools import ProgressBar, colortables
 from pyrat.viewer.tools import sarscale, subsample
@@ -15,16 +16,18 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self)
         self.setWindowTitle("PyRAT - Radar Tools")
 
-        self.box = [0, 100, 0, 100]
+        self.box = [0, 100, 0, 100]  # current display image coordinates
+        self.rubberbox = [0, 1, 0, 1]  # coordinates of a rubberbox selection
+
         self.size = [100, 100]
         self.factor = 1.0
         self.sarscale = 2.5
         self.type = 'A'
 
-        self.data = []                                                    # link to preview data
-        self.current = None                                               # currently displayed layer
-        self.display = {}                                                 # dictionary of display configs
-        self.config = {}                                                  # current config
+        self.data = []  # link to preview data
+        self.current = None  # currently displayed layer
+        self.display = {}  # dictionary of display configs
+        self.config = {}  # current config
 
         self.block_redraw = False
         self.picture_redraw = False
@@ -52,11 +55,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.central.setMinimumSize(100, 100)
 
     def makeToolbar(self):
-        self.openTB = QtWidgets.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self, triggered=lambda: pyrat.load.RatHDF.guirun(self))
+        self.openTB = QtWidgets.QAction(QtGui.QIcon('icons/document-open.png'), 'Open', self,
+                                        triggered=lambda: pyrat.load.RatHDF.guirun(self))
         # self.closeTB = QtWidgets.QAction(QtGui.QIcon('icons/document-close.png'), 'Close', self)
         # self.zoominTB = QtGui.QAction(QtGui.QIcon('icons/zoom-in.png'), 'Zoom in', self)
         # self.zoomoutTB = QtGui.QAction(QtGui.QIcon('icons/zoom-out.png'), 'Zoom out', self)
-        #self.zoomresetTB = QtGui.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), 'Fit zoom', self)
+        # self.zoomresetTB = QtGui.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), 'Fit zoom', self)
         self.seperatorTB = QtWidgets.QAction(self)
 
         self.toolbar1 = self.addToolBar("File")
@@ -73,9 +77,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar2.addAction(self.zoomInAct)
         self.toolbar2.addAction(self.paletteAct)
 
-        #self.toolbar3 = self.addToolBar("Layer")
-        #self.toolbar3.addAction(self.zoominTB)
-        #self.toolbar3.addAction(self.zoomresetTB)
+        # self.toolbar3 = self.addToolBar("Layer")
+        # self.toolbar3.addAction(self.zoominTB)
+        # self.toolbar3.addAction(self.zoomresetTB)
 
     # -------------------------------- STATUS BAR
     def makeStatusBar(self):
@@ -86,31 +90,34 @@ class MainWindow(QtWidgets.QMainWindow):
     def makeActions(self):
         self.exitAct = QtWidgets.QAction('Exit', self, shortcut='Q', triggered=self.close)
         self.zoomInAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-in.png'), "Zoom &In (25%)", self, shortcut="up",
-                                       triggered=lambda: self.zoom(3.0 / 2.0))
+                                           triggered=lambda: self.zoom(3.0 / 2.0))
         self.zoomOutAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-out.png'), "Zoom &Out (25%)", self, shortcut="down",
-                                        triggered=lambda: self.zoom(2.0 / 3.0))
-        self.fitToWindowAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), "Reset view", self, shortcut="f",
-                                            triggered=self.resetView)
+                                            triggered=lambda: self.zoom(2.0 / 3.0))
+        self.fitToWindowAct = QtWidgets.QAction(QtGui.QIcon('icons/zoom-fit-best.png'), "Reset view", self,
+                                                shortcut="f",
+                                                triggered=self.resetView)
         self.viewAmpAct = QtWidgets.QAction("View as amplitude", self, checkable=True, shortcut="1",
-                                        triggered=self.viewAsAmplitude)
-        self.viewPhaAct = QtWidgets.QAction("View as phase", self, checkable=True, shortcut="2", triggered=self.viewAsPhase)
+                                            triggered=self.viewAsAmplitude)
+        self.viewPhaAct = QtWidgets.QAction("View as phase", self, checkable=True, shortcut="2",
+                                            triggered=self.viewAsPhase)
         self.viewCohAct = QtWidgets.QAction("View as coherence", self, checkable=True, shortcut="3",
-                                        triggered=self.viewAsCoherence)
+                                            triggered=self.viewAsCoherence)
         self.viewBrighter = QtWidgets.QAction("View brighter", self, shortcut="right", triggered=self.brighterView)
         self.viewDarker = QtWidgets.QAction("View darker", self, shortcut="left", triggered=self.darkerView)
         self.undoAct = QtWidgets.QAction('Undo', self, shortcut='Ctrl+z', triggered=self.undo)
         self.paletteAct = QtWidgets.QAction(QtGui.QIcon('icons/color_wheel.png'), 'Palette', self,
-                                        triggered=self.paletteChooser)
+                                            triggered=self.paletteChooser)
 
     def easterEgg(self):
         tetris = egg.Tetris(self)
         tetris.show()
 
-    #---------------------------------- PLUGINS
+    # ---------------------------------- PLUGINS
     def initPlugins(self):
         from inspect import getmembers, isclass
 
-        modules = [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform, pyrat.polar, pyrat.insar, pyrat.plugins, pyrat.viewer]
+        modules = [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform, pyrat.polar, pyrat.insar, pyrat.plugins,
+                   pyrat.viewer]
         logging.debug("Scanning for GUI elements:")
         for current_module in modules:
             modules = getmembers(current_module, isclass)
@@ -166,9 +173,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"SAR|Edge detection": self.menue["SAR"].addMenu('Edge detection')})
         self.menue.update({"SAR|Texture": self.menue["SAR"].addMenu('Texture')})
         self.menue.update({"SAR|line1": self.menue["SAR"].addSeparator()})
+        self.menue.update({"SAR|Geometry": self.menue["SAR"].addMenu('Geometry')})
+        self.menue.update({"SAR|Amplitude": self.menue["SAR"].addMenu('Amplitude')})
+        self.menue.update({"SAR|line2": self.menue["SAR"].addSeparator()})
         self.menue.update({"SAR|Sidelobe control": self.menue["SAR"].addMenu('Sidelobe control')})
         self.menue.update({"SAR|Spectral tools": self.menue["SAR"].addMenu('Spectral tools')})
-        self.menue.update({"SAR|line2": self.menue["SAR"].addSeparator()})
+        self.menue.update({"SAR|line3": self.menue["SAR"].addSeparator()})
         self.menue.update({"SAR|Transform": self.menue["SAR"].addMenu('Transform')})
         self.menue.update({"PolSAR|Calibration": self.menue["PolSAR"].addMenu('Calibration')})
         self.menue.update({"PolSAR|Speckle filter": self.menue["PolSAR"].addMenu('Speckle filter')})
@@ -178,13 +188,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"PolSAR|Parameters": self.menue["PolSAR"].addMenu('Parameters')})
         self.menue.update({"PolSAR|Transform": self.menue["PolSAR"].addMenu('Transform')})
         self.menue.update({"InSAR|Phase noise filter": self.menue["InSAR"].addMenu('Phase noise filter')})
+        self.menue.update({"InSAR|Transform": self.menue["InSAR"].addMenu('Transform')})
         self.menue.update({"Tools|Geometry": self.menue["Tools"].addMenu('Geometry')})
 
-        #self.menue["View"].addAction(self.viewAmpAct)
-        #self.menue["View"].addAction(self.viewPhaAct)
-        #self.menue["View"].addAction(self.viewCohAct)
+        # self.menue["View"].addAction(self.viewAmpAct)
+        # self.menue["View"].addAction(self.viewPhaAct)
+        # self.menue["View"].addAction(self.viewCohAct)
 
-    #---------------------------------- VIEW AREA
+    # ---------------------------------- VIEW AREA
     def makeView(self):
         # self.central = QtGui.QWidget()
         # self.HLayout = QtGui.QHBoxLayout(self.central)
@@ -247,8 +258,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if not isinstance(layers, list):
             layers = [layers]
 
-
-
         for layer in layers:
             if layer not in self.display:
                 config = {'colour': None, 'bwlayer': None, 'rgblayer': [None, None, None],
@@ -276,7 +285,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if isinstance(current, list):
             current = current[-1]
         if current is None:
-            if len(pyrat.data.layers) != 0:              # show first layer if existing
+            if len(pyrat.data.layers) != 0:  # show first layer if existing
                 current = list(pyrat.data.layers.keys())[0]
             else:
                 if hasattr(self, 'data'):
@@ -285,7 +294,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.imageLabel.clear()
         if current is not None:
             self.undolist.append((list(pyrat.data.getLayerIDs()), pyrat.data.active))
-            self.current = '/'+current.split('/')[1]
+            self.current = '/' + current.split('/')[1]
             self.updateDisplayList()
             self.config = self.display[self.current]
             if method is not None:
@@ -305,10 +314,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.data = GenPyramid(layer=layer, force=force, mode=mode).run()
         self.size = self.data[0].shape[-2:][::-1]  # [xmin,xmax,ymin,ymax]
 
-# -----------------------------------------------------------
-# -----------------------------------------------------------
-# -----------------------------------------------------------
-# -----------------------------------------------------------
+    # -----------------------------------------------------------
+    # -----------------------------------------------------------
+    # -----------------------------------------------------------
+    # -----------------------------------------------------------
 
     def data2img(self, cut_box, scale=0):
         if self.config['colour'] is False:
@@ -323,9 +332,9 @@ class MainWindow(QtWidgets.QMainWindow):
             img = img.copy()
         elif method == 'amplitude' or method == 'intensity' or method == None:
             if method == 'intensity':
-                img = np.abs(img)**0.35
+                img = np.abs(img) ** 0.35
             else:
-                img = np.abs(img)**0.7
+                img = np.abs(img) ** 0.7
             if self.config['colour'] is True:
                 for k in range(img.shape[0]):
                     img[k, ...] /= np.mean(img[k, ...])
@@ -356,11 +365,11 @@ class MainWindow(QtWidgets.QMainWindow):
             return QtGui.QImage(img.tostring(), img.shape[1], img.shape[0], QtGui.QImage.Format_Indexed8)
 
     def processPicture(self, **kwargs):
-        if "fitwin" in kwargs.keys():                                          # self.size  = size of data set
-            self.scale = len(self.data) - 1                                    # self.scale = pyramid level
-            while self.scale > 0:                                              # self.box   = displayed part
+        if "fitwin" in kwargs.keys():  # self.size  = size of data set
+            self.scale = len(self.data) - 1  # self.scale = pyramid level
+            while self.scale > 0:  # self.box   = displayed part
                 if self.data[self.scale].shape[-1] > self.imageLabel.width() or \
-                        self.data[self.scale].shape[-2] > self.imageLabel.height():
+                                self.data[self.scale].shape[-2] > self.imageLabel.height():
                     break
                 self.scale -= 1
             self.box = [0, self.size[0], 0, self.size[1]]
@@ -370,20 +379,19 @@ class MainWindow(QtWidgets.QMainWindow):
             while self.scale > 0:
                 cut_box = [foo // 2 ** self.scale for foo in self.box]
                 if cut_box[1] - cut_box[0] > self.imageLabel.width() or \
-                        cut_box[3] - cut_box[2] > self.imageLabel.height():
+                                        cut_box[3] - cut_box[2] > self.imageLabel.height():
                     break
                 self.scale -= 1
 
             cut_box = [foo // 2 ** self.scale for foo in self.box]
 
-        cut_box[1] = cut_box[0] + (cut_box[1]-cut_box[0])//4*4                 # QT Limitation!!
-        cut_box[3] = cut_box[2] + (cut_box[3]-cut_box[2])//4*4
+        cut_box[1] = cut_box[0] + (cut_box[1] - cut_box[0]) // 4 * 4  # QT Limitation!!
+        cut_box[3] = cut_box[2] + (cut_box[3] - cut_box[2]) // 4 * 4
         self.scale = int(np.clip(self.scale, 0, len(self.data) - 1))
-        self.box[1] = cut_box[1] * int(2**self.scale)
-        self.box[3] = cut_box[3] * int(2**self.scale)
+        self.box[1] = cut_box[1] * int(2 ** self.scale)
+        self.box[3] = cut_box[3] * int(2 ** self.scale)
 
         img = self.data2img(cut_box, scale=self.scale)
-
 
         xWin = self.imageLabel.width()
         yWin = self.imageLabel.height()
@@ -394,10 +402,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         imgRatio = 1.0 * self.imgwidth / self.imgheight
 
-        if imgRatio >= winRatio:                                               # match widths
+        if imgRatio >= winRatio:  # match widths
             self.imgwidth = xWin
-            self.imgheight =int(xWin / imgRatio)
-        else:                                                                  # match heights
+            self.imgheight = int(xWin / imgRatio)
+        else:  # match heights
             self.imgheight = yWin
             self.imgwidth = int(yWin * imgRatio)
 
@@ -433,7 +441,7 @@ class MainWindow(QtWidgets.QMainWindow):
         xWin = self.imageLabel.width()
         yWin = self.imageLabel.height()
         winRatio = 1.0 * xWin / yWin
-        if imgRatio >= winRatio:                                               # match widths:
+        if imgRatio >= winRatio:  # match widths:
             newy = np.clip(int(newx / winRatio), 0, self.size[1])
         else:
             newx = np.clip(int(newy * winRatio), 0, self.size[0])
@@ -464,7 +472,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 midy = self.size[1] - sizy // 2
             self.box = [midx - sizx // 2, midx + sizx // 2, midy - sizy // 2, midy + sizy // 2]
 
-        if self.picture_redraw is False:                              # needed to avoid concurrent redraws
+        if self.picture_redraw is False:  # needed to avoid concurrent redraws
             self.picture_redraw = True
             if hasattr(self, 'data'):
                 self.processPicture()
@@ -542,21 +550,21 @@ class MainWindow(QtWidgets.QMainWindow):
         dpx = (self.imageLabel.width() - self.imgwidth) // 2
         dpy = (self.imageLabel.height() - self.imgheight) // 2
 
-        posx = self.box[0] + int((x-dpx) * scale)
-        posy = self.box[2] + int((y-dpy) * scale)
+        posx = self.box[0] + int((x - dpx) * scale)
+        posy = self.box[2] + int((y - dpy) * scale)
         if self.current is None:
             return None
         if 0 <= posx < self.size[0] and 0 <= posy < self.size[1]:
-            values = pyrat.data.getData(block=(posy, posy+1, posx, posx+1), layer=self.current)
+            values = pyrat.data.getData(block=(posy, posy + 1, posx, posx + 1), layer=self.current)
             if values.shape == ():
                 values = values.reshape(1)
-            txt = '<pre>Cursor position: ['+str(posy)+', '+str(posx)+']'
+            txt = '<pre>Cursor position: [' + str(posy) + ', ' + str(posx) + ']'
             for k, val in enumerate(values):
-                txt += '<br>D'+str(k)+':   '
+                txt += '<br>D' + str(k) + ':   '
                 if np.iscomplexobj(val):
-                    txt += str(np.abs(val)) + ' abs  /  ' + str(np.angle(val, deg=True))+' deg'
+                    txt += str(np.abs(val)) + ' abs  /  ' + str(np.angle(val, deg=True)) + ' deg'
                 elif self.config['scaling'] == 'phase':
-                    txt += str(val * 180.0 / np.pi)+' deg'
+                    txt += str(val * 180.0 / np.pi) + ' deg'
                 else:
                     txt += str(val)
             txt += '</pre>'
@@ -565,7 +573,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return txt
 
     def resizeFrameEvent(self, event):
-        if self.block_redraw is False:                                  # needed to avoid concurrent redraws -> segfault
+        if self.block_redraw is False:  # needed to avoid concurrent redraws -> segfault
             self.block_redraw = True
             self.imageLabel.setGeometry(0, 0, self.frame.width(), self.frame.height())
             midx = self.box[0] + (self.box[1] - self.box[0]) // 2
@@ -579,7 +587,7 @@ class MainWindow(QtWidgets.QMainWindow):
             yWin = self.imageLabel.height()
 
             winRatio = 1.0 * xWin / yWin
-            if imgRatio >= winRatio:                                           # match widths:
+            if imgRatio >= winRatio:  # match widths:
                 newy = np.clip(int(newx / winRatio), 0, self.size[1])
             else:
                 newx = np.clip(int(newy * winRatio), 0, self.size[0])
@@ -594,15 +602,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.block_redraw = False
 
     def wheelEvent(self, event):
-        x = event.x() - self.central.x() - self.frame.x()                      # easier with self.frame.mapFrom()
+        x = event.x() - self.central.x() - self.frame.x()  # easier with self.frame.mapFrom()
         y = event.y() - self.central.y() - self.frame.y()
         if hasattr(self, 'data') and self.current is not None:
             if event.angleDelta().y() < 0:
-                self.zoom(2.0 / 3.0, mx=x-self.imageLabel.width() // 2,
-                          my=y-self.imageLabel.height() // 2)
+                self.zoom(2.0 / 3.0, mx=x - self.imageLabel.width() // 2,
+                          my=y - self.imageLabel.height() // 2)
             if event.angleDelta().y() > 0:
-                self.zoom(3.0 / 2.0, mx=x-self.imageLabel.width() // 2,
-                          my=y-self.imageLabel.height() // 2)
+                self.zoom(3.0 / 2.0, mx=x - self.imageLabel.width() // 2,
+                          my=y - self.imageLabel.height() // 2)
             self.processPicture()
 
     def mousePressEvent(self, event):
@@ -613,7 +621,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rubberband.show()
         else:
             if event.button() == QtCore.Qt.RightButton and self.current is not None:
-                xoff = self.central.x() + self.frame.x()                       # easier with self.frame.mapFrom()
+                xoff = self.central.x() + self.frame.x()  # easier with self.frame.mapFrom()
                 yoff = self.central.y() + self.frame.y()
                 x = event.x() - xoff
                 y = event.y() - yoff
@@ -626,7 +634,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.posval = QtWidgets.QLabel(txt)
                     self.posval.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                     self.posval.setWindowTitle("position / value")
-                    self.posval.setGeometry(self.x()+xoff, self.y()+yoff, 200, 100)
+                    self.posval.setGeometry(self.x() + xoff, self.y() + yoff, 200, 100)
                     self.posval.adjustSize()
                     self.posval.show()
             else:
@@ -640,6 +648,39 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.rubberband.isVisible():
                 self.rubberband.hide()
                 self.show_rubberband = False
+
+                crop = self.rubberband.geometry()
+
+                wx = self.imageLabel.width()
+                wy = self.imageLabel.height()
+                win_ratio = wx / wy
+
+                ix = self.box[1] - self.box[0]
+                iy = self.box[3] - self.box[2]
+                im_ratio = ix / iy
+
+                if im_ratio >= win_ratio:  # width matches
+                    scale = ix / wx
+                else:
+                    scale = iy / wy
+
+                xs = int(ix / scale)
+                ys = int(iy / scale)
+                xo = (wx - xs) // 2
+                yo = (wy - ys) // 2
+
+                x1 = self.box[0] + int(scale * (crop.x() - xo))
+                x2 = x1 + int(scale * crop.width())
+                y1 = self.box[2] + int(scale * (crop.y() - yo))
+                y2 = y1 + int(scale * crop.height())
+
+                x1 = np.clip(x1, self.box[0], self.box[1])
+                x2 = np.clip(x2, self.box[0], self.box[1])
+                y1 = np.clip(y1, self.box[2], self.box[3])
+                y2 = np.clip(y2, self.box[2], self.box[3])
+
+                self.rubberbox = [y1, y2, x1, x2]
+
         else:
             if event.button() == QtCore.Qt.LeftButton:
                 dx = int((1.0 * self.box[1] - self.box[0]) / self.imageLabel.width() * (self.dragX - event.x()))
@@ -693,6 +734,7 @@ class GenPyramid():
 
     :author: Andreas Reigber
     """
+
     def __init__(self, layer=None, force=False, mode='amplitude', *args, **kwargs):
         super(GenPyramid, self).__init__(*args, **kwargs)
         if layer is None:
@@ -702,8 +744,8 @@ class GenPyramid():
         self.hdfgroup = pyrat.data.layers[self.layer].group
 
         query = pyrat.data.queryLayer(self.layer)
-        self.force = force                                             # force recalculation
-        self.mode = mode                                               # rescaling method
+        self.force = force  # force recalculation
+        self.mode = mode  # rescaling method
         self.scale = 0
         self.lshape = (np.prod(query['lshape']),)
         self.dshape = query['dshape']
@@ -750,8 +792,8 @@ class GenPyramid():
 
                     for ix in bidx:
                         data = idat[..., ix[0]:ix[1], 0:ishp[-1]]
-                        inputs.append((data, self.lshape + (obs, oshp[1]), self.mode))
-                    result = pyrat.pool.imap(subsample, inputs)
+                        inputs.append((subsample, (data, self.lshape + (obs, oshp[1]), self.mode)))
+                    result = multimap(inputs, mode='method')
                     # result = map(absrebin, inputs)
                     for res in result:
                         odat[..., odx[nb][0] + ovalid[nb][0]:odx[nb][1], :] = res[..., ovalid[nb][0]:ovalid[nb][1], :]
@@ -765,20 +807,20 @@ class GenPyramid():
 
     def calc_blocks(self, size, blocksize=128, pack=False):
 
-        nthreads = pyrat.pool._processes
+        nthreads = pyrat._nthreads
         if blocksize > size:  # maximum equal image size
             blocksize = size
 
         blocks = [[0, blocksize]]
         while blocks[-1][1] < size:
             blocks.append([blocks[-1][1], blocks[-1][1] + blocksize])
-        offset = blocks[-1][1] - size                           # last block starts earlier
-        blocks[-1][0] -= offset                                 # with increased overlap
+        offset = blocks[-1][1] - size  # last block starts earlier
+        blocks[-1][0] -= offset  # with increased overlap
         blocks[-1][1] -= offset
 
         valid = [0] * len(blocks)  # calculate the valid part of each block (start, end)
         for k, block in enumerate(blocks):
-            if k == len(blocks) - 1:                            # last block
+            if k == len(blocks) - 1:  # last block
                 if k == 0:
                     valid[k] = block  # only one block
                 else:
@@ -792,5 +834,3 @@ class GenPyramid():
             else:
                 blocks = [[block] for block in blocks]
         return blocks, valid, blocksize
-
-
