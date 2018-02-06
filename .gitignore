@@ -7,6 +7,8 @@ __pycache__/
 *.so
 *.hd5
 *.rat
+*.ra2
+
 
 # Distribution / packaging
 .Python
@@ -60,5 +62,17 @@ target/
 # PyCharm
 .idea/
 
-# GitEye
+# GitEye / gitkraken
 .project
+
+# Dolphin
+.directory
+
+# Cython C-Files
+*_extensions.c
+
+# PyRAT stuff
+testit_*
+*.prd
+testit*
+out*

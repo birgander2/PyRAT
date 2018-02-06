@@ -1,4 +1,4 @@
-python==3.4
+python>=3.6
 pyqt>=5
 numpy
 numexpr

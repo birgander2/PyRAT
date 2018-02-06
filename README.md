@@ -63,9 +63,17 @@ compile the cython and C modules.
 
     python setup.py install --user
 
-**Configuration:** At startup, pyrat searches for a file _$HOME/.pyratrc_. It should contain the name of a 
-directory used for storing temporary files (ideally on a large, fast harddisc). As default _/tmp_ is used, which
-is often not a good choice. All this might not work on Windows (help wanted!).
+
+**Configuration:** At startup, pyrat searches for a file _$HOME/.pyratrc_ (pyrat.ini on Windows)
+and generates a new one if not there.
+It should contain the name of a directory used for storing temporary files. As default _/tmp_ (something else
+on Windows) is used, which is often not a good choice. Choose a tempdir on a large, fast, local harddrive and
+check it from time to time for lost tempfiles.
+
+The value for 'NThreads' influences the number of parallel jobs used. Set this to your number of CPU cores. The
+autodetection might be too high if your CPU suppors hyperthreading. In such a case, set the correct (lower) number.
+Note that too many threads are causing only overhead and will slow down processing.
+
 
 ## Documentation
 
@@ -85,6 +93,10 @@ CLI Interface:
 
     ./pyrat.run -b [rat filename]
     ./pyrat.run --batch [rat filename]
+
+    In case of problems, use the --debug flag to get more debugging output. This is also useful when
+    implementing own modules, as it disables multiprocessing which simplifies debugging.
+
     
 GUI Interface:
 
