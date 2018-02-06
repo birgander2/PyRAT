@@ -11,7 +11,6 @@ def main():
     parser = argparse.ArgumentParser(description="PyRAT - Radar Tools")
     parser.add_argument("-b", "--batch", help="Run in batch mode (not starting the viewer)", action="store_true")
     parser.add_argument("-d", "--debug", help="Run in debug mode", action="store_true")
-    parser.add_argument("-t", "--temp", help="Override temporary directory settings")
     parser.add_argument("FILE", help="file to open on startup (RATHDF or RAT type)", nargs='?', default="default.rat")
 
     args = parser.parse_args()
@@ -25,8 +24,6 @@ def main():
         launcher = "pyrat_init("
         if args.debug:
             launcher += "debug=True"
-        if args.temp:
-            launcher += "tmpdir='"+args.temp+"'"
         launcher += ")"
         shell.push(launcher)
         if os.path.exists(args.FILE):
@@ -37,7 +34,7 @@ def main():
         shell.interact("  \n  You are in PyRAT batch mode\n")
         sys.exit()
     else:
-        pyrat.pyrat_init(debug=args.debug, tmpdir=args.temp)
+        pyrat.pyrat_init(debug=args.debug)
         if os.path.exists(args.FILE):
             if check_ratformat(args.FILE):
                 pyrat.load.rat(args.FILE)

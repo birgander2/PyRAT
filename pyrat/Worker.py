@@ -493,7 +493,7 @@ class Worker(object):
                 foo.setIcon(1)
                 foo.setText(textwrap.dedent(message))
                 foo.exec_()
-            logging.error(bcolors.FAIL + 'ERROR : ' + str(ex))
+            logging.error('\n' + bcolors.FAIL + '  ERROR : ' + str(ex))
             logging.error(str(type(ex).__name__) + " in " + os.path.basename(tbinfo[0]) +
                           " (line " + str(tbinfo[1]) + ")" + bcolors.ENDC)
         else:
@@ -504,7 +504,6 @@ class Worker(object):
         shortcut = cls.gui['shortcut'] if 'shortcut' in cls.gui else ''
 
         action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)  # generate new menu action
-        # viewer.connect(action, QtCore.SIGNAL('triggered()'), lambda: cls.guirun(viewer))   # and connect to class method guirun
         action.triggered.connect(lambda: cls.guirun(viewer))
 
         if cls.gui['menu'] not in viewer.menue:

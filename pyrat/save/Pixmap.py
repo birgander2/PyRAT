@@ -16,7 +16,7 @@ class Pixmap(pyrat.ExportWorker):
         {'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :'},
         {'var': 'chscl', 'value': True, 'type': 'bool', 'text': 'Scale channels indiviually'},
         {'var': 'method', 'value': 'amplitude', 'type': 'list',
-         'range': ['amplitude', 'intensity', 'phase', 'coherence'], 'text': 'Method'},
+         'range': ['amplitude', 'intensity', 'phase', 'coherence','minmax'], 'text': 'Method'},
         {'var': 'scaling', 'value': 2.5, 'type': 'float', 'range': [0.1, 20.0], 'text': 'SAR scaling factor'},
         {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'},
         {'var': 'order', 'value': [0, 2, 1], 'text': 'Channel selection'}
@@ -55,6 +55,10 @@ class Pixmap(pyrat.ExportWorker):
             out = phascale(array)
         elif self.method == 'coherence':
             out = cohscale(array)
+        elif self.method == 'minmax':
+            start = array.min()
+            end = array.max()
+            out = np.uint8(np.clip((array - start) / (end - start) * 255, 0, 255))
         else:
             logging.error("Scaling method unknown")
             return False

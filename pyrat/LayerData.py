@@ -590,7 +590,6 @@ class DiscLayer():
                 self.group["D"][channel, ...] = array
         else:
             logging.error('Layer name unknown')
-            stop()
 
     def getData(self, block=(0, 0, 0, 0), layer=None):
         offset = self.attrs['_offset']
@@ -628,7 +627,6 @@ class DiscLayer():
                 return self.group["D"][channel, ...]
         else:
             logging.error('Layer name unknown')
-            stop()
 
     def exposeRaw(self, layer=None):
         if layer is None or layer == self.id:

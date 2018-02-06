@@ -19,12 +19,12 @@ class Presum(pyrat.Worker):
 
     def __init__(self, *args, **kwargs):
         super(Presum, self).__init__(*args, **kwargs)
-        self.name = "PRESUMMING V2"
+        self.name = "PRESUMMING"
         self.blockprocess = False
         self.nthreads = 1
 
     def run(self, *args, **kwargs):
-
+        meta = pyrat.data.getAnnotation(layer=self.layer)
         li = pyrat.query(layer=self.layer)
         odim = li.shape
         nry = odim[-2]
@@ -42,6 +42,7 @@ class Presum(pyrat.Worker):
             P.update(k + 1)
         del P
         pyrat.activate(outlayer)
+        pyrat.data.setAnnotation(meta, layer=outlayer)
         return outlayer
 
 

@@ -1,4 +1,4 @@
-__version__ = '0.4.8-oss'
+__version__ = '0.49-oss'
 
 import logging, sys
 
@@ -33,9 +33,15 @@ except ImportError:
 
 
 def exithook(var1, var2, var3):
-    pyrat_exit()
-    sysexcepthook(var1, var2, var3)
-    sys.exit()
+    if _debug is True:
+        sysexcepthook(var1, var2, var3)
+    else:
+        import traceback
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.extract_tb(tb)[-1]
+        logging.error(bcolors.FAIL + 'ERROR : ' + str(var2))
+        logging.error(var1.__name__ + " in " + os.path.basename(tbinfo[0]) +
+                      " (line " + str(tbinfo[1]) + ")" + bcolors.ENDC)
 
 
 def docstringfrom(fromclass):
@@ -106,18 +112,29 @@ data = False
 _debug = False
 
 
-def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 4)):
+# def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 4)):
+def pyrat_init(debug=False, **kwargs):
     global data
 
     global _debug, _nthreads
     _debug = debug
-    _nthreads = nthreads
 
     # read config file (~/.pyratrc or the win version)
+
     cfg = read_config_file(verbose=debug)
 
+    # set number of threads
+
+    if 'nthreads' in kwargs:
+        _nthreads = kwargs['nthreads']
+    elif cfg['nthreads'] != '':
+        _nthreads = int(cfg['nthreads'])
+    else:
+        _nthreads = multiprocessing.cpu_count()
+
     # import plugins
-    import_plugins(plugin_paths=cfg["plugin_paths"], verbose=debug)
+
+    import_plugins(plugin_paths=cfg["plugindirs"], verbose=debug)
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
@@ -135,14 +152,17 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     logging.info('OS detected : ' + sys.platform)
 
     # set up tmp dir
-    if not tmpdir:
-        if cfg["tmpdir"] is not None:
-            tmpdir = cfg["tmpdir"]
-        else:
-            tmpdir = tempfile.gettempdir()
-            logging.warning(
-                bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
-            logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
+
+    if 'tmpdir' in kwargs:
+        tmpdir = kwargs['tmpdir']
+    elif cfg["tmpdir"] != '':
+        tmpdir = cfg["tmpdir"]
+    else:
+        tmpdir = tempfile.gettempdir()
+        logging.warning(
+            bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
+        logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
+
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)
@@ -151,26 +171,16 @@ def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(
     logging.info("Temporary directory: " + str(tmpdir))
 
     data = LayerData(tmpdir)
-    logging.info("Pool with " + str(nthreads) + " workers initialised" + '\n')
+    logging.info("Pool with " + str(_nthreads) + " workers initialised" + '\n')
     logging.info("help() will show a list of available commands!")
     logging.info("")
     atexit.register(pyrat_exit)
     sys.excepthook = exithook
 
 
-def read_config_file(config_file=None, verbose=True, config_type='json'):
+def read_config_file(config_file=None, verbose=True):
     """Read config file into a dict structure.
 
-    Three config file formats supported:
-    - json (default)
-    - ini files
-    - plain (tmpdir only)
-
-    If config_file is found, it tries to read it first in json format. If it
-    doesn't work, it tries to read in the .ini format. If this doesn't work
-    as well, it will finally attempt to read it in the plain form.
-
-    config_type : {'json', 'ini', 'plain'}
     """
     cfg = {}
     if config_file is None:
@@ -179,43 +189,40 @@ def read_config_file(config_file=None, verbose=True, config_type='json'):
         else:
             config_file = os.path.join(os.path.expanduser('~'), '.pyratrc')
 
-    if not os.path.isfile(config_file):
-        if verbose:
-            logging.info('No config file found!')
-    else:
+    if os.path.isfile(config_file):
         if verbose:
             logging.debug('Found config file : ' + config_file)
 
-        if config_type == 'json':  # load json config file
-            with open(config_file) as fid:
-                try:
-                    cfg = json.load(fid)
-                except ValueError:  # probably old-time plain ascii file
-                    cfg = read_config_file(config_file, verbose=False,
-                                           config_type='ini')
-        if config_type == 'ini':  # load .ini config file
-            try:
-                cfgp = ConfigParser()
-                cfgp.read(config_file)
-                cfgp = {k.lower(): v for k, v in cfgp.items()}  # make case-insensitive
-                cfg = dict(cfgp["pyrat"])
-                if "plugin_paths" in cfgp:
-                    cfg["plugin_paths"] = [v for k, v in cfgp["plugin_paths"].items()]
-            except:  # probably old-time plain ascii file
-                cfg = read_config_file(config_file, verbose=False,
-                                       config_type='plain')
-        elif config_type == 'plain':  # load initial single line config file
-            lun = open(config_file, 'rb')
-            tmpdir = lun.read().rstrip().decode()
-            lun.close()
-            cfg = {"tmpdir": tmpdir}
+        cfgp = ConfigParser()
+        try:
+            cfgp.read(config_file)
+        except:
+            logging.warning(bcolors.FAIL + "Error reading config file (old format maybe?)" + bcolors.ENDC)
+            new_conigfile(config_file)
+            cfgp.read(config_file)
 
-    # defaults, if not provided
-    if "tmpdir" not in cfg:
-        cfg["tmpdir"] = None
-    if "plugin_paths" not in cfg:
-        cfg["plugin_paths"] = []
+        cfgp = {k.lower(): v for k, v in cfgp.items()}  # make case-insensitive
+        cfgp['pyrat'] = {k.lower(): v for k, v in cfgp['pyrat'].items()}
+
+        cfg["tmpdir"] = cfgp["pyrat"]["tempdir"]
+        cfg["nthreads"] = cfgp["pyrat"]["nthreads"]
+        cfg["plugindirs"] = [dir.strip() for dir in cfgp["pyrat"]["plugindirs"].split(',')]
+
+    else:
+        logging.warning(bcolors.FAIL + "No config file found!"  + bcolors.ENDC)
+        new_conigfile(config_file)
+        cfg = read_config_file(config_file, verbose=verbose)
     return cfg
+
+
+def new_conigfile(config_file):
+    logging.warning(bcolors.FAIL + "Generatig a new config file: '" + config_file + "'. Please review it!" + bcolors.ENDC)
+    logging.warning(bcolors.FAIL + "In particular choose a better TempDir setting than the system's default" + bcolors.ENDC)
+    with open(config_file, 'w') as lun:
+        lun.write("[PYRAT]" + "\n")
+        lun.write("TempDir: " + tempfile.gettempdir() + "\n")
+        lun.write("PluginDirs: " + "\n")
+        lun.write("NThreads: " + str(multiprocessing.cpu_count()) + "\n")
 
 
 class Plugins:
