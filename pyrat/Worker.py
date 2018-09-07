@@ -234,6 +234,7 @@ class Worker(object):
                     P.update(nb2)
         if silent is False:
             del P
+        pyrat.data.setAnnotation(res[1], layer=self.output)  # add meta data to output layer
         return self.output
 
     def layer_accumulate(self, func, silent=True, **kwargs):

@@ -9,8 +9,8 @@ from pyrat.lib.ste import rrat, RatFile
 
 class Rat(pyrat.ImportWorker):
     """
-    RAT format reader.
-    This one should read RAT V1 and V2 formats.
+    RAT format reader. Imports the binary data of files in *.rat format into a new PyRAT layer.
+    This one should read both RAT V1 and V2 formats.
 
     :author: Andreas Reigber
     """

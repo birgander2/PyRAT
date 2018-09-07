@@ -1,10 +1,11 @@
-python>=3
+python>=3.5
 pyqt>=5
-numpy
+numpy>=1.12
 numexpr
 scipy
 h5py
-gdal
+gdal>=2.1
+libgdal>=2.1
 pillow
 cython
 matplotlib
@@ -12,3 +13,4 @@ lxml
 scikit-image
 readline
 mako
+mkl-service

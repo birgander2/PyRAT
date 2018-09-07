@@ -86,16 +86,9 @@ def deshape(shape):
     dshape = tuple(shape)
     if len(shape) == 2:  # normal data
         pass
-    elif len(shape) == 3:  # vector data
-        lshape = (shape[0],)  # layer shape
-        dshape = tuple(shape[1:])  # data shape
-    elif len(shape) == 4:  # matrix data
-        lshape = (shape[0], shape[1])  # layer shape
-        dshape = tuple(shape[2:])  # data shape
     else:
-        logging.error('Something wrong with array dimensions!')
-        lshape = False
-        dshape = False
+        lshape = tuple(shape[0:-2])
+        dshape = tuple(shape[-2:])
     return lshape, dshape
 
 

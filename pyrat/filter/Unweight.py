@@ -1,14 +1,10 @@
 import matplotlib
 matplotlib.use('Qt5Agg')
 import pylab as plt
-from scipy.misc import bytescale
-from mpl_toolkits.mplot3d import Axes3D
 
 import pyrat
 import numpy as np
 import pylab as py
-import time
-from scipy.ndimage import filters
 
 
 class Unweight(pyrat.FilterWorker):

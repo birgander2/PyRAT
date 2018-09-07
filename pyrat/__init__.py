@@ -1,25 +1,29 @@
-__version__ = '0.49-oss'
+__version__ = '0.50-oss'
 
-import logging, sys
+import logging, sys, os
+
+os.environ['OMP_NUM_THREADS'] = '1'
 
 sysexcepthook = sys.excepthook
-logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
-import scipy.misc  # workaround for problems with pillow / gdal not working nicely together
+from PIL import Image  # workaround for problems with pillow / gdal not working nicely together
 
 if sys.version < "3":
+    logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
     logging.error("You are running Python " + sys.version[0:3] + ": Python 3.x is required to run PyRAT!!!")
     sys.exit()
+
 try:
     import PyQt5
 except ImportError:
+    logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
     logging.error("PyQt5 is required to run PyRAT. Please install requirements (see README.md) and try again !")
     sys.exit()
 
 try:
     from osgeo import gdal
-
     gdal.UseExceptions()
 except ImportError:
+    logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
     logging.error("GDAL is required to run PyRAT. Please install requirements (see README.md) and try again !")
     sys.exit()
 
@@ -103,7 +107,7 @@ from . import insar
 from . import viewer
 
 from .tools import bcolors
-import os, logging, atexit, tempfile, sys
+import logging, atexit, tempfile, sys
 import multiprocessing
 from configparser import ConfigParser
 import json
@@ -132,13 +136,6 @@ def pyrat_init(debug=False, **kwargs):
     else:
         _nthreads = multiprocessing.cpu_count()
 
-    # import plugins
-
-    import_plugins(plugin_paths=cfg["plugindirs"], verbose=debug)
-    pyrat.plugins.__name__ = "pyrat.plugins"
-    pyrat.plugins.__module__ = "pyrat.plugins"
-    pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
-
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     if debug is True:
@@ -147,6 +144,14 @@ def pyrat_init(debug=False, **kwargs):
         QtCore.pyqtRemoveInputHook()
     else:
         logging.basicConfig(format='  %(message)s', level=logging.INFO)
+
+    # import plugins
+
+    import_plugins(plugin_paths=cfg["plugindirs"], verbose=debug)
+    pyrat.plugins.__name__ = "pyrat.plugins"
+    pyrat.plugins.__module__ = "pyrat.plugins"
+    pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
+
 
     logging.info('\n  Welcome to PyRAT (v%s)' % (__version__))
     logging.info('OS detected : ' + sys.platform)

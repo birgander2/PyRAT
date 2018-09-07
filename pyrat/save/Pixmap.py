@@ -2,7 +2,7 @@ import pyrat
 from pyrat.viewer.tools import sarscale, phascale, cohscale
 import logging
 import numpy as np
-from scipy import misc
+from PIL import Image
 from pyrat.tools import colortables
 
 
@@ -21,11 +21,14 @@ class Pixmap(pyrat.ExportWorker):
         {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'},
         {'var': 'order', 'value': [0, 2, 1], 'text': 'Channel selection'}
     ]
-    key = 'PIXMAP'
+    key = None
 
     def __init__(self, *args, **kwargs):
         super(Pixmap, self).__init__(*args, **kwargs)
-        self.name = "EXPORT TO " + self.key
+        if self.key:
+            self.name = "EXPORT TO " + self.key
+        else:
+            self.name = "EXPORT TO PIXMAP"
         if len(args) == 1:
             self.file = args[0]
 
@@ -69,7 +72,8 @@ class Pixmap(pyrat.ExportWorker):
             out = colortables(self.palette)[1][out]
 
         try:
-            misc.imsave(self.file, out, format=self.key)
+            pilimg = Image.fromarray(out)
+            pilimg.save(self.file, format=self.key)
             logging.info("FINISHED SAVING IMAGE")
             return True
         except IOError as err:
@@ -113,7 +117,8 @@ class Pixmap(pyrat.ExportWorker):
             if para['zoom'] is True:  # save only window content
                 img = np.squeeze(viewer.img)
                 try:
-                    misc.imsave(para['file'], img, format=cls.key)
+                    pilimg = Image.fromarray(img)
+                    pilimg.save(para['file'], format=cls.key)
                     return True
                 except IOError as err:
                     logging.error("ERROR:" + str(err))

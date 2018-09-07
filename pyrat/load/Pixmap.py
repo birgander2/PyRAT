@@ -1,5 +1,6 @@
 import pyrat
-from scipy import misc
+from PIL import Image
+import numpy as np
 
 
 class Pixmap(pyrat.ImportWorker):
@@ -12,11 +13,15 @@ class Pixmap(pyrat.ImportWorker):
     def __init__(self, *args, **kwargs):
         super(Pixmap, self).__init__(*args, **kwargs)
         self.name = 'Pixmap Import'
+        self.scaling_hint = 'min->max'
         if len(args) == 1:
             self.file = args[0]
 
     def reader(self, *args, **kwargs):
-        return misc.imread(self.file), None
+        data = np.array(Image.open(self.file))
+        if data.ndim == 3:   # color image
+            data = np.rollaxis(data, 2, start=0)
+        return data, None
 
 
 @pyrat.docstringfrom(Pixmap)

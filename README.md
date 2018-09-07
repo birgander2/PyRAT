@@ -17,30 +17,53 @@ It is expandable by plugins without deep knowledge of framework itself.
 <a href="doc/screenshot03.jpg"><img width="200" height="200" hspace="20" src="doc/screenshot03.jpg" alt="Screenshot 3"</img></a>
 </div>
 
+## Download
+
+    git clone https://github.com/birgander2/PyRAT
+
 ## Requirements
 
 Pyrat is developed in Python 3. It does _not_ run under Python 2. Required python packages are specified in the
 file _requirements.txt_. We recommend using the free [Anaconda Python
-distribution](https://docs.continuum.io/anaconda). With Anaconda, you can create and activate a pyrat-compatible 
-virtual environment with the commands (ve4pyrat is the user-chosen name for the virtual environment):
+distribution](https://docs.continuum.io/anaconda). There are 3 ways to get a nice python environment for running PyRAT:
 
-    conda env create -f requirements.txt -n ve4pyrat
-    source activate ve4pyrat   [on Linux]  
-    activate ve4pyrat          [on Windows]
+* **Dedicated Miniconda environment (recommended, Linux only!)**
 
-Alternatively, one can also directly install all the required packages with the command:
+Miniconda is a minimal Anaconda installation. It is not directly sufficient to run PyRAT, but can easily be extended
+with all required modules. This avoids potential conflicts between the installed packages, as it might happen with
+the other 2 solutions. These steps are needed:
 
-    conda install --file requirements.txt
+    wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh    # Download Miniconda
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p /my/path/Python_PyRAT               # Install it (adapt path!)
+    source activate /my/path/Python_PyRAT                                            # Activate it
+    conda env update -n base -f requirements.txt                                     # Add all required packages
 
-Basically all developments are done on a Linux system. As a pure python / cython project, pyrat should run also on
-Windows and OSX, but this is genuinely untested. 
+Now you Miniconda installation is ready to be used. To later reactivate it (for example in another terminal,
+you have to repeat once the 'export' command (again, adapt path to correct place):
 
-**Sometimes there are some small differences between the requirements on different platforms. Currently, on Windows, please use the
-requirements_win.txt file instead.**
+    source activate /my/path/Python_PyRAT
 
-## Download
+* **Dedicated Anaconda environment**
 
-    git clone https://github.com/birgander2/PyRAT
+With Anaconda, you can create and activate a pyrat-compatible virtual environment with the commands  (pyrat in the box below is
+the user-chosen name for the virtual environment, you can freely change it):
+
+    conda env create -f requirements.txt -n pyrat
+    source activate pyrat   [on Linux]
+    activate pyrat          [on Windows]
+
+* **Update of the base Anaconda distribution**
+
+Alternatively, one can also directly install all the required packages with the command (depending on your anaconda version
+replace 'base' by 'root'):
+
+    conda env update -n base -f requirements.txt
+
+Basically all development is done on Linux systems. As a pure python / cython project, pyrat should run also on
+Windows and OSX, but this is genuinely untested - feedback appreciated!
+
+**Sometimes there are some small differences between the requirements on different platforms. Currently, on Windows,
+please use the requirements_win.txt file instead.**
 
 ## Installation
 

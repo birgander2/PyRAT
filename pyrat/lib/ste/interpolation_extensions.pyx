@@ -270,3 +270,110 @@ def cinterpol2D_lanczos(fltcpl_t [:, :] array, myfloat[:] yi, myfloat[:] xi, int
                         wy = sin(pi*dy) * sin(pi*dy/a)*a/pi/pi/dy/dy
                     out[yp, xp] = out[yp, xp] + array[y, x] * wx * wy
     return out
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+def cinterpol2D_cubic(fltcpl_t [:, :] arr, myfloat[:] yi, myfloat[:] xi, int threads=0):
+
+    cdef int k, l
+    cdef int nry = arr.shape[0]
+    cdef int nrx = arr.shape[1]
+
+    if cython.float is fltcpl_t:
+        foo1 = np.empty((nry, xi.shape[0]), dtype='float32')
+        foo2 = np.empty((yi.shape[0], xi.shape[0]), dtype='float32')
+    elif cython.floatcomplex is fltcpl_t:
+        foo1 = np.empty((nry, xi.shape[0]), dtype='complex64')
+        foo2 = np.empty((yi.shape[0], xi.shape[0]), dtype='complex64')
+    elif cython.double is fltcpl_t:
+        foo1 = np.empty((nry, xi.shape[0]), dtype='float64')
+        foo2 = np.empty((yi.shape[0], xi.shape[0]), dtype='float64')
+    elif cython.doublecomplex is fltcpl_t:
+        foo1 = np.empty((nry, xi.shape[0]), dtype='complex128')
+        foo2 = np.empty((yi.shape[0], xi.shape[0]), dtype='complex128')
+
+    cdef fltcpl_t [:, :] arri1 = foo1
+    cdef fltcpl_t [:, :] arri2 = foo2
+    cdef float nan = np.nan
+
+    cdef fltcpl_t a, b, c, d
+    cdef float c00, c10, c20, c30, t, t2, t3
+    cdef int khi, klo, kmi, kpl
+    cdef int lxi = len(xi)
+    cdef int lyi = len(yi)
+
+    for k in prange(nry, nogil=True, num_threads=threads):
+        for l in range(lxi):
+            if xi[l] < 0.0 or xi[l] > nrx-1:
+                arri1[k, l] = nan
+            else:
+                klo = int(xi[l])
+                khi = klo + 1
+
+                if float(klo) == xi[l]:
+                    arri1[k, l] = arr[k, klo]
+                else:
+                    kmi = klo - 1
+                    kpl = khi + 1
+
+                    if kmi < 0:
+                        a = 3 * arr[k, klo] - 3 * arr[k, khi] + arr[k, kpl]
+                    else:
+                        a = arr[k, kmi]
+
+                    if kpl > nrx-1:
+                        d = 3 * arr[k, khi] - 3 * arr[k, klo] + arr[k, kmi]
+                    else:
+                        d = arr[k, kpl]
+
+                    b = arr[k, klo]
+                    c = arr[k, khi]
+                    t = (xi[l] - klo)
+                    t2 = t * t
+                    t3 = t2 * t
+                    c00 = (- t3 + 2 * t2 - t) / 2.0
+                    c10 = (3 * t3 - 5 * t2 + 2) / 2.0
+                    c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
+                    c30 = (t3 - t2) / 2.0
+                    arri1[k, l] = a * c00 + b * c10 + c * c20 + d * c30
+
+    for l in prange(lxi, nogil=True, num_threads=threads):
+        for k in range(lyi):
+            if yi[k] < 0.0 or yi[k] > nry-1:
+                arri2[k, l] = nan
+            else:
+                klo = int(yi[k])
+                khi = klo + 1
+
+                if float(klo) == yi[k]:
+                    arri2[k, l] = arri1[klo, l]
+                else:
+                    kmi = klo - 1
+                    kpl = khi + 1
+
+                    if kmi < 0:
+                        a = 3 * arri1[klo, l] - 3 * arri1[khi, l] + arri1[kpl, l]
+                    else:
+                        a = arri1[kmi, l]
+
+                    if kpl > nry-1:
+                        d = 3 * arri1[khi, l] - 3 * arri1[klo, l] + arri1[kmi, l]
+                    else:
+                        d = arri1[kpl, l]
+
+                    b = arri1[klo, l]
+                    c = arri1[khi, l]
+                    t = (yi[k] - klo)
+                    t2 = t * t
+                    t3 = t2 * t
+                    c00 = (- t3 + 2 * t2 - t) / 2.0
+                    c10 = (3 * t3 - 5 * t2 + 2) / 2.0
+                    c20 = (- 3 * t3 + 4 * t2 + t) / 2.0
+                    c30 = (t3 - t2) / 2.0
+                    arri2[k, l] = a * c00 + b * c10 + c * c20 + d * c30
+
+    return np.asarray(arri2)
+
+

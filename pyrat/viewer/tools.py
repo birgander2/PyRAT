@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def sarscale(img, factor=2.5):
     """
     Returns a SAR-bytscaled version of an array for visualisation, clipped
@@ -10,6 +11,49 @@ def sarscale(img, factor=2.5):
         return np.zeros_like(img, dtype=np.uint8)
     else:
         return np.uint8(np.clip(255.0 * img / factor / scl, 0, 255))
+
+
+def bytescale(data, cmin=None, cmax=None, high=255, low=0):
+    """
+    Byte scales an array (image). Byte scaling means converting the input image to uint8 dtype and scaling
+    the range to ``(low, high)`` (default 0-255).     If the input image already has dtype uint8, no scaling
+    is done.
+
+    :param data: image data array
+    :type img1: ndarray
+    :param cmin: Bias scaling of small values. Default is data.min()
+    :type cmin: scalar, optional
+    :param cmax: Bias scaling of large values. Default is data.max()
+    :type cmax: scalar, optional
+    :param high: Scale max value to high. Default is 255.
+    :type high: scalar, optional
+    :param low: Scale min value to low. Default is 0.
+    :type low: scalar, optional
+    :returns: The byte-scaled array as ndarray
+    """
+
+    if data.dtype == np.uint8:
+        return data
+
+    if high < low:
+        raise ValueError("`high` should be larger than `low`.")
+
+    if cmin is None:
+        cmin = data.min()
+    if cmax is None:
+        cmax = data.max()
+
+    cscale = cmax - cmin
+    if cscale < 0:
+        raise ValueError("`cmax` should be larger than `cmin`.")
+    elif cscale == 0:
+        cscale = 1
+
+    scale = float(high - low) / cscale
+    bytedata = (data * 1.0 - cmin) * scale + 0.4999
+    bytedata[bytedata > high] = high
+    bytedata[bytedata < 0] = 0
+    return np.cast[np.uint8](bytedata) + np.cast[np.uint8](low)
 
 
 def phascale(img):

@@ -13,16 +13,23 @@ from pyrat.viewer.Widgets import HLine, CropBoxWidget, FileselWidget, ProductCon
 
 class FSAR(pyrat.ImportWorker):
     """
-    Import of DLR F-SAR SLC product
+    Import of DLR F-SAR SLC product. This class loads the SLC data of one or several bands and / or one
+    or several polarisations, together with their meta data into a new PyRAT layer(s).
 
     :param dir: The F-SAR product directory.
     :type dir: str
-    :param match: A matching string to select subset of files
-    :type match: string
+    :param bands: Load only this band. '*' to load all bands. Default='*'
+    :type band: string
+    :param polarisations: Load only this polarisation. '*' to load all bands. Default='*'
+    :type polarisation: string
+    :param product: Selects the product component to import. Default='RGI-SLC'
+    :type product: string
     :param suffix: An optional suffix appended to the INF directory (i.e. INF_<suffix>)
     :type suffix: string
     :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
     :type crop: tuple
+    :param sym: PolSAR symmetrisation. If set, HV and VH are averaged on import. Default=False
+    :type sym: bool
     :author: Andreas Reigber
     """
     gui = {'menu': 'File|Import airborne', 'entry': 'F-SAR'}
@@ -83,9 +90,9 @@ class FSAR(pyrat.ImportWorker):
                 naz = fil.dim[1]
                 nrg = fil.dim[0]
                 block = list(self.crop)
-                if block[1] == 0:
+                if block[1] == 0 or block[1] > naz:
                     block[1] = naz
-                if block[3] == 0:
+                if block[3] == 0 or block[3] > nrg:
                     block[3] = nrg
                 daz = block[1] - block[0]
                 drg = block[3] - block[2]

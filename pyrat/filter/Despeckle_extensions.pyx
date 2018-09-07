@@ -36,9 +36,151 @@ cdef extern from "eigenH.h":
     cdef double DBL_EPSILON "_DBL_EPSILON"
     cdef double sqrt3 "_sqrt3"
 
+# Main Beltrami routine. Calculates the neighbors distances using a region growing algorithm.
+def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=2] distance_array,  np.ndarray[np.int_t, ndim=2] all_neigh, np.ndarray[np.int_t, ndim=1] neighbours_local, float sigma, float beta, float betastr, int window_size, long rdim):
+    cdef int ddim = np.shape(cov_array)[1]
+    cdef double complex [:,:,:] avg = np.empty_like(cov_array)
+    cdef double fac = sigma/(betastr * beta)
+    cdef int maxp = np.shape(cov_array)[0]
+    cdef int i, j, k, z, iter1, iter2, dx
+    cdef int totalW = window_size * window_size
+    cdef int sizeNeigh = np.shape(all_neigh)[0]
+    cdef long [:] nx
+    cdef int flag
+    cdef long center_pixel2
+    cdef long localID, local_idx
+    cdef double [:] dBeltrami = np.zeros([totalW]) + np.inf
+    cdef long [:] idxBeltrami = np.zeros([totalW], dtype=np.int64) - 30
+    cdef int middle = (totalW) // 2
+    cdef double original_distance
+    cdef long coord
+    cdef double [:] exp1
+    cdef double complex [:,:] up = np.zeros((ddim, ddim), dtype = np.complex_)
+    cdef double down
+    cdef double sigma2 = sigma**2
+    cdef double [:] tmp = np.zeros(totalW)
+    cdef double complex [:,:,:] included = np.zeros((totalW, ddim, ddim), dtype = np.complex_)
+    cdef float currentD, tempD
+    cdef float gamma = 1
+    cdef double gammad = np.sqrt(2)
+
+    # For all pixels
+    for k in range(maxp):
+        for i in range(totalW):
+            # Initilizating the distances with a big number
+            dBeltrami[i] = 100000000
+            # Initializing the indexes to avoid edge issues
+            idxBeltrami[i] = - 30
+        middle = (window_size * window_size) // 2
+        dBeltrami[middle], idxBeltrami[middle] = 0, k
+        for i in range(totalW):
+            tmp[i] = 0
+
+        # For all pixels inside the local window (NxN)
+        for iter1 in range(sizeNeigh):
+            nx = all_neigh[iter1]
+            flag = 0
+            center_pixel2 = k + nx[1]
+            localID = middle + nx[0]
+            original_distance = dBeltrami[localID]
+            # For all pixels inside the immediate window (closest 8 pixels). The algorithm obtains a previous (infinite)
+            # distance and then increases it depending on the distance to the central pixel and the
+            for iter2 in range(8):
+                dx = neighbours_local[iter2]
+                local_idx = localID + dx
+                currentD = dBeltrami[local_idx]
+                coord = center_pixel2
+                if flag == 0:
+                    if 0 <= coord < maxp:
+                        tempD = gammad + fac*distance_array[0, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            if 0 <= coord - rdim + 1 < maxp:
+                                idxBeltrami[local_idx] = coord - rdim + 1
+
+                elif flag == 1:
+                    if 0 <= coord < maxp:
+                        tempD = gamma + fac*distance_array[1, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            if 0 <= coord + 1 < maxp:
+                                idxBeltrami[local_idx] = coord + 1
+
+                elif flag == 2:
+                    if 0 <= coord < maxp:
+                        tempD = gammad + fac*distance_array[2, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            if 0 <= coord + 1 + rdim < maxp:
+                                idxBeltrami[local_idx] = coord + 1 + rdim
+
+                elif flag == 3:
+                    if 0 <= coord < maxp:
+                        tempD = gamma + fac*distance_array[3, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            if 0 <= coord + rdim < maxp:
+                                idxBeltrami[local_idx] = coord + rdim
+
+                elif flag == 4:
+                    coord = center_pixel2 - 1 + rdim
+                    if 0 <= coord < maxp:
+                        tempD = gammad + fac*distance_array[0, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            idxBeltrami[local_idx] = coord
+                elif flag == 5:
+                    coord = center_pixel2 - 1
+                    if 0 <= coord < maxp:
+                        tempD = gamma + fac*distance_array[1, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            idxBeltrami[local_idx] = coord
+                elif flag == 6:
+                    coord = center_pixel2 - rdim - 1
+                    if 0 <= coord < maxp:
+                        tempD = gammad + fac*distance_array[2, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            idxBeltrami[local_idx] = coord
+                elif flag == 7:
+                    coord = center_pixel2 - rdim
+                    if 0 <= coord < maxp:
+                        tempD = gamma + fac*distance_array[3, coord] + original_distance
+                        if tempD < currentD:
+                            dBeltrami[local_idx] = tempD
+                            idxBeltrami[local_idx] = coord
+                flag += 1
+            for i in range(totalW):
+                if idxBeltrami[i] == -30:
+                    idxBeltrami[i] = center_pixel2
+
+        included = cov_array[idxBeltrami, :, :]
+        for i in range(totalW):
+            tmp[i] = exp((-dBeltrami[i]**2) / sigma2)
+        down = 0
+        for i in range(ddim):
+            for j in range(ddim):
+                 up[i, j] = 0
+
+        for z in range(totalW):
+            for i in range(ddim):
+                for j in range(ddim):
+                    up[i, j] += included[z,i,j] * tmp[z]
+
+        for i in range(totalW):
+            down += tmp[i]
+
+        for i in range(ddim):
+            for j in range(ddim):
+                avg[k, i, j] = up[i, j] / down
+
+    return np.squeeze(avg)
+
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
+# Cython routine for the fast Affine-invariant distance.
 def cy_MCBdist(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
     cdef double complex [3][3] Sig1 = A
     cdef double complex [3][3] Sig2 = B
@@ -60,7 +202,7 @@ def cy_MCBdist(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
 
     w = eigVal(Sig1)
     v = eigVec(Sig1, w)
-#    Obtaining the inverse sqrt of A
+    # Obtaining the inverse sqrt of A
     for i in range(3):
         for j in range(3):
             if (j == i): sqrt_invA[i][j] = sqrt(1/w[i])
