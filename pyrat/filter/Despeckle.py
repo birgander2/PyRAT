@@ -1003,9 +1003,11 @@ except ImportError:
 # except ImportError:
 #     logging.info("LeeSigmaImproved cython module not found. (run build process?)")
 #
+
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
+
 
 try:
     from .Despeckle_extensions import cy_MCB
@@ -1014,44 +1016,44 @@ try:
     class MCB(pyrat.Worker):
         """
         Multi-Channel Beltrami Filter implementation
-
-        :author: Joel Amao
+        J. Amao-Oliva, M. Jager, and A. Reigber, “The Short-Time Beltrami
+        kernel for despeckling polarimetric SAR data,” in 12th European Conference
+        on Synthetic Aperture Radar (EUSAR 2018), Aachen, Germany,
+        Jun. 2018.
+        :author: Joel Amao-Oliva
         """
-        gui = {'menu': 'SAR|Speckle filter', 'entry': 'Multichannel Beltrami Filter'}
+        gui = {'menu': 'SAR|Speckle filter', 'entry': 'Multi-channel Beltrami Filter'}
         para = [
-            {'var': 'orientations', 'value': 8, 'type': 'int', 'range': [2, 16],
-             'text': '# of edge aligned gaussian kernels for preprocessing'},
-            {'var': 'win', 'value': 7, 'type': 'int', 'range': [7, 30],
-             'text': 'Window size'},
-            {'var': 'looks', 'value': 4, 'type': 'float', 'range': [1, 99],
+
+            {'var': 'looks', 'value': 3, 'type': 'float', 'range': [1, 99],
              'text': '# of looks of the input data (MLC only)'},
-            {'var': 'presteps', 'value': 3, 'type': 'int', 'range': [1, 99], 'text': '# of preprocessing steps'},
-            {'var': 'betastr', 'value': 2.0, 'type': 'float', 'range': [0.1, 99.0],
-             'text': 'Phi (beta weight) parameter'},
-            {'var': 'sigma', 'value': 1.0, 'type': 'float', 'range': [0.1, 99.0], 'text': 'Sigma parameter'},
-            {'var': 'denl', 'value': 100, 'type': 'int', 'range': [1, 9999], 'text': 'Target ENL'},
-            {'var': 'showlayers', 'value': False, 'type': 'bool', 'text': 'DEBUG: Shows intermediate iterations'},
-            {'var': 'simdim', 'value': 100, 'type': 'int', 'range': [50, 1000], 'text': 'DEBUG: Simulated data dimensions'},
-            {'var': 'dsigma', 'value': 0.0, 'type': 'float', 'range': [0.0, 99.0], 'text': 'DEBUG: Sigma change per iteration'}
+            {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 9999], 'text': 'Maximum number of iterations'},
         ]
 
         def __init__(self, *args, **kwargs):
             super(MCB, self).__init__(*args, **kwargs)
             self.name = "Multichannel Beltrami Filter"
             self.blockprocess = True
+            self.win = 7
             self.blocksize = (self.win - 2) * 16
             self.blockoverlap = self.win - 2
-            window_size = self.win
-            neighbours_local = [1 - window_size, 1, window_size + 1, window_size, window_size - 1, - 1,
-                                -window_size - 1,
-                                -window_size]
-            self.neighbours_local = np.asarray(neighbours_local)
+            # Starting sigma value
+            self.sigma = 1
+            # Simulated data dimensions
+            self.simdim = 50
+            # Sigma change per iteration
+            self.dsigma = 0.5
+            # Show intermediate layers
+            self.showlayers = False
+            # Convergence error
+            self.epsilon = 0.01
+            self.neighbours_local = np.asarray([1 - self.win, 1, self.win + 1, self.win, self.win - 1, - 1,
+                                -self.win - 1,
+                                -self.win])
 
-        def run(self, *args, **kwargs):
-            print('  Sigma:  ' + str(self.sigma) + '  Sigma increase:  ' + str(self.dsigma) + '  Phi:  ' + str(self.betastr) + '  Win:  ' + str(
-                self.win) + '    # of orientations:  ' + str(self.orientations) + '   Preprocessing steps:  ' + str(
-                self.presteps) + '    Looks (MLC only):  ' + str(self.looks) + '   Target ENL:   ' + str(self.denl))
-
+        def main(self, *args, **kwargs):
+            print('  Sigma:  ' + str(self.sigma) + '  Sigma increase:  ' + str(self.dsigma) + '  Win:  ' + str(
+                self.win) + '    Looks (MLC only):  ' + str(self.looks) + '   Max iter.:   ' + str(self.maxiter))
             attrs = pyrat.getmeta(layer=self.layer)
             array = pyrat.getdata(layer=self.layer)
             if 'CH_pol' in attrs:  # sort a bit the channels if possible
@@ -1065,84 +1067,129 @@ try:
                     array = array[idx, ...]
                     attrs['CH_pol'] = [pol[i] for i in idx]
 
-            self.gsize = 2
-            q = 1.5
-            c = np.sqrt(self.gsize * array.shape[0] / np.pi)
-            self.gdev = [c * q, c / q]
-
-            if isinstance(array,list):
+            if isinstance(array, list):
                 array = np.stack(array)
             numdim = array.ndim
-
+            # Doing pre-processing if SLC data is detected
             if numdim > 3:
+                ldim = array.shape[0:2]
                 self.preprocess = False
+                maxdim = np.amin(array.shape[2:4])
+                if maxdim < self.simdim:
+                    self.simdim = maxdim
+                l_size = [ldim[0], ldim[1], self.simdim, self.simdim]
+                l_sim = self.layer_fromfunc(self.simuldata, array=array, looks=self.looks, size=l_size,
+                                            dim=self.simdim, silent=True)
             else:
                 self.preprocess = True
+                self.looks = 1
+                maxdim = np.amin(array.shape[1:3])
+                # Changing maximum simulated dimensions if not enough data is present for the spectral estimation
+                if maxdim < self.simdim:
+                    self.simdim = maxdim
+                l_size = [array.shape[0], self.simdim, self.simdim]
+                l_sim = self.layer_fromfunc(self.simuldata, array=array, looks=self.looks, size=l_size,
+                                            dim=self.simdim, silent=True)
 
-            # Simulating SAR data used to estimate the beta parameter
-            sMCB, newphi = MCB.simulData(array, self.looks, self.simdim)
-            if numdim == 3:  # This means the input is SLC
-                sMCB = sMCB[np.newaxis, :, :, :] * sMCB[:, np.newaxis, :, :].conjugate()
-            P = ProgressBar('  ' + self.name, self.denl)
+            attrs2 = pyrat.getmeta(layer=l_sim)
+            Psi = attrs2['psi']
+
+            # Noise correlation adjustment
+            print('  Calculated Psi: ' + str(Psi))
+            self.betastr = -1.5*Psi**(1.5) + 2.1
+            self.betastr = 0.8
+
+            P = ProgressBar('  ' + self.name, self.maxiter)
             P.update(0)
             iter = 0
             enl = 1
-            convergence = 200
-            while enl <= self.denl and  iter < convergence:
+            convergence = self.maxiter
+            self.beta = 100             # Starting beta value, to be replaced in the first iteration
+            oldbeta = 0                 # Old beta value, to be replaced in the first iteration
 
-                if enl >= numdim:
-                    self.preprocess = False
+            self.epsilon = 0.000000001
+            flag = 0
+            # Main function, iterates until error is reached or until the maximum number of iterations
+            while (np.abs(self.beta - oldbeta) >= self.epsilon) and iter < convergence:
 
-                # Uses box approach for preprocessing
-                self.ba = True
-                print('  Current phi:' + str(self.betastr))
-                if iter >= 5:# and self.preprocess == False:
+                print(' Preprocess is: ' + str(self.preprocess))
+
+                if enl >= numdim or np.abs(self.beta - oldbeta) <= self.epsilon*2:
+                  self.preprocess = False
+                  # if flag == 0:
+                  #     self.sigma = 1
+                  #     iter = 1
+                  #     flag = 1
+                oldbeta = self.beta
+
+                if iter == 0:
+                    print('  Starting phi: ' + str(self.betastr))
+                if iter >= 5:# and not self.preprocess:
                     self.sigma += self.dsigma
-                sMCB, self.beta = self.simMCB(sMCB, self.sigma, self.betastr, self.win, self.preprocess, self.gdev, self.orientations,
-                                              self.neighbours_local, self.ba)
+
+                if iter != 0:
+                    l_sim = l_sar
+                l_sar = self.layer_fromfunc(self.simmcb, layer = l_sim, size=[array.shape[0], array.shape[0], self.simdim, self.simdim],
+                                            sigma=self.sigma, betastr=self.betastr, window_size=self.win,
+                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, looks = self.looks, silent=True)
+                pyrat.delete(l_sim, silent=True)
+
+                attrs3 = pyrat.getmeta(layer=l_sar)
+                self.beta = attrs3['beta']
+
                 if iter != 0:
                     oldlayer = newlayer
-                newlayer = self.layer_process(self.realMCB, beta=self.beta, sigma=self.sigma, betastr=self.betastr,
-                                              window_size=self.win, preprocess=self.preprocess, gdev=self.gdev,
-                                              orient=self.orientations, neighbours_local=self.neighbours_local, ba = self.ba)
+                # Beltrami routine for the real dataset
+                newlayer = self.layer_process(self.realmcb, beta=self.beta, sigma=self.sigma, betastr=self.betastr,
+                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local, looks = self.looks)
                 if self.showlayers != 1:
                     if iter != 0:
                         pyrat.delete(oldlayer, silent=True)
-
                 pyrat.activate(newlayer, silent=True)
-                enl1 = np.abs(sMCB[0, 0, ...])
-                dwn = np.mean(enl1)
-                up = np.sqrt(np.mean((enl1-dwn)**2))
-                beta = up/dwn
+
+                # Calculating the ENL from the simulated C11 elements (might not always be accurate)
+                enl1 = np.abs((pyrat.getdata(layer=l_sar))[0, 0, ...])
+                beta = (np.sqrt(np.mean((enl1-(np.mean(enl1)))**2))) / np.mean(enl1)
                 enl = 1/(beta**2)
 
                 if enl == np.inf:
                     enl = 0
                 iter += 1
-                P.update(enl)
+                self.looks = enl
+                P.update(iter)
                 print('  Current beta: ' + str(self.beta) + '   Current sigma:' + str(self.sigma) + '   Current ENL:  ' + str(enl))
+
             del P
-            pyrat.activate(newlayer)
             if self.showlayers == False:
                 if 'CH_pol' in attrs and (len(set(pol))<=4):
                     attrs['CH_pol'] = [p1 + p2 + '*' for p1 in attrs['CH_pol'] for p2 in attrs['CH_pol']]
-                attrs['ENL'] =  enl
+                attrs['ENL'] = enl
                 pyrat.setmeta(attrs)
+                pyrat.delete(l_sar, silent=True)
             else:
-                pyrat.adddata(sMCB)
+                pyrat.activate(l_sar)
             pyrat.activate(newlayer, silent=True)
             return newlayer
-        # Method for simulating the SAR data, the input array is used in SLC mode to calculate the oversampling weights
-        # If the input is not SLC then the simulated data is multilooked using self.multilook random vectors.
-        @staticmethod
-        def simulData(array, looks, dim):
 
+        @staticmethod
+        def simuldata(array, looks, size, dim, **kwargs):
+            """
+            Generates the simulated SAR data. The input array is used in SLC mode to calculate the oversampling weights
+            If the input is not SLC then the simulated data is multi-looked using self.multi-look random vectors.
+            """
             numdim = array.ndim
             mu = 0
             sig = np.sqrt(.5)
-            newphi = 0
-
-            if numdim == 3:  # polarimetric vector
+            newpsi = 0
+            if numdim == 2:  # amplitude image
+                array = array[np.newaxis, np.newaxis, ...]
+                array = array[..., 0:dim, 0:dim]
+                ldim = array.shape[0:2]
+                rdim = array.shape[2:4]
+                maxp = rdim[0] * rdim[1]
+                cov_array = np.rollaxis(np.rollaxis(array, 0, start=4), 0, start=4).reshape(maxp, array.shape[0],
+                                                                                            array.shape[1])
+            elif numdim == 3:  # polarimetric vector
                 array = array[..., 0:dim, 0:dim]
                 maxp = dim **2
                 carray = array[np.newaxis, :, :, :] * array[:, np.newaxis, :, :].conjugate()
@@ -1164,6 +1211,8 @@ try:
             if numdim == 3:
                 k1 = np.zeros((rdim[1] * rdim[0], ldim[1], ldim[0]), dtype=np.complex64)
                 k2 = np.zeros((rdim[1] * rdim[0], ldim[1], ldim[0]), dtype=np.complex64)
+
+                # Computing a single look k vector for each pixel
                 for i in range(maxp):
                     vectorv = np.random.normal(mu, sig, (ldim[1], 1)) + 1j * np.random.normal(mu, sig, (ldim[1], 1))
                     k1[i, :, :] = np.dot(cov_sqrt, vectorv)
@@ -1171,10 +1220,13 @@ try:
                 speckle_SLC = np.rollaxis(np.rollaxis(k1.reshape(rdim[0], rdim[1], ldim[0], ldim[1]), 0, start=4), 0,
                                           start=4)
                 sum = np.zeros((1, 1, rdim[0], rdim[1]))
+
+                # Doing an spectral estimation for the correlated noise
                 for i in range(ldim[1]):
                     sum += np.abs(np.fft.fft2(array[0, i, ...]))
-                weightSLC = sp.ndimage.filters.uniform_filter(sum, [1,1,5,5])
+                weightSLC = sp.ndimage.filters.uniform_filter(sum, [1, 1, 5, 5])
                 OS_SLC = np.fft.ifft2(np.fft.fft2(speckle_SLC) * weightSLC)
+
                 # Calculating the correlation coefficients for a 61x61 window
                 w = 30
                 ww = (2 * w + 1)
@@ -1196,21 +1248,28 @@ try:
                         e[m, n] = e1[m, n]/e2[m, n]
                 print('  Correlation coefficients:')
                 print(e)
-                newphi = (e[0,1] + e[1,0]) / 2
+                newpsi = (e[0,1] + e[1,0]) / 2
                 out = OS_SLC
+
             else:
                 k1 = np.zeros((rdim[1] * rdim[0], ldim[1]), dtype=np.complex64)
                 k2 = np.zeros((ldim[0], ldim[1], rdim[0], rdim[1]), dtype=np.complex64)
                 res = looks - np.floor(looks)
                 looks = np.int(np.floor(looks))
+
+                # Computing L number of k scattering vectors
                 for k in range(looks):
                     for i in range(maxp):
                         vectorv = np.random.normal(mu, sig, (ldim[1])) + 1j * np.random.normal(mu, sig, (ldim[1]))
                         k1[i, :] = vectorv
-                    sim_SLC = np.rollaxis(k1.reshape(rdim[0], rdim[1], ldim[1]), 2, start=0)
+                    sim_SLC = np.rollaxis(k1.reshape(rdim[0], rdim[1], ldim[1]), 2, start = 0)
+                    # Performing the sum over all the resulting covariance matrices
                     k2 += sim_SLC[np.newaxis, :, :, :] * sim_SLC[:, np.newaxis, :, :].conjugate()
+                # Averaging for L looks
                 k2 /= looks
                 out = k2
+
+                # If L is not integer, obtain simulated data with closer number of looks
                 if res!= 0:
                     alpha = res*(0.33)/(2*looks)
                     for i in range(ldim[0]):
@@ -1219,55 +1278,34 @@ try:
                             mavg = np.convolve(mavg, [alpha, 1 - 2*alpha, alpha], 'same')
                             out[i, j, ...] = mavg.reshape(rdim[0],rdim[1])
 
-            return np.squeeze(out), newphi
-        @staticmethod
-        def rebin(arr, *shape, **kwargs):
-            """
-            Imitates IDL's rebin function. Allows also phase rebining.
+            # Output is simulated dataset and spatial correlation Psi
+            attrs = kwargs['meta']
+            attrs['psi'] = newpsi
+            return np.squeeze(out)
 
-            :author: Andreas Reigber
-            """
-            phase = False  # combination of *args and fixed keywords
-            if 'phase' in kwargs:
-                phase = kwargs['phase']  # works only in in python 3!
-            if len(shape) == 1:  # allows to pass shape as list/array or normal arguments
-                if type(shape[0]) == int:
-                    shape = [shape[0]]
-                else:
-                    shape = list(shape[0])
-            oarr = arr.copy()
-            oshap = oarr.shape
-            for d in range(arr.ndim):
-                n1 = shape[d]
-                n2 = oshap[d]
-                if n1 < n2:
-                    s = list(oarr.shape)
-                    s.insert(d + 1, n2 // n1)
-                    s[d] = n1
-                    if phase is True:
-                        oarr = numpy.angle(numpy.exp(1j * oarr.reshape(s)).mean(d + 1))
-                    else:
-                        oarr = oarr.reshape(s).mean(d + 1)
-                else:
-                    oarr = oarr.repeat(n1 // n2, axis=d)
-            return oarr
-        # simMCB filters the simulated data to obtain the beta statistic used in the real MCB filter.
         @staticmethod
-        def simMCB(array, sigma, betastr, window_size, preprocess, gdev, orient,  neighbours_local, ba, **kwargs):
+        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, looks, **kwargs):
+            """
+            Filters the simulated data to obtain the beta statistic used in the real MCB filter
+            """
+            array = pyrat.getdata(layer)
             array = array.astype(np.complex_)
+            numdim = array.ndim
+            if numdim == 3:  # This means the input is SLC
+                array = array[np.newaxis, :, :, :] * array[:, np.newaxis, :, :].conjugate()
+            elif numdim == 2:  # This means the input is an amplitude image
+                array = array[np.newaxis, np.newaxis, :, :]
+
             neighM = window_size // 2 - 1
             tmpW = window_size - 2
-            times = window_size // 2
-            sqrt2 = np.sqrt(2)
             ldim = array.shape[0:2]
             rdim = array.shape[2:4]
             maxp = rdim[0] * rdim[1]
             cov_array = np.rollaxis(np.rollaxis(array, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
-            avg = np.zeros_like(cov_array, dtype=np.complex64)
             neighbours_global = [-rdim[1] + 1, 1, rdim[1] + 1, rdim[1]]
             all_neigh = [[0, 0]]
 
-            #Creating the global neighbor used in region growing
+            # Creating the 7x7 neighbourhood
             for times in range(neighM):
                 for i in range(tmpW):
                     for j in range(tmpW):
@@ -1275,34 +1313,38 @@ try:
                         y = rdim[1] * (i - neighM) + (j - neighM)
                         toadd = [x, y]
                         border = (times + 2)
-                        if not (toadd in all_neigh) and (-border < i - neighM < border) and (
-                                        -border < j - neighM < border):
+                        if not (toadd in all_neigh) and (-border < i - neighM < border) and (-border < j - neighM < border):
                             all_neigh.append(toadd)
             all_neigh = np.asarray(all_neigh)
-            distance_array, da2 = MCB.preProcessing(preprocess, 1, orient, array, cov_array, gdev, neighbours_global, ba)
-            beta = np.median(da2[np.isfinite(da2)])
 
-            # Aggressively filters the oversampled data using beta2 as threshold. The correlation coefficients are
-            # still not taken into account.
-            if preprocess == True:
+            # Obtaining the array of distances utilized in the Beltrami algorithm
+            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global, looks)
+            beta = np.median(da2[np.isfinite(da2)])
+            if preprocess:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
-                distance_array[distance_array >= beta2] = np.inf
+                #distance_array[distance_array >= beta2] = np.inf
 
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
                                   betastr, window_size, rdim[1])
             avg = np.rollaxis(np.rollaxis(beltramiFast.reshape(rdim[0], rdim[1], ldim[0], ldim[1]), 0, start=4), 0,
                               start=4)
-            return avg, beta
+            meta = kwargs["meta"]
+            meta["beta"] = beta
+            return avg
 
-        # realMCB is the main part of the filter, if the input is SLC then a preprocessing step
-        # is added where the data is edge filtered to better preserve statistics. This step is avoided
-        # if the input is already multilooked.
         @staticmethod
-        def realMCB(array, beta, sigma, betastr, window_size, preprocess, gdev, orient, neighbours_local, ba, **kwargs):
+        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, looks, **kwargs):
+            """
+            Main part of the filter, if the input is SLC then a preprocessing step
+            is added where the data is edge filtered to better preserve statistics. This step is avoided
+            if the input is already multi-looked.
+            """
             if isinstance(array,list):
                 array = np.stack(array)
             array = array.astype(np.complex_)
             numdim = array.ndim
+
+            # Obtaining covariance matrices if numdim = 3, adding necessary dimensions if the data has numdim = 2
             if numdim == 3:
                 array = array[np.newaxis, :, :, :] * array[:, np.newaxis, :, :].conjugate()
             elif numdim == 2:
@@ -1314,12 +1356,12 @@ try:
             maxp = rdim[0] * rdim[1]
             neighM = window_size // 2 - 1
             tmpW = window_size - 2
-            times = window_size // 2
 
             neighbours_global = [-rdim[1] + 1, 1, rdim[1] + 1, rdim[1]]
             cov_array = np.rollaxis(np.rollaxis(array, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
-            avg = np.zeros_like(cov_array, dtype=np.complex64)
             all_neigh = [[0, 0]]
+
+            # Creating the 7x7 neighbourhood
             for times in range(neighM):
                 for i in range(tmpW):
                     for j in range(tmpW):
@@ -1331,15 +1373,14 @@ try:
                                         -border < j - neighM < border):
                             all_neigh.append(toadd)
             all_neigh = np.asarray(all_neigh)
-            distance_array = MCB.preProcessing(preprocess, 0, orient, array, cov_array, gdev, neighbours_global, ba)
-            neighbours_global2 = [-rdim[1] + 1, 1, rdim[1] + 1, rdim[1], rdim[1] - 1, -1, -rdim[1] -1, -rdim[1]]
 
-            # Aggressively filters the oversampled data using beta2 as threshold. The correlation coefficients are
-            # still not taken into account.
+            # Calculating distance array for the real data
+            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global, looks)
             if preprocess == True:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
-                distance_array[distance_array >= beta2] = np.inf
+#                distance_array[distance_array >= beta2] = np.inf
 
+            # Main Beltrami routine
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
                               betastr, window_size, rdim[1])
             avg = np.rollaxis(np.rollaxis(beltramiFast.reshape(rdim[0], rdim[1], ldim[0], ldim[1]), 0, start=4), 0,
@@ -1348,130 +1389,47 @@ try:
 
         @staticmethod
         def matLog(matrix):
+            # Performs the matrix logarithm of a Hermitian matrix
             w, v = np.linalg.eigh(matrix)
             aprime = np.dot(np.conj(v).T, np.dot(matrix, v))
             return np.dot(v, np.dot(np.diag(np.log(np.diag(aprime))), np.conj(v).T))
 
         @staticmethod
-        def preProcessing(on, sim,  orient, array, cov_array, gdev, neighbours_global, ba):
+        def preprocessing(on, sim, array, cov_array, neighbours_global, looks):
+            """
+            Preprocessing stage, if true then a boxcar filter is utilized on a copy of the array until a full
+            rank matrix is obtained
+            """
             ldim = array.shape[0:2]
             rdim = array.shape[2:4]
             maxp = rdim[0] * rdim[1]
-            orient = 2 * orient
             distance_array = np.zeros(shape=[4, maxp], dtype=np.float32) + np.inf
             distance_array2 = np.zeros(shape=[1, maxp], dtype=np.float32) + np.inf
-            gdevsize = np.int(np.ceil(max(gdev)))*4 + 3
-            boxapproach = ba
-            #This follows the previous edge aligned kernels preprocessing approach
-            if on == True and boxapproach == 0:
-                gcrd = np.mgrid[:gdevsize, :gdevsize]
-                gcrd = [gc - gdevsize//2 for gc in gcrd]
-                karr = []
-                darr = []
-                ang = [(2 * np.pi / orient) * (x + 1) for x in range(orient)]
-                for x in range(orient):
-                    rotmat = [[np.cos(ang[x]), -np.sin(ang[x])], [np.sin(ang[x]), np.cos(ang[x])]]
-                    ggcrd = [[np.dot(rotmat, [gcrd[1][x][y], gcrd[0][x][y]]) for x in range(gdevsize)] for y in range(gdevsize)]
-                    ggcrd = np.rollaxis(np.asarray(ggcrd), -1)
-                    ocrd = [[gc - off for gc, off in zip(ggcrd, (0, s))] for s in (-1, 0, 1)]
-                    odist = [[gc / gd for gc, gd in zip(ocrd[s2], gdev)] for s2 in range(3)]
-                    k = [np.exp(-0.5 * (odist[s3][0] ** 2 + odist[s3][1] ** 2)) for s3 in range(3)]
-                    k = [kernel * (crd[1] >= -0.3) for kernel, crd in zip(k, ocrd)]
-                    k = [kernel / kernel.sum() for kernel in k]
-                    karr.append(k)
-                for x in range(orient):
-                    tmp = []
-                    pair = (x + orient // 2) % orient
-                    for y in range(3):
-                        k = karr[x][y]  # y = 0 is -1 offset, 1 is central
-                        if x == 2 and y == 1:
-                            lastkarr = k
-                        k = k[np.newaxis, np.newaxis, :]
-                        numbo = 2
-                        gaussie = np.copy(array)
-                        data_gauss = sp.ndimage.filters.correlate(gaussie.real, weights=k) + 1j * sp.ndimage.filters.correlate(gaussie.imag, weights=k)
-                        origi = np.real(gaussie[0, 0, ...])
-                        if x == 2 and y == 1:
-                            normal = np.real(data_gauss[0, 0, ...])
-                        if x == ((2 + orient // 2) % orient) and y == numbo:
-                            shifted = np.real(data_gauss[0, 0, ...])
-                        dist_data = np.rollaxis(np.rollaxis(data_gauss, 0, start=4), 0, start=4).reshape(maxp,
-                                                                                                         ldim[0],
-                                                                                                         ldim[1])
-                        tmp.append(dist_data)
-                    darr.append(tmp)
-                distance_par = np.zeros(shape=[maxp], dtype=np.float32)
-                buff_array = np.zeros_like(cov_array)
-                tempish = np.zeros_like(distance_par)
-                tempish2 = np.copy(tempish)
-                for k in range(maxp):
-                    buff_dist = 0
-                    for w in range(orient):
-                        pair = (w + orient // 2) % orient
-                        dist_data =  darr[w][1]
-                        dist_offset = darr[pair][numbo]
-                        if ldim[0] == 3:
-                            distance_par = cy_MCBdist(dist_data[k, :], dist_offset[k, :])
-                        else:
-                            distance_par = MCB.distance_ai(dist_data[k, :], dist_offset[k, :])
-                        pair_dist = distance_par
-                        if pair_dist >= buff_dist:
-                            buff_dist = np.copy(pair_dist)
-                            tempish[k] = w
-                            tempish2[k] = np.copy(pair_dist)
-                            buff_array[k, :] = darr[w][1][k, :]
-                if sim == 1:
-                    for k in range(maxp):
-                        i = 0
-                        rand = np.random.randint(maxp, size=1)
-                        if ldim[0] == 3:
-                            distance_array2[0, k] = cy_MCBdist(buff_array[k, :], buff_array[rand[0], :])
-                        else:
-                            distance_array2[0, k] = MCB.distance_ai(buff_array[k, :], buff_array[rand[0], :])
-                        for dx in neighbours_global:
-                            nx = k + dx
-                            if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(buff_array[k, :], buff_array[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
-                                i += 1
-                    # print(np.median(distance_array))
-
-
-                    return np.asarray(distance_array), np.asarray(distance_array2)
-                else:
-                    # enl1 = np.abs(buff_array[..., 0, 0])
-                    # dwn = np.mean(enl1)
-                    # up = np.sqrt(np.mean((enl1 - dwn) ** 2))
-                    # beta = up / dwn
-                    # enl = 1 / (beta ** 2)
-                    # print(enl)
-
-                    for k in range(maxp):
-                        i = 0
-                        for dx in neighbours_global:
-                            nx = k + dx
-                            if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(buff_array[k, :], buff_array[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
-
-                                i += 1
-                    return np.asarray(distance_array)
-            # This is the current boxcar approach
-            elif on == True and boxapproach == 1:
+            # If preprocessing stage is true
+            if on:
+                # Makes a copy of the input array, then performs a q x q boxcar filter
                 buff = np.copy(array)
-                win = [1, 1, 3 , 3]
-                out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
-                buff_array = np.rollaxis(np.rollaxis(out, 0, start=4), 0, start=4).reshape(maxp,
-                                                                                                         ldim[0],
-                                                                                                         ldim[1])
+                win = [1, 1, ldim[0], ldim[0]]
+
+                # Boxcar filtering
+                # out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
+
+                # Diagonal reescaling
+                gamma = np.cbrt(np.min([looks/ldim[0], 1]))
+                gm = np.full(ldim, 0)
+                np.fill_diagonal(gm, 1)
+                gm = gm[..., np.newaxis, np.newaxis]
+                out = np.multiply(buff, gm)
+
+                buff_array = np.rollaxis(np.rollaxis(out, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
+                # Distance array calculation for the simulated array, distance_array2 takes the median of randomly
+                # selected pixels in order to avoid local bias. This array is utilized to compute the beta parameter.
                 if sim == 1:
                     for k in range(maxp):
                         i = 0
                         rand = np.random.randint(maxp, size=1)
+                        # If the matrix is 3x3, apply fast Affine-invariant distance. Otherwise, apply a fast version
+                        # of the affine-invariant distance based on Python.
                         if ldim[0] == 3:
                             distance_array2[0, k] = cy_MCBdist(buff_array[k, :], buff_array[rand[0], :])
                         else:
@@ -1485,6 +1443,8 @@ try:
                                     distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
                                 i += 1
                     return np.asarray(distance_array), np.asarray(distance_array2)
+                # Distance array calculation for the real array, when preprocess = False, there's no need to
+                # calculate the beta value.
                 else:
                     for k in range(maxp):
                         i = 0
@@ -1495,11 +1455,12 @@ try:
                                     distance_array[i, k] = cy_MCBdist(buff_array[k, :], buff_array[nx, :])
                                 else:
                                     distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
-
                                 i += 1
                     return np.asarray(distance_array)
-
+            # If preprocessing stage is turned off
             else:
+                # Same procedure as preprocessing = on, however, no boxcar filter is utilized to obtain a first
+                # estimate.
                 if sim == 1:
                     dist_data = cov_array
                     for k in range(maxp):
@@ -1534,7 +1495,12 @@ try:
 
         @staticmethod
         def distance_ai(a_mat, b_mat):
-            w, v = np.linalg.eigh(a_mat) #todo: Check routines
+            """
+             Affine-invariant distance. Used in most cases (except 3x3 matrices). Exploits the hermitian nature of the
+             covariance matrices to utilize the eigh function from numpy to
+             obtain the eigenvalues and eigenvectors needed to speed up other matrix operations.
+            """
+            w, v = np.linalg.eigh(a_mat)
             if np.any(w <= 0):
                 return np.inf
             else:
@@ -1542,18 +1508,12 @@ try:
                 distance = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
                 return distance if np.isfinite(distance) else np.inf
 
-        @staticmethod
-        def distance_le(a_mat, b_mat):
-            distance = np.linalg.norm(MCB.matLog(a_mat) - MCB.matLog(b_mat), 'fro')
-            return distance
-
-
     @pyrat.docstringfrom(MCB)
     def mcb(*args, **kwargs):
         return MCB(*args, **kwargs).run(*args, **kwargs)
 
 except ImportError:
-    logging.info("Multichannel Beltrami cython modules not found. (run build process?)")
+    logging.info("Multi-channel Beltrami cython modules not found. (run build process?)")
 
 
 try:
