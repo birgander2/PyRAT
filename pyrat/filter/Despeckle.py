@@ -1015,32 +1015,32 @@ try:
 
     class MCB(pyrat.Worker):
         """
-        Multi-Channel Beltrami Filter implementation
+        N-Dimensional Beltrami Filter implementation
         J. Amao-Oliva, M. Jager, and A. Reigber, “The Short-Time Beltrami
         kernel for despeckling polarimetric SAR data,” in 12th European Conference
         on Synthetic Aperture Radar (EUSAR 2018), Aachen, Germany,
         Jun. 2018.
         :author: Joel Amao-Oliva
         """
-        gui = {'menu': 'SAR|Speckle filter', 'entry': 'Multi-channel Beltrami Filter'}
+        gui = {'menu': 'SAR|Speckle filter', 'entry': 'N-Dimensional Beltrami Filter'}
         para = [
 
             {'var': 'looks', 'value': 3, 'type': 'float', 'range': [1, 99],
              'text': '# of looks of the input data (MLC only)'},
-            {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 9999], 'text': 'Maximum number of iterations'},
+            {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 999], 'text': 'Maximum number of iterations'},
         ]
 
         def __init__(self, *args, **kwargs):
             super(MCB, self).__init__(*args, **kwargs)
-            self.name = "Multichannel Beltrami Filter"
+            self.name = "N-Dimensional Beltrami Filter"
             self.blockprocess = True
             self.win = 7
-            self.blocksize = (self.win - 2) * 16
+            self.blocksize = (self.win - 2) * 8
             self.blockoverlap = self.win - 2
             # Starting sigma value
             self.sigma = 1
             # Simulated data dimensions
-            self.simdim = 50
+            self.simdim = 500
             # Sigma change per iteration
             self.dsigma = 0.5
             # Show intermediate layers
@@ -1082,7 +1082,6 @@ try:
                                             dim=self.simdim, silent=True)
             else:
                 self.preprocess = True
-                self.looks = 1
                 maxdim = np.amin(array.shape[1:3])
                 # Changing maximum simulated dimensions if not enough data is present for the spectral estimation
                 if maxdim < self.simdim:
@@ -1096,8 +1095,7 @@ try:
 
             # Noise correlation adjustment
             print('  Calculated Psi: ' + str(Psi))
-            self.betastr = -1.5*Psi**(1.5) + 2.1
-            self.betastr = 0.8
+            self.betastr=-1.5*Psi**(1.5) + 2.1
 
             P = ProgressBar('  ' + self.name, self.maxiter)
             P.update(0)
@@ -1107,31 +1105,21 @@ try:
             self.beta = 100             # Starting beta value, to be replaced in the first iteration
             oldbeta = 0                 # Old beta value, to be replaced in the first iteration
 
-            self.epsilon = 0.000000001
-            flag = 0
             # Main function, iterates until error is reached or until the maximum number of iterations
             while (np.abs(self.beta - oldbeta) >= self.epsilon) and iter < convergence:
-
-                print(' Preprocess is: ' + str(self.preprocess))
-
-                if enl >= numdim or np.abs(self.beta - oldbeta) <= self.epsilon*2:
-                  self.preprocess = False
-                  # if flag == 0:
-                  #     self.sigma = 1
-                  #     iter = 1
-                  #     flag = 1
                 oldbeta = self.beta
-
+                if enl >= numdim:
+                    self.preprocess = False
                 if iter == 0:
                     print('  Starting phi: ' + str(self.betastr))
-                if iter >= 5:# and not self.preprocess:
+                if iter >= 5 and not self.preprocess:
                     self.sigma += self.dsigma
 
                 if iter != 0:
                     l_sim = l_sar
-                l_sar = self.layer_fromfunc(self.simmcb, layer = l_sim, size=[array.shape[0], array.shape[0], self.simdim, self.simdim],
+                l_sar = self.layer_fromfunc(self.simmcb, layer=l_sim, size=[array.shape[0], array.shape[0], self.simdim, self.simdim],
                                             sigma=self.sigma, betastr=self.betastr, window_size=self.win,
-                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, looks = self.looks, silent=True)
+                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, silent=True)
                 pyrat.delete(l_sim, silent=True)
 
                 attrs3 = pyrat.getmeta(layer=l_sar)
@@ -1141,7 +1129,7 @@ try:
                     oldlayer = newlayer
                 # Beltrami routine for the real dataset
                 newlayer = self.layer_process(self.realmcb, beta=self.beta, sigma=self.sigma, betastr=self.betastr,
-                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local, looks = self.looks)
+                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local)
                 if self.showlayers != 1:
                     if iter != 0:
                         pyrat.delete(oldlayer, silent=True)
@@ -1155,7 +1143,6 @@ try:
                 if enl == np.inf:
                     enl = 0
                 iter += 1
-                self.looks = enl
                 P.update(iter)
                 print('  Current beta: ' + str(self.beta) + '   Current sigma:' + str(self.sigma) + '   Current ENL:  ' + str(enl))
 
@@ -1284,7 +1271,7 @@ try:
             return np.squeeze(out)
 
         @staticmethod
-        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, looks, **kwargs):
+        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, **kwargs):
             """
             Filters the simulated data to obtain the beta statistic used in the real MCB filter
             """
@@ -1318,11 +1305,11 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Obtaining the array of distances utilized in the Beltrami algorithm
-            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global, looks)
+            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global)
             beta = np.median(da2[np.isfinite(da2)])
             if preprocess:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
-                #distance_array[distance_array >= beta2] = np.inf
+                distance_array[distance_array >= beta2] = np.inf
 
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
                                   betastr, window_size, rdim[1])
@@ -1333,7 +1320,7 @@ try:
             return avg
 
         @staticmethod
-        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, looks, **kwargs):
+        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, **kwargs):
             """
             Main part of the filter, if the input is SLC then a preprocessing step
             is added where the data is edge filtered to better preserve statistics. This step is avoided
@@ -1375,10 +1362,10 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Calculating distance array for the real data
-            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global, looks)
+            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global)
             if preprocess == True:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
-#                distance_array[distance_array >= beta2] = np.inf
+                distance_array[distance_array >= beta2] = np.inf
 
             # Main Beltrami routine
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
@@ -1395,7 +1382,7 @@ try:
             return np.dot(v, np.dot(np.diag(np.log(np.diag(aprime))), np.conj(v).T))
 
         @staticmethod
-        def preprocessing(on, sim, array, cov_array, neighbours_global, looks):
+        def preprocessing(on, sim, array, cov_array, neighbours_global):
             """
             Preprocessing stage, if true then a boxcar filter is utilized on a copy of the array until a full
             rank matrix is obtained
@@ -1410,17 +1397,7 @@ try:
                 # Makes a copy of the input array, then performs a q x q boxcar filter
                 buff = np.copy(array)
                 win = [1, 1, ldim[0], ldim[0]]
-
-                # Boxcar filtering
-                # out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
-
-                # Diagonal reescaling
-                gamma = np.cbrt(np.min([looks/ldim[0], 1]))
-                gm = np.full(ldim, 0)
-                np.fill_diagonal(gm, 1)
-                gm = gm[..., np.newaxis, np.newaxis]
-                out = np.multiply(buff, gm)
-
+                out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
                 buff_array = np.rollaxis(np.rollaxis(out, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
                 # Distance array calculation for the simulated array, distance_array2 takes the median of randomly
                 # selected pixels in order to avoid local bias. This array is utilized to compute the beta parameter.
@@ -1513,7 +1490,7 @@ try:
         return MCB(*args, **kwargs).run(*args, **kwargs)
 
 except ImportError:
-    logging.info("Multi-channel Beltrami cython modules not found. (run build process?)")
+    logging.info("N-Dimensional Beltrami cython modules not found. (run build process?)")
 
 
 try:

@@ -180,7 +180,7 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-# Cython routine for the fast Affine-invariant distance. Only for 3x3 matrices.
+# Cython routine for the fast Affine-invariant distance.
 def cy_MCBdist(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
     cdef double complex [3][3] Sig1 = A
     cdef double complex [3][3] Sig2 = B
