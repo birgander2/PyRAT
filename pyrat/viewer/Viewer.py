@@ -7,7 +7,7 @@ from .StatusBar import *
 from . import egg
 from pyrat.tools import multimap
 
-from pyrat.tools import ProgressBar, colortables
+from pyrat.tools import colortables
 from pyrat.viewer.tools import sarscale, subsample
 
 
@@ -754,7 +754,7 @@ class GenPyramid():
         self.dset = []
 
         self.nblock = 0
-        self.progress = ProgressBar('  Updating View', 3 * self.dshape[-2] / 128)
+        self.progress = pyrat.tools.ProgressBar('  Updating View', 3 * self.dshape[-2] / 128)
 
     def __del__(self):
         del self.progress

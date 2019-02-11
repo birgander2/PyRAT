@@ -2,7 +2,6 @@ import pyrat
 from pyrat.filter.tools import rebin
 import PIL
 import numpy as np
-from pyrat.tools import ProgressBar
 
 
 class Presum(pyrat.Worker):
@@ -33,7 +32,7 @@ class Presum(pyrat.Worker):
         outlayer = pyrat.data.addLayer(dtype=li.dtype, shape=odim)
         blockdim = odim.copy()
         blockdim[-2] = 1
-        P = ProgressBar('  ' + self.name, odim[-2])
+        P = pyrat.tools.ProgressBar('  ' + self.name, odim[-2])
         P.update(0)
         for k in range(odim[-2]):
             arr = pyrat.getdata(block=(k*self.suby, (k+1)*self.suby, 0, odim[-1] * self.subx), layer=self.layer)

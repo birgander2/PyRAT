@@ -281,7 +281,7 @@ def show(*args, method='amplitude', **kwargs):
 
     import pyrat
     import sys
-    from PyQt5 import QtWidgets
+    from PyQt5 import QtWidgets, QtCore
 
     if method not in ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']:
         method = 'amplitude'
@@ -291,14 +291,18 @@ def show(*args, method='amplitude', **kwargs):
     elif len(args) == 1:
         activate(args[0])
 
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtCore.QCoreApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication(sys.argv)
+        new_app = True
+    else:
+        new_app = False
     pyrat.app = pyrat.viewer.MainWindow()
     pyrat.app.updateViewer(method=method)
-    app.exec_()
-
+    if new_app is True:
+        app.exec_()
 
 gui = show
-
 
 def help(*args, **kwargs):
     import sys, types

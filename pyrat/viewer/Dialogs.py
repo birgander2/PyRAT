@@ -86,7 +86,8 @@ class FlexInputDialog(QtWidgets.QDialog):
                 elif readline['type'] in ['openfile', 'opendir']:
                     val.append(str(wid.getValue()))
                 elif readline['type'] == 'savefile':
-                    val.append(str(wid.getValue()))
+                    val.append((wid.getValue(), wid.extension))
+
             if len(val) == 1:
                 val = val[0]
             # self.para[names.index(readline['name'])]['value'] = val
@@ -111,6 +112,7 @@ class FlexFilesel(QtWidgets.QWidget):
         self.type = type
         self.extensions = extensions
         self.value = ''
+        self.extension = ''
         self.format = ''
         super(FlexFilesel, self).__init__(parent)
         layout = QtWidgets.QHBoxLayout(self)
@@ -132,6 +134,7 @@ class FlexFilesel(QtWidgets.QWidget):
         elif self.type == 'savefile':
             self.value = QtWidgets.QFileDialog.getSaveFileName(self, "Save data", value, self.extensions)
             self.wid.setText(self.value[0])
+            self.extension = self.value[1]
 
     def getValue(self):
         return self.wid.text()

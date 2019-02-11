@@ -5,7 +5,7 @@ import sys
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 import pyrat
-from pyrat.tools import ProgressBar, flattenlist, unflattenlist, bcolors, PyRATInputError, multimap
+from pyrat.tools import flattenlist, unflattenlist, bcolors, PyRATInputError, multimap
 
 
 def exec_out(args):
@@ -122,7 +122,7 @@ class Worker(object):
         nb1 = 0  # input block number
         nb2 = 0  # output block number
         if silent is False:
-            P = ProgressBar('  ' + self.name, len(self.blocks))
+            P = pyrat.tools.ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
         for bidx in idx:  # loop over chunks of blocks
             meta = copy.deepcopy(metain)
@@ -203,7 +203,7 @@ class Worker(object):
         nb1 = 0  # input block number
         nb2 = 0  # output block number
         if silent is False:
-            P = ProgressBar('  ' + self.name, len(self.blocks))
+            P = pyrat.tools.ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
         for bidx in idx:
             inputs = []
@@ -269,7 +269,7 @@ class Worker(object):
         nb = 0
         metain = pyrat.data.getAnnotation(layer=self.input)
         if silent is False:
-            P = ProgressBar('  ' + self.name, len(self.blocks))
+            P = pyrat.tools.ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
         for bidx in idx:
             meta = copy.deepcopy(metain)
@@ -326,7 +326,7 @@ class Worker(object):
         nb = 0
         metain = pyrat.data.getAnnotation(layer=self.input)
         if silent is False:
-            P = ProgressBar('  ' + self.name, len(self.blocks))
+            P = pyrat.tools.ProgressBar('  ' + self.name, len(self.blocks))
             P.update(0)
         for bidx in idx:
             meta = copy.deepcopy(metain)

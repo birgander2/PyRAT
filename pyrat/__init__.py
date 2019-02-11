@@ -1,4 +1,4 @@
-__version__ = '0.50-oss'
+__version__ = '0.60-oss'
 
 import logging, sys, os
 
@@ -97,6 +97,10 @@ from .ImportWorker import *
 from .ExportWorker import *
 from .GroupWorker import *
 from .LayerWorker import *
+
+import matplotlib.pyplot      # pseudo-import to suppress some unnecessary debug code
+logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
+
 from . import layer
 from . import filter
 from . import load
@@ -114,40 +118,36 @@ import json
 
 data = False
 _debug = False
+_cfg = {}
 
 
 # def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 4)):
 def pyrat_init(debug=False, **kwargs):
     global data
 
-    global _debug, _nthreads
+    global _debug, _nthreads, _cfg
     _debug = debug
 
     # read config file (~/.pyratrc or the win version)
 
-    cfg = read_config_file(verbose=debug)
+    _cfg = read_config_file(verbose=debug)
 
     # set number of threads
 
     if 'nthreads' in kwargs:
         _nthreads = kwargs['nthreads']
-    elif cfg['nthreads'] != '':
-        _nthreads = int(cfg['nthreads'])
+    elif _cfg['nthreads'] != '':
+        _nthreads = int(_cfg['nthreads'])
     else:
         _nthreads = multiprocessing.cpu_count()
 
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-    if debug is True:
-        logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
-        from PyQt5 import QtCore
-        QtCore.pyqtRemoveInputHook()
-    else:
-        logging.basicConfig(format='  %(message)s', level=logging.INFO)
+    # config debug mode
+
+    pyrat_debug(debug)
 
     # import plugins
 
-    import_plugins(plugin_paths=cfg["plugindirs"], verbose=debug)
+    import_plugins(plugin_paths=_cfg["plugindirs"], verbose=debug)
     pyrat.plugins.__name__ = "pyrat.plugins"
     pyrat.plugins.__module__ = "pyrat.plugins"
     pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
@@ -160,8 +160,8 @@ def pyrat_init(debug=False, **kwargs):
 
     if 'tmpdir' in kwargs:
         tmpdir = kwargs['tmpdir']
-    elif cfg["tmpdir"] != '':
-        tmpdir = cfg["tmpdir"]
+    elif _cfg["tmpdir"] != '':
+        tmpdir = _cfg["tmpdir"]
     else:
         tmpdir = tempfile.gettempdir()
         logging.warning(
@@ -178,9 +178,19 @@ def pyrat_init(debug=False, **kwargs):
     data = LayerData(tmpdir)
     logging.info("Pool with " + str(_nthreads) + " workers initialised" + '\n')
     logging.info("help() will show a list of available commands!")
-    logging.info("")
     atexit.register(pyrat_exit)
     sys.excepthook = exithook
+
+
+def pyrat_debug(debug):
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    if debug is True:
+        logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
+        from PyQt5 import QtCore
+        QtCore.pyqtRemoveInputHook()
+    else:
+        logging.basicConfig(format='  %(message)s', level=logging.INFO)
 
 
 def read_config_file(config_file=None, verbose=True):
@@ -212,6 +222,9 @@ def read_config_file(config_file=None, verbose=True):
         cfg["tmpdir"] = cfgp["pyrat"]["tempdir"]
         cfg["nthreads"] = cfgp["pyrat"]["nthreads"]
         cfg["plugindirs"] = [dir.strip() for dir in cfgp["pyrat"]["plugindirs"].split(',')]
+
+        if "qgis" in cfgp:
+            cfg["qgispath"] = cfgp["qgis"]["path"]
 
     else:
         logging.warning(bcolors.FAIL + "No config file found!"  + bcolors.ENDC)
@@ -309,15 +322,34 @@ def pyrat_exit():
                 os.remove(layer.fn)
             logging.debug('Deleting temporary file: ' + layer.fn)
 
-
 interpreter = False
 import inspect
 
 inp = [s[1] for s in inspect.stack()]
 try:
-    if sys.ps1: interpreter = True
+    if sys.ps1:
+        interpreter = True
 except AttributeError:
     if sys.flags.interactive:
         interpreter = True
+    # if sys.__stdin__.isatty():
+    #     interpreter = True
+
+try: # Check for QGIS python console
+    import qgis.utils
+    interpreter = True
+except:
+    pass
+
 if interpreter is True:
     pyrat_init()
+
+# Launched from within QGIS?
+try:
+    if "qgispath" in _cfg:
+        sys.path.append(_cfg["qgispath"])
+    from .qgis import *
+except ImportError:
+   pass
+   # logging.error("QGis is required to run the Qgis interface!")
+

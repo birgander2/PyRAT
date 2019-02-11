@@ -1,6 +1,6 @@
 import pyrat
 import logging
-from osgeo import gdal
+from osgeo import gdal, osr
 import numpy as np
 
 
@@ -119,6 +119,13 @@ class GDALRASTER(pyrat.ExportWorker):
         ds.SetMetadata(gmeta, "")
         for k in range(ds.RasterCount):
             ds.GetRasterBand(k + 1).SetMetadata(cmeta[k], "")
+
+        # ------------------- Comment: No handling of projections yet
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(4326)
+        ds.SetProjection(srs.ExportToWkt())
+        # -------------------
+
         ds = None  # correct according to GDAL manual!!??
 
 

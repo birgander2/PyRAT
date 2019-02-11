@@ -743,7 +743,7 @@ try:
             # self.nthreads = 1
 
         def run(self, *args, **kwargs):
-            P = ProgressBar('  ' + self.name, 10)
+            P = pyrat.tools.ProgressBar('  ' + self.name, 10)
             bounds = opt.fmin(self.optf, [0.5, 2.0], args=(self.looks, self.sigma), disp=False)  # calc sigma bounds
             newsig = self.newsig(bounds[0], bounds[1], sigrng=self.sigma, looks=self.looks)  # calc new stddev
             P.update(0)
@@ -1028,6 +1028,7 @@ try:
             {'var': 'looks', 'value': 3, 'type': 'float', 'range': [1, 99],
              'text': '# of looks of the input data (MLC only)'},
             {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 999], 'text': 'Maximum number of iterations'},
+            {'var': 'poldis', 'value': 'ai', 'type': 'char', 'text': 'Matrix distance, (eu, ai, etc)'}
         ]
 
         def __init__(self, *args, **kwargs):
@@ -1040,11 +1041,11 @@ try:
             # Starting sigma value
             self.sigma = 1
             # Simulated data dimensions
-            self.simdim = 500
+            self.simdim = 50
             # Sigma change per iteration
             self.dsigma = 0.5
             # Show intermediate layers
-            self.showlayers = False
+            self.showlayers = True
             # Convergence error
             self.epsilon = 0.01
             self.neighbours_local = np.asarray([1 - self.win, 1, self.win + 1, self.win, self.win - 1, - 1,
@@ -1097,7 +1098,7 @@ try:
             print('  Calculated Psi: ' + str(Psi))
             self.betastr=-1.5*Psi**(1.5) + 2.1
 
-            P = ProgressBar('  ' + self.name, self.maxiter)
+            P = pyrat.tools.ProgressBar('  ' + self.name, self.maxiter)
             P.update(0)
             iter = 0
             enl = 1
@@ -1119,7 +1120,7 @@ try:
                     l_sim = l_sar
                 l_sar = self.layer_fromfunc(self.simmcb, layer=l_sim, size=[array.shape[0], array.shape[0], self.simdim, self.simdim],
                                             sigma=self.sigma, betastr=self.betastr, window_size=self.win,
-                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, silent=True)
+                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, poldistance = self.poldis, silent=True)
                 pyrat.delete(l_sim, silent=True)
 
                 attrs3 = pyrat.getmeta(layer=l_sar)
@@ -1129,7 +1130,7 @@ try:
                     oldlayer = newlayer
                 # Beltrami routine for the real dataset
                 newlayer = self.layer_process(self.realmcb, beta=self.beta, sigma=self.sigma, betastr=self.betastr,
-                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local)
+                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local, poldistance = self.poldis)
                 if self.showlayers != 1:
                     if iter != 0:
                         pyrat.delete(oldlayer, silent=True)
@@ -1271,7 +1272,7 @@ try:
             return np.squeeze(out)
 
         @staticmethod
-        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, **kwargs):
+        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, poldistance, **kwargs):
             """
             Filters the simulated data to obtain the beta statistic used in the real MCB filter
             """
@@ -1305,7 +1306,7 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Obtaining the array of distances utilized in the Beltrami algorithm
-            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global)
+            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global, poldistance)
             beta = np.median(da2[np.isfinite(da2)])
             if preprocess:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
@@ -1320,7 +1321,7 @@ try:
             return avg
 
         @staticmethod
-        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, **kwargs):
+        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, poldistance, **kwargs):
             """
             Main part of the filter, if the input is SLC then a preprocessing step
             is added where the data is edge filtered to better preserve statistics. This step is avoided
@@ -1362,7 +1363,7 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Calculating distance array for the real data
-            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global)
+            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global, poldistance)
             if preprocess == True:
                 beta2 = np.median(distance_array[np.isfinite(distance_array)])
                 distance_array[distance_array >= beta2] = np.inf
@@ -1382,11 +1383,15 @@ try:
             return np.dot(v, np.dot(np.diag(np.log(np.diag(aprime))), np.conj(v).T))
 
         @staticmethod
-        def preprocessing(on, sim, array, cov_array, neighbours_global):
+        def preprocessing(on, sim, array, cov_array, neighbours_global, poldistance):
             """
             Preprocessing stage, if true then a boxcar filter is utilized on a copy of the array until a full
             rank matrix is obtained
             """
+
+            # distmes 1 = euclidean, 2 = ai
+            distmes = poldistance
+
             ldim = array.shape[0:2]
             rdim = array.shape[2:4]
             maxp = rdim[0] * rdim[1]
@@ -1405,20 +1410,13 @@ try:
                     for k in range(maxp):
                         i = 0
                         rand = np.random.randint(maxp, size=1)
-                        # If the matrix is 3x3, apply fast Affine-invariant distance. Otherwise, apply a fast version
-                        # of the affine-invariant distance based on Python.
-                        if ldim[0] == 3:
-                            distance_array2[0, k] = cy_MCBdist(buff_array[k, :], buff_array[rand[0], :])
-                        else:
-                            distance_array2[0, k] = MCB.distance_ai(buff_array[k, :], buff_array[rand[0], :])
+                        distance_array2[0, k] = MCB.distances(distmes, buff_array[k, :], buff_array[rand[0], :])
                         for dx in neighbours_global:
                             nx = k + dx
                             if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(buff_array[k, :], buff_array[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
+                                distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
                                 i += 1
+
                     return np.asarray(distance_array), np.asarray(distance_array2)
                 # Distance array calculation for the real array, when preprocess = False, there's no need to
                 # calculate the beta value.
@@ -1428,11 +1426,9 @@ try:
                         for dx in neighbours_global:
                             nx = k + dx
                             if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(buff_array[k, :], buff_array[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(buff_array[k, :], buff_array[nx, :])
+                                distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
                                 i += 1
+
                     return np.asarray(distance_array)
             # If preprocessing stage is turned off
             else:
@@ -1443,17 +1439,11 @@ try:
                     for k in range(maxp):
                         i = 0
                         rand = np.random.randint(maxp, size=1)
-                        if ldim[0] == 3:
-                            distance_array2[0, k] = cy_MCBdist(dist_data[k, :], dist_data[rand[0], :])
-                        else:
-                            distance_array2[0, k] = MCB.distance_ai(dist_data[k, :], dist_data[rand[0], :])
+                        distance_array2[0, k] = MCB.distances(distmes, dist_data[k, :], dist_data[rand[0], :])
                         for dx in neighbours_global:
                             nx = k + dx
                             if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(dist_data[k, :], dist_data[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(dist_data[k, :], dist_data[nx, :])
+                                distance_array[i, k] = MCB.distances(distmes, dist_data[k, :], dist_data[nx, :])
                                 i += 1
                     return np.asarray(distance_array), np.asarray(distance_array2)
                 else:
@@ -1463,27 +1453,58 @@ try:
                         for dx in neighbours_global:
                             nx = k + dx
                             if nx < maxp:
-                                if ldim[0] == 3:
-                                    distance_array[i, k] = cy_MCBdist(dist_data[k, :], dist_data[nx, :])
-                                else:
-                                    distance_array[i, k] = MCB.distance_ai(dist_data[k, :], dist_data[nx, :])
+                                distance_array[i, k] = MCB.distances(distmes, dist_data[k, :], dist_data[nx, :])
                                 i += 1
                     return np.asarray(distance_array)
 
+        # @staticmethod
+        # def distance_ai(a_mat, b_mat):
+        #     """
+        #      Affine-invariant distance. Used in most cases (except 3x3 matrices). Exploits the hermitian nature of the
+        #      covariance matrices to utilize the eigh function from numpy to
+        #      obtain the eigenvalues and eigenvectors needed to speed up other matrix operations.
+        #     """
+        #     w, v = np.linalg.eigh(a_mat)
+        #     if np.any(w <= 0):
+        #         return np.inf
+        #     else:
+        #         m1 = np.dot(v, np.dot(np.diag(np.sqrt(1. / w)), np.conj(v).T)).astype(np.complex64)
+        #         distance = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
+        #         return distance if np.isfinite(distance) else np.inf
+
         @staticmethod
-        def distance_ai(a_mat, b_mat):
+        def distance_eu(a_mat, b_mat):
             """
-             Affine-invariant distance. Used in most cases (except 3x3 matrices). Exploits the hermitian nature of the
-             covariance matrices to utilize the eigh function from numpy to
-             obtain the eigenvalues and eigenvectors needed to speed up other matrix operations.
+             TBD
             """
-            w, v = np.linalg.eigh(a_mat)
-            if np.any(w <= 0):
-                return np.inf
-            else:
-                m1 = np.dot(v, np.dot(np.diag(np.sqrt(1. / w)), np.conj(v).T)).astype(np.complex64)
-                distance = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
-                return distance if np.isfinite(distance) else np.inf
+
+            return distance if np.isfinite(distance) else np.inf
+
+        @staticmethod
+        def distances(dchoice, a_mat, b_mat):
+            if dchoice == 'eu':
+                x = np.diag(np.diag(np.log(a_mat)))
+                y = np.diag(np.diag(np.log(b_mat)))
+                dist = np.linalg.norm(x - y)
+            elif dchoice == 'ai':
+                # # If the matrix is 3x3, apply fast Affine-invariant distance. Otherwise, apply a python-based
+                # fast version of the affine-invariant distance
+                if a_mat.shape[0] == 3:
+                    dist = cy_MCBdist(a_mat, b_mat)
+                else:
+                    w, v = np.linalg.eigh(a_mat)
+                    if np.any(w <= 0):
+                        dist = np.inf
+                    else:
+                        m1 = np.dot(v, np.dot(np.diag(np.sqrt(1. / w)), np.conj(v).T)).astype(np.complex64)
+                        dist = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
+            elif dchoice == 'fr':
+                subs = a_mat - b_mat
+                dist = np.linalg.norm(subs, 'fro')/np.trace(a_mat)
+            # Featured-based span measure
+            elif dchoice == 'fbs':
+                dist = np.abs(np.sum(np.diag(np.log(a_mat))) - np.sum(np.diag(np.log(b_mat))))
+            return dist if np.isfinite(dist) else np.inf
 
     @pyrat.docstringfrom(MCB)
     def mcb(*args, **kwargs):
@@ -1677,7 +1698,6 @@ def bilateralfilter(*args, **kwargs):
 # ---------------------------------------------------------------------------------------------------------------
 
 try:
-    from pyrat.tools import ProgressBar
     from .Despeckle_extensions import cy_srad
 
 
@@ -1705,7 +1725,7 @@ try:
             self.blockoverlap = 1
 
         def run(self, *args, **kwargs):
-            P = ProgressBar('  ' + self.name, self.iter)
+            P = pyrat.tools.ProgressBar('  ' + self.name, self.iter)
             P.update(0)
             for k in range(self.iter):
                 if k != 0:
@@ -1761,7 +1781,6 @@ except ImportError:
 # #---------------------------------------------------------------------------------------------------------------
 # #---------------------------------------------------------------------------------------------------------------
 # try:
-#     from pyrat.tools import ProgressBar
 #     from .Despeckle_extensions import cy_srad_old
 #
 #     class SRAD_OLD(pyrat.Worker):
@@ -1787,7 +1806,7 @@ except ImportError:
 #             # self.nthreads = 1
 #
 #         def run(self, *args, **kwargs):
-#             P = ProgressBar('  ' + self.name, self.iter)
+#             P = pyrat.tools.ProgressBar('  ' + self.name, self.iter)
 #             P.update(0)
 #
 #             look = [self.looks]

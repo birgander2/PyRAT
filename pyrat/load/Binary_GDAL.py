@@ -19,7 +19,7 @@ def gdal_import_formats():
                     if ex == "":
                         ex = "*"
                     extensions += "*." + ex + " "
-                formats += typ + " (" + extensions[:-1] + ");;"
+            formats += typ + " (" + extensions[:-1] + ");;"
     if formats[-1] == ";":
         formats = formats[:-2]
     formats = ";;".join(sorted(formats.split(";;")))

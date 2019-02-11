@@ -1,12 +1,8 @@
 import ctypes
 import os
-import string
 import numpy as np
 from lxml import etree as xml_tools
-import argparse
-import glob
-import logging
-import shutil
+import copy
 
 
 

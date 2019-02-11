@@ -46,6 +46,21 @@ class Rat(pyrat.ExportWorker):
             header.Rat.var = var
             # todo: missing nchannels
             # todo: missing info string
+
+            annotation = pyrat.data.getAnnotation(layer=self.layer)
+            if "geo_projection" in annotation:
+                header.Geo.projection = annotation['geo_projection']
+            if "geo_min_east" in annotation:
+                header.Geo.min_east = annotation['geo_min_east']
+            if "geo_min_north" in annotation:
+                header.Geo.min_north = annotation['geo_min_north']
+            if "geo_ps_east" in annotation:
+                header.Geo.ps_east = annotation['geo_ps_east']
+            if "geo_ps_north" in annotation:
+                header.Geo.ps_north = annotation['geo_ps_north']
+            if "geo_zone" in annotation:
+                header.Geo.zone = annotation['geo_zone']
+
             self.lun = open(self.file, 'wb')
             self.lun.write(header)
             self.lun.flush()

@@ -427,7 +427,7 @@ class LayerData(object):
             except:
                 val = False
             if val is False:
-                logging.warning("Layer " + layer + " not existing!")
+                logging.warning("Layer " + str(layer) + " not existing!")
             valid.append(val)
         if len(valid) == 1:
             return valid[0]

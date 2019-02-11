@@ -1,6 +1,5 @@
 import pyrat
 import numpy as np
-from pyrat.tools import ProgressBar
 
 
 class Wishart(pyrat.Worker):
@@ -21,7 +20,7 @@ class Wishart(pyrat.Worker):
 
         # STEP0: Random initialisation
         l_init = self.layer_fromfunc(self.init_random, size=outsize, nclass=self.nclass)
-        P = ProgressBar('  ' + self.name, self.niter)
+        P = pyrat.tools.ProgressBar('  ' + self.name, self.niter)
         P.update(0)
         for iter in range(self.niter):
             # STEP1: Calculate cluster centres (and their frequency)

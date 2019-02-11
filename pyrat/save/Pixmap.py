@@ -19,7 +19,7 @@ class Pixmap(pyrat.ExportWorker):
          'range': ['amplitude', 'intensity', 'phase', 'coherence','minmax'], 'text': 'Method'},
         {'var': 'scaling', 'value': 2.5, 'type': 'float', 'range': [0.1, 20.0], 'text': 'SAR scaling factor'},
         {'var': 'palette', 'value': 'bw linear', 'type': 'list', 'range': colortables()[0], 'text': 'Color table'},
-        {'var': 'order', 'value': [0, 2, 1], 'text': 'Channel selection'}
+        {'var': 'order', 'type': 'list', 'value': '0', 'range': ['0', '2', '1'], 'text': 'Channel selection'}
     ]
     key = None
 
