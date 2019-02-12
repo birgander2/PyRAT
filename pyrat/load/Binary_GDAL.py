@@ -29,6 +29,7 @@ def gdal_import_formats():
 class GDALRASTER(pyrat.ImportWorker):
     """
     Import of data in (any?) GDAL raster format.
+    Known bug: Crashes if the GDAL source contains multiple bands of different sizes!
     Comment: Import of metadata somehow unclear. Probably needs more work!
 
     **author:** Andreas Reigber\n

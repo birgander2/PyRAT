@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 # from pyrat.load import RatFile
 from pyrat.load.tools import RatFile, Xml2Py
 from pyrat.viewer.Dialogs import FlexFilesel
-from pyrat.viewer.Widgets import HLine, CropBoxWidget, FileselWidget, ProductContentWidget
+from pyrat.viewer.Widgets import HLine, CropBoxWidget, BoolWidget, FileselWidget, ProductContentWidget
 
 
 class FSAR(pyrat.ImportWorker):
@@ -170,7 +170,7 @@ class FSAR(pyrat.ImportWorker):
         wid.update()
         res = wid.exec_()
         if res == 1:
-            plugin = cls(dir=wid.dir, product=wid.product, bands=wid.bands, polarisations=wid.polar, crop=wid.crop)
+            plugin = cls(dir=wid.dir, product=wid.product, bands=wid.bands, polarisations=wid.polar, crop=wid.crop, sym=wid.sym)
             viewer.statusBar.setMessage(message=plugin.name + ' running', colour='R')
             plugin.run()
             del plugin
@@ -193,6 +193,9 @@ class FsarImportWidget(QtWidgets.QDialog):
         mainlayout.addWidget(HLine())
         self.cropwidget = CropBoxWidget(title='Select crop (0=maximum)')
         mainlayout.addWidget(self.cropwidget)
+        mainlayout.addWidget(HLine())
+        self.symwidget = BoolWidget(text="Cross-polar symmetrisation")
+        mainlayout.addWidget(self.symwidget)
 
         self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
                                                   QtCore.Qt.Horizontal, self)
@@ -267,6 +270,7 @@ class FsarImportWidget(QtWidgets.QDialog):
         self.bands = self.productwidget.getvalue(1)
         self.polar = self.productwidget.getvalue(2)
         self.crop = self.cropwidget.getvalues()
+        self.sym = self.symwidget.getvalue()
         super(FsarImportWidget, self).accept()
 
 

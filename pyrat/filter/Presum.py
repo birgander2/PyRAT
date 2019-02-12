@@ -41,6 +41,10 @@ class Presum(pyrat.Worker):
             P.update(k + 1)
         del P
         pyrat.activate(outlayer)
+
+        if "geo_ps_east" in meta and "geo_ps_north" in meta:
+            meta['geo_ps_east'] = meta["geo_ps_east"] * self.subx
+            meta['geo_ps_north'] = meta["geo_ps_north"] * self.suby
         pyrat.data.setAnnotation(meta, layer=outlayer)
         return outlayer
 

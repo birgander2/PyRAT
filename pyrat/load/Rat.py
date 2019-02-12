@@ -24,6 +24,23 @@ class Rat(pyrat.ImportWorker):
         if len(args) == 1:
             self.file = args[0]
 
+    def getmeta(self, *args, **kwargs):
+        try:
+            file = RatFile(self.file)
+            if(file.exists and file.Header.Geo.ps_east != 0.0 and file.Header.Geo.ps_north != 0.0):
+                geo = file.Header.Geo
+                return {
+                        'geo_projection': geo.projection,
+                        'geo_min_east': geo.min_east,
+                        'geo_min_north': geo.min_north,
+                        'geo_ps_east': geo.ps_east,
+                        'geo_ps_north': geo.ps_north,
+                        'geo_zone': geo.zone
+                    }
+        except IOError:
+            pass
+        return None
+
     def getsize(self, *args, **kwargs):
         try:
             file = RatFile(self.file)

@@ -187,62 +187,54 @@ def radarsat2(*args, **kwargs):
     return Radarsat2(*args, **kwargs).run(*args, **kwargs)
 
 
-# class Sentinel1(pyrat.ImportWorker):
-#     """
-#     Import of Sentinel-1 satellite data.
-#
-#     **author:** Andreas Reigber\n
-#     **status:** --beta-- No metadata are extracted. Mostly untested!
-#     """
-#
-#     gui = {'menu': 'File|Import spaceborne', 'entry': 'Sentinel-1 (will crash!)'}
-#     para = [{'var': 'dir', 'value': '', 'type': 'opendir', 'text': 'Product directory'}]
-#
-#     def __init__(self, *args, **kwargs):
-#         super(Sentinel1, self).__init__(*args, **kwargs)
-#         self.name = "SENTINEL-1 IMPORT"
-#
-#     def getsize(self, *args, **kwargs):
-#         volfile = glob.glob(self.dir + "/manifest.safe")
-#         if len(volfile) > 0:
-#             self.ds = gdal.Open(volfile[0])
-#             if self.ds is not None:
-#                 self.band = []
-#                 for band in range(self.ds.RasterCount):
-#                     self.band.append(self.ds.GetRasterBand(band + 1))
-#                 return len(self.band), self.ds.RasterYSize, self.ds.RasterXSize
-#             else:
-#                 logging.error("ERROR: product directory not recognised!")
-#                 return False, False
-#         else:
-#             logging.error("ERROR: manifest.save file not found!")
-#             return False, False
-#
-#     def block_reader(self, *args, **kwargs):
-#         array = []
-#         for band in self.band:
-#             array.append(band.ReadAsArray(xoff=0, yoff=kwargs['block'][0], win_ysize=self.blocksize))
-#         out = np.empty((len(array),) + array[0].shape, dtype=array[0].dtype)
-#         for k in range(len(array)):
-#             out[k, ...] = array[k]
-#         out[~np.isfinite(out)] = 0
-#         return out.squeeze()
-#
-#     def close(self, *args, **kwargs):
-#         self.ds = None  # correct according to GDAL manual!!??
-#
-#     def getmeta(self, *args, **kwargs):
-#         meta = {}
-#         meta['sensor'] = "Radarsat-2"
-#         metain = self.ds.GetMetadata()
-#         meta.update(metain)
-#         meta['CH_pol'] = []
-#         for band in self.band:
-#             metain = band.GetMetadata()
-#             meta['CH_pol'].append(metain['POLARIMETRIC_INTERP'])
-#             meta.update(metain)
-#         return meta
-#
-#
-# def sentinel1(*args, **kwargs):
-#     return Sentinel1(*args, **kwargs).run(*args, **kwargs)
+class Sentinel1(pyrat.ImportWorker):
+    """
+    Very basic import of Sentinel-1 satellite data. The current driver uses GDAL and therefore does not
+    perform debursting and combination of subswaths. This routine needs to be improved in future.
+
+    **author:** Andreas Reigber\n
+    **status:** --beta-- Mostly untested!
+    """
+
+    gui = {'menu': 'File|Import spaceborne', 'entry': 'Sentinel-1 (primitive)'}
+    para = [{'var': 'dir', 'value': '', 'type': 'opendir', 'text': 'Product directory'}]
+
+    def __init__(self, *args, **kwargs):
+        super(Sentinel1, self).__init__(*args, **kwargs)
+        self.name = "SENTINEL-1 IMPORT"
+
+
+    def reader(self, *args, **kwargs):
+        volfile = glob.glob(self.dir + "/manifest.safe")
+        if len(volfile) > 0:
+            self.ds = gdal.Open(volfile[0])
+            if self.ds is not None:
+                self.band = []
+                for band in range(self.ds.RasterCount):
+                    self.band.append(self.ds.GetRasterBand(band + 1))
+                nswath = len(self.band)
+                YSize = [band.YSize for band in self.band]
+                XSize = [band.XSize for band in self.band]
+            else:
+                logging.error("ERROR: product directory not recognised!")
+                return False, False
+        else:
+            logging.error("ERROR: manifest.save file not found!")
+            return False, False
+        array = []
+        for band in self.band:
+            array.append(band.ReadAsArray())
+
+        meta = {}
+        meta['sensor'] = "Sentinel-1"
+        metain = self.ds.GetMetadata()
+        meta.update(metain)
+
+        return array, meta
+
+    def close(self, *args, **kwargs):
+        self.ds = None  # correct according to GDAL manual!!??
+
+
+def sentinel1(*args, **kwargs):
+    return Sentinel1(*args, **kwargs).run(*args, **kwargs)

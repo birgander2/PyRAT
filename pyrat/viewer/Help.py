@@ -9,9 +9,9 @@ class About(pyrat.Worker):
     @classmethod
     def guirun(cls, viewer):
         message = """
-        PyRat - Radar Tools Collection
+        PyRAT - Radar Tools Collection
         ---
-        (c) 2015-2019 by the RAT development team
+        (c) 2015-2019 by the PyRAT development team
         ---
         PyRAT version: v%s
         running on: %s / python %s

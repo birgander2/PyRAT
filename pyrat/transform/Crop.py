@@ -22,6 +22,9 @@ class Crop(pyrat.FilterWorker):
         self.name = "CROP REGION"
         self.blockprocess = False
 
+    def pre(self, *args, **kwargs):
+        self.orig_height = pyrat.data.dshape[0]
+
     def filter(self, array, *args, **kwargs):
         block = list(self.crop)
         if block[0] < 0 or block[0] >= array.shape[-2]:
@@ -34,6 +37,19 @@ class Crop(pyrat.FilterWorker):
         if block[3] == 0 or block[2] + block[3] > array.shape[-1]:
             block[3] = array.shape[-1] - block[2]
         return array[..., block[0]:block[0] + block[1], block[2]:block[2] + block[3]]
+
+    def post(self, *args, **kwargs):
+        meta = pyrat.data.getAnnotation(layer=self.layer)
+        if("geo_min_east" in meta and "orig_max_north" in meta and
+            "geo_ps_east" in meta and "geo_ps_north" in meta):
+            pyrat.data.setAnnotation({'geo_min_east':
+                                        meta["geo_min_east"] +
+                                        self.crop[2] * meta["geo_ps_east"],
+
+                                      'geo_min_north':
+                                        meta["geo_min_north"] +
+                                        (self.orig_height - self.crop[1] - self.crop[0] + 2) * meta["geo_ps_north"]
+                                    })
 
     @classmethod
     def guirun(cls, viewer):

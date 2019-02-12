@@ -171,6 +171,18 @@ class ProductContentWidget(QtWidgets.QWidget):
         for p in products:
             self.product.addItem(p)
 
+class BoolWidget(QtWidgets.QWidget):
+    def __init__(self, text=None, parent=None):
+        super(BoolWidget, self).__init__(parent)
+        mainlayout = QtWidgets.QHBoxLayout(self)
+        self.text = QtWidgets.QLabel(text)
+        mainlayout.addWidget(self.text, 0)
+        self.checkbox = QtWidgets.QCheckBox()
+        mainlayout.addWidget(self.checkbox, 1)
+
+    def getvalue(self):
+        return self.checkbox.isChecked()
+
 
 class HLine(QtWidgets.QFrame):
     """
