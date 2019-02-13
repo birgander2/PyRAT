@@ -110,6 +110,11 @@ that it is a bit outdated...). Apart from that, the pyrat CLI interface contains
 The content of the internal help system is based on the docstrings in the source code. Their
 quality might vary ;-)
 
+Additionally, some documentation can be found on the
+[project's wiki page](https://github.com/birgander2/PyRAT/wiki) on GitHub. 
+
+If you need further assistance, please contact the authors or open an issue on GitHub.
+
 ## Usage
 
 CLI Interface:
