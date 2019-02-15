@@ -1028,7 +1028,7 @@ try:
             {'var': 'looks', 'value': 3, 'type': 'float', 'range': [1, 99],
              'text': '# of looks of the input data (MLC only)'},
             {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 999], 'text': 'Maximum number of iterations'},
-            {'var': 'poldis', 'value': 'ai', 'type': 'char', 'text': 'Matrix distance, (eu, ai, etc)'}
+            {'var': 'poldis', 'value': 'ai', 'type': 'list', 'range': ['ai', 'eu'], 'text': 'Matrix distance, (eu, ai, etc)'}
         ]
 
         def __init__(self, *args, **kwargs):
@@ -1472,13 +1472,13 @@ try:
         #         distance = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
         #         return distance if np.isfinite(distance) else np.inf
 
-        @staticmethod
-        def distance_eu(a_mat, b_mat):
-            """
-             TBD
-            """
-
-            return distance if np.isfinite(distance) else np.inf
+        # @staticmethod
+        # def distance_eu(a_mat, b_mat):
+        #     """
+        #      TBD
+        #     """
+        #
+        #     return distance if np.isfinite(distance) else np.inf
 
         @staticmethod
         def distances(dchoice, a_mat, b_mat):
@@ -1504,6 +1504,12 @@ try:
             # Featured-based span measure
             elif dchoice == 'fbs':
                 dist = np.abs(np.sum(np.diag(np.log(a_mat))) - np.sum(np.diag(np.log(b_mat))))
+            # Revised diagonalized Wishart
+            elif dchoice == 'rdw':
+                dist = np.sum((np.diag(a_mat)**2 + np.diag(b_mat)**2)/(np.diag(a_mat)*np.diag(b_mat))) - 6
+            # Diagonalized geodesic distance (generic)
+            elif dchoice == 'dgd':
+                dist = np.exp(np.sqrt(np.sum(np.log(np.diag(a_mat)/np.diag(b_mat))**2)))
             return dist if np.isfinite(dist) else np.inf
 
     @pyrat.docstringfrom(MCB)
