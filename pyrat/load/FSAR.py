@@ -6,7 +6,7 @@ import numpy as np
 from PyQt5 import QtCore, QtWidgets
 
 # from pyrat.load import RatFile
-from pyrat.load.tools import RatFile, Xml2Py
+from pyrat.lib.ste import RatFile, Xml2Py
 from pyrat.viewer.Dialogs import FlexFilesel
 from pyrat.viewer.Widgets import HLine, CropBoxWidget, BoolWidget, FileselWidget, ProductContentWidget
 
@@ -58,7 +58,7 @@ class FSAR(pyrat.ImportWorker):
             head = 'amp'
             src = ('RGI', 'RGI-SR')
         if self.product == 'INF-SLC':
-            head = 'slc_coreg'
+            head = 'slc_coreg_offset'
             src = ('INF' + ('_' + self.suffix if len(self.suffix) > 0 else ''), 'INF-SR')
         if self.product == 'INF-CIR':
             head = 'slcpol'
@@ -73,8 +73,20 @@ class FSAR(pyrat.ImportWorker):
         else:
             files = glob.glob(os.path.join(self.dir, src[0], src[1],
                                            head + '*' + self.bands.upper() + self.polarisations.lower() + '_*.rat'))
-        bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
-        pols = list(set([os.path.basename(slc).split('_')[2][1:3] for slc in files]))
+
+            if self.product == 'INF-SLC':
+                if len(files) is 0:
+                    head = 'slc_coreg'
+                    files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper()
+                                                   + self.polarisations.lower() + '_*.rat'))
+
+            bands = list(set([os.path.basename(slc).split('_')[-2][0] for slc in files]))
+            pols = list(set([os.path.basename(slc).split('_')[-2][1:3] for slc in files]))
+
+        if self.product != 'INF-SLC':
+            bands = list(set([os.path.basename(slc).split('_')[2][0] for slc in files]))
+            pols = list(set([os.path.basename(slc).split('_')[2][1:3] for slc in files]))
+
 
         array = []
         meta = []
@@ -87,8 +99,8 @@ class FSAR(pyrat.ImportWorker):
                 if self.mask is True:
                     maskfile = glob.glob(os.path.join(self.dir, src[0], src[1], 'mask*' + band.upper() + '*.rat'))
                     msk = RatFile(maskfile[0])
-                naz = fil.dim[1]
-                nrg = fil.dim[0]
+                naz = fil.shape[0]
+                nrg = fil.shape[1]
                 block = list(self.crop)
                 if block[1] == 0 or block[1] > naz:
                     block[1] = naz
@@ -104,16 +116,16 @@ class FSAR(pyrat.ImportWorker):
                 bmeta['CH_pol'] = [' '] * len(bandfiles)
                 for k, f in enumerate(bandfiles):
                     logging.info("Found " + f)
-                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                    barr[k, ...] = RatFile(f).read(block=block)
                     if self.mask is True:
-                        mask = msk.read(block=(block[2], block[0], drg, daz))
+                        mask = msk.read(block=block)
                         # barr[k, ...] *= mask
                     if self.product == 'RGI-SLC':
                         ppfile = f.replace('RGI-SR', 'RGI-RDP').replace('slc_', 'pp_').replace('.rat', '.xml')
                     if self.product == 'RGI-AMP':
                         ppfile = f.replace('RGI-SR', 'RGI-RDP').replace('amp_', 'pp_').replace('.rat', '.xml')
                     if self.product == 'INF-SLC':
-                        ppname = 'pp_' + '_'.join(os.path.basename(f).split('_')[3:]).replace('.rat', '.xml')
+                        ppname = 'pp_' + '_'.join(os.path.basename(f).split('_')[-3:]).replace('.rat', '.xml')
                         ppfile = os.path.join(self.dir, src[0], 'INF-RDP', ppname)
                     if self.product == 'INF-CIR':
                         ppname = 'ppgeo_csar_' + '_'.join(os.path.basename(f).split('_')[1:4]) + '.xml'
@@ -248,8 +260,8 @@ class FsarImportWidget(QtWidgets.QDialog):
         naz = 0
         for filename in files:
             lun = RatFile(filename)
-            nrg = max(nrg, lun.dim[0])
-            naz = max(naz, lun.dim[1])
+            nrg = max(nrg, lun.shape[1])
+            naz = max(naz, lun.shape[0])
         self.cropwidget.setrange([[0, naz], [0, naz], [0, nrg], [0, nrg]])
         self.cropwidget.setvalues([0, naz, 0, nrg])
 
@@ -324,8 +336,8 @@ class FSAR_dem(pyrat.ImportWorker):
             else:
                 bandfiles = [f for f in files if '_' + band in f]
                 fil = RatFile(bandfiles[0])
-                naz = fil.dim[1]
-                nrg = fil.dim[0]
+                naz = fil.shape[0]
+                nrg = fil.shape[1]
                 block = list(self.crop)
                 if block[1] == 0:
                     block[1] = naz
@@ -337,7 +349,7 @@ class FSAR_dem(pyrat.ImportWorker):
                 barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
                 for k, f in enumerate(bandfiles):
                     logging.info("Found " + f)
-                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                    barr[k, ...] = RatFile(f).read(block=block)
                 array.append(barr)
 
         if len(array) == 0:
@@ -398,8 +410,8 @@ class FSAR_offnadir(pyrat.ImportWorker):
             else:
                 bandfiles = [f for f in files if '_' + band in f]
                 fil = RatFile(bandfiles[0])
-                naz = fil.dim[1]
-                nrg = fil.dim[0]
+                naz = fil.shape[0]
+                nrg = fil.shape[1]
                 block = list(self.crop)
                 if block[1] == 0:
                     block[1] = naz
@@ -411,7 +423,7 @@ class FSAR_offnadir(pyrat.ImportWorker):
                 barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
                 for k, f in enumerate(bandfiles):
                     logging.info("Found " + f)
-                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                    barr[k, ...] = RatFile(f).read(block=block)
                 array.append(np.squeeze(barr))
         if len(array) == 0:
             return None, None
@@ -471,8 +483,8 @@ class FSAR_phadem(pyrat.ImportWorker):
             else:
                 bandfiles = [f for f in files if '_' + band in f]
                 fil = RatFile(bandfiles[0])
-                naz = fil.dim[1]
-                nrg = fil.dim[0]
+                naz = fil.shape[0]
+                nrg = fil.shape[1]
                 block = list(self.crop)
                 if block[1] == 0:
                     block[1] = naz
@@ -484,7 +496,7 @@ class FSAR_phadem(pyrat.ImportWorker):
                 barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
                 for k, f in enumerate(bandfiles):
                     logging.info("Found " + f)
-                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                    barr[k, ...] = RatFile(f).read(block=block)
                 array.append(barr)
 
         if len(array) == 0:
@@ -555,8 +567,8 @@ class FSAR_kz(pyrat.ImportWorker):
                             bandfiles.remove(slc)
 
                 fil = RatFile(bandfiles[0])
-                naz = fil.dim[1]
-                nrg = fil.dim[0]
+                naz = fil.shape[0]
+                nrg = fil.shape[1]
                 block = list(self.crop)
                 if block[1] == 0:
                     block[1] = naz
@@ -568,7 +580,7 @@ class FSAR_kz(pyrat.ImportWorker):
                 barr = np.empty((len(bandfiles), daz, drg), dtype='float32')
                 for k, f in enumerate(bandfiles):
                     logging.info("Found " + f)
-                    barr[k, ...] = RatFile(f).read(block=(block[2], block[0], drg, daz))
+                    barr[k, ...] = RatFile(f).read(block=block)
                 array.append(barr)
 
         if len(array) == 0:
@@ -651,7 +663,7 @@ class FSAR_track(pyrat.ImportWorker):
             else:
                 bandfiles = [f for f in files if '_' + band in f]  # list of files from the same band
                 fil = RatFile(bandfiles[0])
-                naz = fil.dim[-2]
+                naz = fil.shape[-2]
                 block = list(self.crop)
                 block[2] = 0
                 block[3] = 7

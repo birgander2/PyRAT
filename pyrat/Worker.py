@@ -177,6 +177,8 @@ class Worker(object):
                     P.update(nb2)
         if silent is False:
             del P
+        if 'path' in metaout:
+            del metaout['path']
         pyrat.data.setAnnotation(metaout, layer=self.output)  # add meta data to output layer
         return self.output  # return output layer
 
@@ -508,12 +510,20 @@ class Worker(object):
         action.triggered.connect(lambda: cls.guirun(viewer))
 
         if cls.gui['menu'] not in viewer.menue:
-            logging.warning("\nWARNING: The gui annotation '" +
-                            cls.gui['menu'] +
-                            "' of the plugin '" +
-                            cls.__name__ +
-                            "' is not present in the PyRat menue!\n")
-            return
+            menus = cls.gui['menu'].split("|")
+            if len(menus) < 2 or menus[0] not in viewer.menue:  # top level menu cannot be created
+                logging.warning("\nWARNING: The gui annotation '" +
+                                cls.gui['menu'] +
+                                "' of the plugin '" +
+                                cls.__name__ +
+                                "' is not present in the PyRat menue!\n")
+                return
+
+            for i in range(1, len(menus)):  # create all necessary menue
+                menuName = '|'.join(menus[:i+1])
+                if menuName not in viewer.menue:
+                    menuAbove = viewer.menue['|'.join(menus[:i])]
+                    viewer.menue.update({menuName: menuAbove.addMenu(menus[i])})
 
         before = viewer.exitAct
         if 'before' in cls.gui:  # if there is a "before" specified,

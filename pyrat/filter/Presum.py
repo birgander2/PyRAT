@@ -1,4 +1,5 @@
 import pyrat
+from pyrat.filter.Filter import Median
 from pyrat.filter.tools import rebin
 import PIL
 import numpy as np
@@ -6,14 +7,15 @@ import numpy as np
 
 class Presum(pyrat.Worker):
     """
-    Presumming of data arrays. Improved version workin 'inplace', i.e. without reading the entire data set.
+    Presumming of data arrays. Improved version working 'inplace', i.e. without reading the entire data set.
 
     :author: Andreas Reigber
     """
     gui = {'menu': 'Tools', 'entry': 'Presumming'}
     para = [
         {'var': 'subx', 'value': 4, 'type': 'int', 'range': [0, 999], 'text': 'Presumming range'},
-        {'var': 'suby', 'value': 4, 'type': 'int', 'range': [0, 999], 'text': 'Presumming azimuth'}
+        {'var': 'suby', 'value': 4, 'type': 'int', 'range': [0, 999], 'text': 'Presumming azimuth'},
+        {'var': 'decimate', 'value': False, 'type': 'bool', 'text': 'Skip averaging'}
     ]
 
     def __init__(self, *args, **kwargs):
@@ -27,19 +29,26 @@ class Presum(pyrat.Worker):
         li = pyrat.query(layer=self.layer)
         odim = li.shape
         nry = odim[-2]
+
         odim[-2] //= self.suby
         odim[-1] //= self.subx
+
         outlayer = pyrat.data.addLayer(dtype=li.dtype, shape=odim)
         blockdim = odim.copy()
         blockdim[-2] = 1
+
         P = pyrat.tools.ProgressBar('  ' + self.name, odim[-2])
         P.update(0)
         for k in range(odim[-2]):
             arr = pyrat.getdata(block=(k*self.suby, (k+1)*self.suby, 0, odim[-1] * self.subx), layer=self.layer)
-            arr = rebin(arr, tuple(blockdim))
+            if self.decimate is True:
+                arr = arr[..., ::self.suby, ::self.subx]
+            else:
+                arr = rebin(arr, tuple(blockdim))
             pyrat.data.setData(arr, block=(k, k+1, 0, 0), layer=outlayer)
-            P.update(k + 1)
+        P.update(k + 1)
         del P
+
         pyrat.activate(outlayer)
 
         if "geo_ps_east" in meta and "geo_ps_north" in meta:
@@ -113,3 +122,8 @@ class Lanczos(pyrat.FilterWorker):
 @pyrat.docstringfrom(Lanczos)
 def lanczos(*args, **kwargs):
     return Lanczos(*args, **kwargs).run(**kwargs)
+
+
+@pyrat.docstringfrom(Median)
+def medianf(*args, **kwargs):
+    return Median(*args, **kwargs).run(**kwargs)

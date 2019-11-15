@@ -42,7 +42,8 @@ class NLPolSAR(pyrat.FilterWorker):
             self.hW = 12
         if 'hP' not in self.__dict__:
             self.hP = 5
-
+        if 'nS' not in self.__dict__:
+            self.nS = True
 
     def filter(self, array, *args, **kwargs):
 
@@ -64,4 +65,10 @@ class NLPolSAR(pyrat.FilterWorker):
         if result[0].ndim == 2:
             result[0] = result[0][...,np.newaxis,np.newaxis]
 
-        return [result[0].T,result[1].T]
+        if self.nS:
+            return [result[0].T,result[1].T]
+        else:
+            return result[0].T
+
+def nlpolsar(*args, **kwargs):
+    return NLPolSAR(*args, **kwargs).run(**kwargs)

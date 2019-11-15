@@ -12,6 +12,9 @@ from pyrat.viewer.tools import sarscale, subsample
 
 
 class MainWindow(QtWidgets.QMainWindow):
+
+    modules = []
+
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
         self.setWindowTitle("PyRAT - Radar Tools")
@@ -116,8 +119,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def initPlugins(self):
         from inspect import getmembers, isclass
 
-        modules = [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform, pyrat.polar, pyrat.insar, pyrat.plugins,
-                   pyrat.viewer]
+        modules = self.modules.copy()
+        modules += [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform,
+                    pyrat.polar, pyrat.insar, pyrat.plugins, pyrat.viewer]
+
         logging.debug("Scanning for GUI elements:")
         for current_module in modules:
             modules = getmembers(current_module, isclass)
@@ -137,8 +142,12 @@ class MainWindow(QtWidgets.QMainWindow):
             "Tools": self.menubar.addMenu('Tools'),
             "SAR": self.menubar.addMenu('SAR'),
             "PolSAR": self.menubar.addMenu('PolSAR'),
-            "InSAR": self.menubar.addMenu('InSAR'),
-            "Help": self.menubar.addMenu('Help')}
+            "InSAR": self.menubar.addMenu('InSAR')}
+
+        if 'oss' not in pyrat.__version__:
+            self.menue["DLR"] = self.menubar.addMenu('DLR')
+
+        self.menue["Help"] = self.menubar.addMenu('Help')
 
         self.menue.update({"File|Import raster": self.menue["File"].addMenu('Import raster')})
         self.menue.update({"File|Import spaceborne": self.menue["File"].addMenu('Import spaceborne')})
@@ -190,6 +199,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"InSAR|Phase noise filter": self.menue["InSAR"].addMenu('Phase noise filter')})
         self.menue.update({"InSAR|Transform": self.menue["InSAR"].addMenu('Transform')})
         self.menue.update({"Tools|Geometry": self.menue["Tools"].addMenu('Geometry')})
+        self.menue.update({"Tools|Filter": self.menue["Tools"].addMenu('Filter')})
 
         # self.menue["View"].addAction(self.viewAmpAct)
         # self.menue["View"].addAction(self.viewPhaAct)
@@ -343,9 +353,12 @@ class MainWindow(QtWidgets.QMainWindow):
             img = np.uint8(np.clip(img / np.pi * 128 + 127, 0.0, 255.0))
         elif method == '0.0->1.0':
             img = np.uint8(np.clip(img * 255.0, 0.0, 255.0))
-        elif method == 'min->max' or method == 'lables':
-            img += np.min(img)
+        elif method == 'min->max':
+            img -= np.min(img)
             img = np.uint8(img / np.max(img) * 255.0)
+        elif method == 'labels':
+            img -= np.min(self.data[0])
+            img = np.uint8(img / np.max(self.data[0]) * 255.0)
         else:
             img = np.uint8(int)
 

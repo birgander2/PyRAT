@@ -6,50 +6,6 @@ from scipy import optimize as opt
 import numpy as np
 
 
-class Boxcar(pyrat.FilterWorker):
-    """
-    Boxcar / Moving average (speckle) filter.
-
-    :author: Andreas Reigber
-    """
-
-    gui = {'menu': 'SAR|Speckle filter', 'entry': 'Boxcar'}
-    para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Window size',
-         'subtext': ['range', 'azimuth']},
-        {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}
-    ]
-
-    def __init__(self, *args, **kwargs):
-        super(Boxcar, self).__init__(*args, **kwargs)
-        self.name = "BOXCAR FILTER"
-        self.blockprocess = True
-        self.blockoverlap = self.win[0] // 2 + 1
-
-    def filter(self, array, *args, **kwargs):
-        win = self.win
-        if array.ndim == 3:
-            win = [1] + self.win
-        if array.ndim == 4:
-            win = [1, 1] + self.win
-        array[np.isnan(array)] = 0.0
-        if np.iscomplexobj(array):
-            return sp.ndimage.filters.uniform_filter(array.real, win) + 1j * sp.ndimage.filters.uniform_filter(
-                array.imag, win)
-        elif self.phase is True:
-            tmp = np.exp(1j * array)
-            tmp = sp.ndimage.filters.uniform_filter(tmp.real, win) + 1j * sp.ndimage.filters.uniform_filter(tmp.imag,
-                                                                                                            win)
-            return np.angle(tmp)
-        else:
-            return sp.ndimage.filters.uniform_filter(array.real, win)
-
-
-@pyrat.docstringfrom(Boxcar)
-def boxcar(*args, **kwargs):
-    return Boxcar(*args, **kwargs).run(**kwargs)
-
-
 class Lee(pyrat.FilterWorker):
     """
     Lee's classical speckle filter from 1981. Not the best one...
@@ -121,7 +77,7 @@ class Kuan(pyrat.FilterWorker):
     Kuan filter. Similar performance to the Lee filter but with a different weighting function.
 
     further information:
-    D.T.Kuan et al. “Adaptive restoration of images with speckle,” JEEE Trans. Acoustics, Speech and Sig.
+    D.T.Kuan et al. “Adaptive restoration of images with speckle,” IEEE Trans. Acoustics, Speech and Sig.
     Proc., vol. ASSP-35, pp. 373-383, March 1987
 
     :author: Joel Amao
@@ -393,50 +349,6 @@ class IDAN(pyrat.FilterWorker):
 @pyrat.docstringfrom(IDAN)
 def idan(*args, **kwargs):
     return IDAN(*args, **kwargs).run(*args, **kwargs)
-
-
-class Gauss(pyrat.FilterWorker):
-    """
-    Gaussian (speckle) filter...
-
-    :author: Andreas Reigber
-    """
-
-    gui = {'menu': 'SAR|Speckle filter', 'entry': 'Gauss'}
-    para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Sigma',
-         'subtext': ['range', 'azimuth']},
-        {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}
-    ]
-
-    def __init__(self, *args, **kwargs):
-        super(Gauss, self).__init__(*args, **kwargs)
-        self.name = "GAUSS FILTER"
-        self.blockprocess = True
-        self.blockoverlap = 2 * self.win[0] + 1
-
-    def filter(self, array, *args, **kwargs):
-        win = self.win
-        if array.ndim == 3:
-            win = [1] + self.win
-        if array.ndim == 4:
-            win = [1, 1] + self.win
-        array[np.isnan(array)] = 0.0
-        if np.iscomplexobj(array):
-            return sp.ndimage.filters.gaussian_filter(array.real, win) + 1j * sp.ndimage.filters.gaussian_filter(
-                array.imag, win)
-        elif self.phase is True:
-            tmp = np.exp(1j * array)
-            tmp = sp.ndimage.filters.gaussian_filter(tmp.real, win) + 1j * sp.ndimage.filters.gaussian_filter(tmp.imag,
-                                                                                                              win)
-            return np.angle(tmp)
-        else:
-            return sp.ndimage.filters.gaussian_filter(array.real, win)
-
-
-@pyrat.docstringfrom(Gauss)
-def gauss(*args, **kwargs):
-    return Gauss(*args, **kwargs).run(**kwargs)
 
 
 class RefinedLee(pyrat.FilterWorker):
@@ -1027,7 +939,7 @@ try:
 
             {'var': 'looks', 'value': 3, 'type': 'float', 'range': [1, 99],
              'text': '# of looks of the input data (MLC only)'},
-            {'var': 'maxiter', 'value': 50, 'type': 'int', 'range': [1, 999], 'text': 'Maximum number of iterations'},
+            {'var': 'maxiter', 'value': 25, 'type': 'int', 'range': [1, 999], 'text': 'Maximum number of iterations'},
             {'var': 'poldis', 'value': 'ai', 'type': 'list', 'range': ['ai', 'eu'], 'text': 'Matrix distance, (eu, ai, etc)'}
         ]
 
@@ -1035,26 +947,45 @@ try:
             super(MCB, self).__init__(*args, **kwargs)
             self.name = "N-Dimensional Beltrami Filter"
             self.blockprocess = True
-            self.win = 7
+            if 'win' not in self.__dict__:
+                self.win = 5
             self.blocksize = (self.win - 2) * 8
             self.blockoverlap = self.win - 2
+
             # Starting sigma value
-            self.sigma = 1
+            if 'sigma' not in self.__dict__:
+                self.sigma = 1
             # Simulated data dimensions
-            self.simdim = 50
+            if 'simdim' not in self.__dict__:
+                self.simdim = 35
             # Sigma change per iteration
-            self.dsigma = 0.5
+            if 'dsigma' not in self.__dict__:
+                self.dsigma = 0.5
             # Show intermediate layers
-            self.showlayers = True
+            if 'showlayers' not in self.__dict__:
+                self.showlayers = False
             # Convergence error
-            self.epsilon = 0.01
+            if 'epsilon' not in self.__dict__:
+                self.epsilon = 0.01
+            if 'phi0' not in self.__dict__:
+                self.phi0 = 2.1
+            if 'boxp' not in self.__dict__:
+                self.boxp = False
+            if 'dF' not in self.__dict__:
+                self.dF = 0
+            if 'maxS' not in self.__dict__:
+                self.maxS = False
+            if 'llmmse' not in self.__dict__:
+                self.llmmse = False
+
             self.neighbours_local = np.asarray([1 - self.win, 1, self.win + 1, self.win, self.win - 1, - 1,
                                 -self.win - 1,
                                 -self.win])
 
         def main(self, *args, **kwargs):
-            print('  Sigma:  ' + str(self.sigma) + '  Sigma increase:  ' + str(self.dsigma) + '  Win:  ' + str(
-                self.win) + '    Looks (MLC only):  ' + str(self.looks) + '   Max iter.:   ' + str(self.maxiter))
+            print('  [ Sigma:  ' + str(self.sigma) + '  Sigma increase:  ' + str(self.dsigma) + '  Win:  ' + str(
+                self.win) + '    Looks (MLC only):  ' + str(self.looks) + '   Max iter.:   ' + str(self.maxiter),
+                 '   Phi0:   ' +str(self.phi0) + '   Distance:    ' + str(self.poldis) +' ]')
             attrs = pyrat.getmeta(layer=self.layer)
             array = pyrat.getdata(layer=self.layer)
             if 'CH_pol' in attrs:  # sort a bit the channels if possible
@@ -1070,16 +1001,22 @@ try:
 
             if isinstance(array, list):
                 array = np.stack(array)
-            numdim = array.ndim
+
+            if array.ndim >= 3:
+                nch = np.shape(array)[0]
+            else:
+                array = [np.newaxis,...]
+                nch = 1
+
             # Doing pre-processing if SLC data is detected
-            if numdim > 3:
+            if array.ndim > 3:
                 ldim = array.shape[0:2]
                 self.preprocess = False
                 maxdim = np.amin(array.shape[2:4])
                 if maxdim < self.simdim:
                     self.simdim = maxdim
                 l_size = [ldim[0], ldim[1], self.simdim, self.simdim]
-                l_sim = self.layer_fromfunc(self.simuldata, array=array, looks=self.looks, size=l_size,
+                l_sim = self.layer_fromfunc(self.simuldata, dd = self.dF, array=array, looks=self.looks, size=l_size,
                                             dim=self.simdim, silent=True)
             else:
                 self.preprocess = True
@@ -1088,39 +1025,62 @@ try:
                 if maxdim < self.simdim:
                     self.simdim = maxdim
                 l_size = [array.shape[0], self.simdim, self.simdim]
-                l_sim = self.layer_fromfunc(self.simuldata, array=array, looks=self.looks, size=l_size,
+                l_sim = self.layer_fromfunc(self.simuldata, dd = self.dF, array=array, looks=self.looks, size=l_size,
                                             dim=self.simdim, silent=True)
 
             attrs2 = pyrat.getmeta(layer=l_sim)
             Psi = attrs2['psi']
-
             # Noise correlation adjustment
             print('  Calculated Psi: ' + str(Psi))
-            self.betastr=-1.5*Psi**(1.5) + 2.1
+            # self.phi = -1.5*Psi**(1.5) + self.phi0
+            self.phi = self.phi0
 
             P = pyrat.tools.ProgressBar('  ' + self.name, self.maxiter)
             P.update(0)
             iter = 0
             enl = 1
             convergence = self.maxiter
-            self.beta = 100             # Starting beta value, to be replaced in the first iteration
+            self.beta = np.inf          # Starting beta value, to be replaced in the first iteration
             oldbeta = 0                 # Old beta value, to be replaced in the first iteration
+            if self.showlayers:
+                print('  Showing intermediate layers, starting phi: ' + str(self.phi))
+            else:
+                print('  Starting phi: ' + str(self.phi))
 
             # Main function, iterates until error is reached or until the maximum number of iterations
             while (np.abs(self.beta - oldbeta) >= self.epsilon) and iter < convergence:
                 oldbeta = self.beta
-                if enl >= numdim:
-                    self.preprocess = False
-                if iter == 0:
-                    print('  Starting phi: ' + str(self.betastr))
-                if iter >= 5 and not self.preprocess:
+
+                # if (enl >= nch) and self.preprocess:
+                #     self.preprocess = False
+                #     print('  Regularization complete, exiting preprocessing!')
+
+                if iter >= 5:# and not self.preprocess:
                     self.sigma += self.dsigma
+
+                if iter > 0:
+                    if self.maxS:
+                        self.dF = 0
+                    else:
+                        self.dF = min(((enl / nch) ** (1. / 3) / 10), 1)
+
+                if self.boxp and (iter == 0) and (self.preprocess):
+                    print('  Regularization approach : boxcar')
+                elif (iter == 0) and (self.preprocess):
+                    if self.maxS:
+                        approach = 'maximal'
+                    else:
+                        approach = 'normal'
+                    print('  Regularization approach : diagonal re-scaling | Spatial preservation : ' + approach)
 
                 if iter != 0:
                     l_sim = l_sar
-                l_sar = self.layer_fromfunc(self.simmcb, layer=l_sim, size=[array.shape[0], array.shape[0], self.simdim, self.simdim],
-                                            sigma=self.sigma, betastr=self.betastr, window_size=self.win,
-                                            preprocess=self.preprocess, neighbours_local=self.neighbours_local, poldistance = self.poldis, silent=True)
+
+                l_sar = self.layer_fromfunc(self.simmcb, layer=l_sim, size=[array.shape[0], array.shape[0],
+                                            self.simdim, self.simdim], sigma=self.sigma, betastr=self.phi,
+                                            window_size=self.win, preprocess=self.preprocess,
+                                            neighbours_local=self.neighbours_local, poldistance = self.poldis,
+                                            enl = enl, boxp = self.boxp, dF = self.dF, llmmse = self.llmmse, silent=True)
                 pyrat.delete(l_sim, silent=True)
 
                 attrs3 = pyrat.getmeta(layer=l_sar)
@@ -1128,39 +1088,58 @@ try:
 
                 if iter != 0:
                     oldlayer = newlayer
+                else:
+                    oldlayer = self.layer
+
                 # Beltrami routine for the real dataset
-                newlayer = self.layer_process(self.realmcb, beta=self.beta, sigma=self.sigma, betastr=self.betastr,
-                                              window_size=self.win, preprocess=self.preprocess, neighbours_local=self.neighbours_local, poldistance = self.poldis)
-                if self.showlayers != 1:
+                newlayer = self.layer_process(self.realmcb, layer=oldlayer, beta=self.beta, sigma=self.sigma, betastr=self.phi,
+                                              window_size=self.win, preprocess=self.preprocess,
+                                              neighbours_local=self.neighbours_local, poldistance = self.poldis,
+                                              enl = enl, boxp = self.boxp, dF = self.dF, llmmse = self.llmmse)
+
+                if self.showlayers is False:
                     if iter != 0:
                         pyrat.delete(oldlayer, silent=True)
+
                 pyrat.activate(newlayer, silent=True)
 
                 # Calculating the ENL from the simulated C11 elements (might not always be accurate)
-                enl1 = np.abs((pyrat.getdata(layer=l_sar))[0, 0, ...])
-                beta = (np.sqrt(np.mean((enl1-(np.mean(enl1)))**2))) / np.mean(enl1)
-                enl = 1/(beta**2)
-
+                enl  = 0
+                for i in range(nch):
+                    enl1 = np.abs((pyrat.getdata(layer=l_sar))[i, i, ...])
+                    beta = (np.sqrt(np.mean((enl1-(np.mean(enl1)))**2))) / np.mean(enl1)
+                    enl += 1/(beta**2)
+                enl /= nch
                 if enl == np.inf:
                     enl = 0
+
+                if 'CH_pol' in attrs and (len(set(pol)) <= 4) and iter == 0:
+                    attrs['CH_pol'] = [p1 + p2 + '*' for p1 in attrs['CH_pol'] for p2 in attrs['CH_pol']]
+                    attrs['ENL'] = enl
+                    pyrat.setmeta(attrs)
+
                 iter += 1
                 P.update(iter)
-                print('  Current beta: ' + str(self.beta) + '   Current sigma:' + str(self.sigma) + '   Current ENL:  ' + str(enl))
+                print('  Iteration values => beta: ' + str(self.beta) + ' | sigma: ' + str(self.sigma) + ' | ENL: '
+                      + str(enl) + ' | error: ' +str((np.abs(self.beta - oldbeta))) +
+                      ' | regularization: ' + str(self.preprocess))
+
+                # if (np.abs(self.beta - oldbeta) <= 0.01):
+                #     self.preprocess = False
+                #     print('  Preprocessing converged early, exiting preprocessing!')
 
             del P
-            if self.showlayers == False:
-                if 'CH_pol' in attrs and (len(set(pol))<=4):
-                    attrs['CH_pol'] = [p1 + p2 + '*' for p1 in attrs['CH_pol'] for p2 in attrs['CH_pol']]
-                attrs['ENL'] = enl
-                pyrat.setmeta(attrs)
-                pyrat.delete(l_sar, silent=True)
-            else:
-                pyrat.activate(l_sar)
+
+            # if not self.showlayers:
+            #     pyrat.delete(l_sar, silent=True)
+            # else:
+            #     pyrat.activate(l_sar)
+            pyrat.activate(l_sar, silent=True)
             pyrat.activate(newlayer, silent=True)
             return newlayer
 
         @staticmethod
-        def simuldata(array, looks, size, dim, **kwargs):
+        def simuldata(dd, array, looks, size, dim, **kwargs):
             """
             Generates the simulated SAR data. The input array is used in SLC mode to calculate the oversampling weights
             If the input is not SLC then the simulated data is multi-looked using self.multi-look random vectors.
@@ -1225,15 +1204,15 @@ try:
                 e1 = np.zeros([5, 5])
                 e2 = np.zeros([5, 5])
                 e = np.zeros([5, 5])
-                for m in range(5):
-                    for n in range(5):
-                        for uu in range(ww):
-                            u = uu - w - 1
-                            for vv in range(ww):
-                                v = vv - w - 1
-                                e1[m, n] += ((inten[u, v] - xhat) * (inten[u - m, v - n] - xhat))
-                                e2[m, n] += (inten[u, v] - xhat) ** 2
-                        e[m, n] = e1[m, n]/e2[m, n]
+                # for m in range(5):
+                #     for n in range(5):
+                #         for uu in range(ww):
+                #             u = uu - w - 1
+                #             for vv in range(ww):
+                #                 v = vv - w - 1
+                #                 e1[m, n] += ((inten[u, v] - xhat) * (inten[u - m, v - n] - xhat))
+                #                 e2[m, n] += (inten[u, v] - xhat) ** 2
+                #         e[m, n] = e1[m, n]/e2[m, n]
                 print('  Correlation coefficients:')
                 print(e)
                 newpsi = (e[0,1] + e[1,0]) / 2
@@ -1269,10 +1248,23 @@ try:
             # Output is simulated dataset and spatial correlation Psi
             attrs = kwargs['meta']
             attrs['psi'] = newpsi
+
+            # if dd != np.inf:
+            #     copy = np.zeros_like(out)
+            #     W = dd
+            #     for i in range(3):
+            #         for j in range(3):
+            #             if i == j:
+            #                 copy[i, j, ...] = out[i, j, ...]
+            #             else:
+            #                 copy[i, j, ...] = W * out[i, j, ...]
+            #     out = copy
+
             return np.squeeze(out)
 
         @staticmethod
-        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, poldistance, **kwargs):
+        def simmcb(layer, size, sigma, betastr, window_size, preprocess, neighbours_local, poldistance,
+                   enl, boxp, dF, llmmse, **kwargs):
             """
             Filters the simulated data to obtain the beta statistic used in the real MCB filter
             """
@@ -1306,14 +1298,20 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Obtaining the array of distances utilized in the Beltrami algorithm
-            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global, poldistance)
+            distance_array, da2 = MCB.preprocessing(preprocess, 1, array, cov_array, neighbours_global, poldistance,
+                                                    enl, boxp, dF)
             beta = np.median(da2[np.isfinite(da2)])
-            if preprocess:
-                beta2 = np.median(distance_array[np.isfinite(distance_array)])
-                distance_array[distance_array >= beta2] = np.inf
-
+            # beta = np.mean(da2[np.isfinite(da2)])
+            # beta = np.percentile(da2[np.isfinite(da2)], 20)
+            #da2 is the random distance array!!
+            # if preprocess:
+                # beta2 = np.median(distance_array[np.isfinite(distance_array)])
+                # beta2 = np.mean(distance_array[np.isfinite(distance_array)])
+                # distance_array[distance_array >= beta2] = np.inf
+                # distance_array[distance_array >= beta] = np.inf
+            looks = enl
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
-                                  betastr, window_size, rdim[1])
+                                  betastr, window_size, rdim[1], looks, llmmse)
             avg = np.rollaxis(np.rollaxis(beltramiFast.reshape(rdim[0], rdim[1], ldim[0], ldim[1]), 0, start=4), 0,
                               start=4)
             meta = kwargs["meta"]
@@ -1321,7 +1319,8 @@ try:
             return avg
 
         @staticmethod
-        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, poldistance, **kwargs):
+        def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, poldistance,
+                    enl, boxp, dF, llmmse,  **kwargs):
             """
             Main part of the filter, if the input is SLC then a preprocessing step
             is added where the data is edge filtered to better preserve statistics. This step is avoided
@@ -1363,74 +1362,105 @@ try:
             all_neigh = np.asarray(all_neigh)
 
             # Calculating distance array for the real data
-            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global, poldistance)
-            if preprocess == True:
-                beta2 = np.median(distance_array[np.isfinite(distance_array)])
-                distance_array[distance_array >= beta2] = np.inf
+            distance_array = MCB.preprocessing(preprocess, 0, array, cov_array, neighbours_global, poldistance,
+                                               enl, boxp, dF)
+
+            # if preprocess:
+                # beta2 = np.median(distance_array[np.isfinite(distance_array)])
+                # beta2 = np.mean(distance_array[np.isfinite(distance_array)])
+                # distance_array[distance_array >= beta2] = np.inf
+                # distance_array[distance_array >= beta] = np.inf
 
             # Main Beltrami routine
+            looks = enl
             beltramiFast = cy_MCB(cov_array, distance_array, all_neigh, neighbours_local, sigma, beta,
-                              betastr, window_size, rdim[1])
+                              betastr, window_size, rdim[1], looks, llmmse)
             avg = np.rollaxis(np.rollaxis(beltramiFast.reshape(rdim[0], rdim[1], ldim[0], ldim[1]), 0, start=4), 0,
                               start=4)
+
             return avg
 
         @staticmethod
-        def matLog(matrix):
-            # Performs the matrix logarithm of a Hermitian matrix
-            w, v = np.linalg.eigh(matrix)
-            aprime = np.dot(np.conj(v).T, np.dot(matrix, v))
-            return np.dot(v, np.dot(np.diag(np.log(np.diag(aprime))), np.conj(v).T))
-
-        @staticmethod
-        def preprocessing(on, sim, array, cov_array, neighbours_global, poldistance):
+        def preprocessing(on, sim, array, cov_array, neighbours_global, poldistance, enl, boxp, dF):
             """
             Preprocessing stage, if true then a boxcar filter is utilized on a copy of the array until a full
             rank matrix is obtained
             """
-
-            # distmes 1 = euclidean, 2 = ai
             distmes = poldistance
-
             ldim = array.shape[0:2]
             rdim = array.shape[2:4]
             maxp = rdim[0] * rdim[1]
             distance_array = np.zeros(shape=[4, maxp], dtype=np.float32) + np.inf
             distance_array2 = np.zeros(shape=[1, maxp], dtype=np.float32) + np.inf
+            boxPre = boxp
+            W = dF              # W = (enl/ldim[0])**(1./3)
             # If preprocessing stage is true
             if on:
-                # Makes a copy of the input array, then performs a q x q boxcar filter
-                buff = np.copy(array)
-                win = [1, 1, ldim[0], ldim[0]]
-                out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
-                buff_array = np.rollaxis(np.rollaxis(out, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
-                # Distance array calculation for the simulated array, distance_array2 takes the median of randomly
-                # selected pixels in order to avoid local bias. This array is utilized to compute the beta parameter.
-                if sim == 1:
-                    for k in range(maxp):
-                        i = 0
-                        rand = np.random.randint(maxp, size=1)
-                        distance_array2[0, k] = MCB.distances(distmes, buff_array[k, :], buff_array[rand[0], :])
-                        for dx in neighbours_global:
-                            nx = k + dx
-                            if nx < maxp:
-                                distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
-                                i += 1
+                if boxPre:
+                    # Makes a copy of the input array, then performs a q x q boxcar filter
+                    buff = np.copy(array)
+                    diagDec = 0
+                    win = [1, 1, ldim[0], ldim[0]]
+                    out = sp.ndimage.filters.uniform_filter(buff.real, win) + 1j * sp.ndimage.filters.uniform_filter(buff.imag, win)
+                    buff_array = np.rollaxis(np.rollaxis(out, 0, start=4), 0, start=4).reshape(maxp, ldim[0], ldim[1])
+                    # Distance array calculation for the simulated array, distance_array2 takes the median of randomly
+                    # selected pixels in order to avoid local bias. This array is utilized to compute the beta parameter.
+                    if sim == 1:
+                        for k in range(maxp):
+                            i = 0
+                            rand = np.random.randint(maxp, size=1)
+                            distance_array2[0, k] = MCB.distances(distmes, buff_array[k, :], buff_array[rand[0], :])
+                            for dx in neighbours_global:
+                                nx = k + dx
+                                if nx < maxp:
+                                    distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
+                                    i += 1
 
-                    return np.asarray(distance_array), np.asarray(distance_array2)
-                # Distance array calculation for the real array, when preprocess = False, there's no need to
-                # calculate the beta value.
+                        return np.asarray(distance_array), np.asarray(distance_array2)
+                    # Distance array calculation for the real array, when preprocess = False, there's no need to
+                    # calculate the beta value.
+                    else:
+                        for k in range(maxp):
+                            i = 0
+                            for dx in neighbours_global:
+                                nx = k + dx
+                                if nx < maxp:
+                                    distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
+                                    i += 1
+
+                        return np.asarray(distance_array)
                 else:
-                    for k in range(maxp):
-                        i = 0
-                        for dx in neighbours_global:
-                            nx = k + dx
-                            if nx < maxp:
-                                distance_array[i, k] = MCB.distances(distmes, buff_array[k, :], buff_array[nx, :])
-                                i += 1
-
-                    return np.asarray(distance_array)
-            # If preprocessing stage is turned off
+                #### Off-diagonal rescaling preprocessing
+                    out = np.zeros_like(cov_array)
+                    for i in range(ldim[0]):
+                        for j in range(ldim[0]):
+                            if i == j:
+                                out[...,i, i] = cov_array[...,i, i]
+                            else:
+                                out[...,i, j] = W * cov_array[...,i, j]
+                    if sim == 1:
+                        dist_data = out
+                        for k in range(maxp):
+                            i = 0
+                            rand = np.random.randint(maxp, size=1)
+                            distance_array2[0, k] = MCB.distances(distmes, dist_data[k, :], dist_data[rand[0], :])
+                            for dx in neighbours_global:
+                                nx = k + dx
+                                if nx < maxp:
+                                    distance_array[i, k] = MCB.distances(distmes, dist_data[k, :], dist_data[nx, :])
+                                    i += 1
+                        return np.asarray(distance_array), np.asarray(distance_array2)
+                    else:
+                        dist_data = out
+                        for k in range(maxp):
+                            i = 0
+                            for dx in neighbours_global:
+                                nx = k + dx
+                                if nx < maxp:
+                                    distance_array[i, k] = MCB.distances(distmes, dist_data[k, :], dist_data[nx, :])
+                                    i += 1
+                        return np.asarray(distance_array)
+                # If preprocessing stage is turned off
             else:
                 # Same procedure as preprocessing = on, however, no boxcar filter is utilized to obtain a first
                 # estimate.
@@ -1457,38 +1487,19 @@ try:
                                 i += 1
                     return np.asarray(distance_array)
 
-        # @staticmethod
-        # def distance_ai(a_mat, b_mat):
-        #     """
-        #      Affine-invariant distance. Used in most cases (except 3x3 matrices). Exploits the hermitian nature of the
-        #      covariance matrices to utilize the eigh function from numpy to
-        #      obtain the eigenvalues and eigenvectors needed to speed up other matrix operations.
-        #     """
-        #     w, v = np.linalg.eigh(a_mat)
-        #     if np.any(w <= 0):
-        #         return np.inf
-        #     else:
-        #         m1 = np.dot(v, np.dot(np.diag(np.sqrt(1. / w)), np.conj(v).T)).astype(np.complex64)
-        #         distance = np.linalg.norm(MCB.matLog(np.dot(m1, np.dot(b_mat, m1))), 'fro')
-        #         return distance if np.isfinite(distance) else np.inf
-
-        # @staticmethod
-        # def distance_eu(a_mat, b_mat):
-        #     """
-        #      TBD
-        #     """
-        #
-        #     return distance if np.isfinite(distance) else np.inf
-
         @staticmethod
         def distances(dchoice, a_mat, b_mat):
             if dchoice == 'eu':
-                x = np.diag(np.diag(np.log(a_mat)))
-                y = np.diag(np.diag(np.log(b_mat)))
-                dist = np.linalg.norm(x - y)
+                # x = np.diag(np.diag(np.log(a_mat)))
+                # y = np.diag(np.diag(np.log(b_mat)))
+                x = np.diag(np.diag(a_mat))
+                y = np.diag(np.diag(b_mat))
+                dist = np.abs(np.linalg.norm(x - y))
             elif dchoice == 'ai':
-                # # If the matrix is 3x3, apply fast Affine-invariant distance. Otherwise, apply a python-based
-                # fast version of the affine-invariant distance
+                # If the matrix is 3x3, apply fast Affine-invariant distance. Otherwise, apply a python-based
+                # fast version of the affine-invariant distance. Exploits the hermitian nature of the
+                # covariance matrices to utilize the eigh function from numpy to
+                # obtain the eigenvalues and eigenvectors needed to speed up other matrix operations.
                 if a_mat.shape[0] == 3:
                     dist = cy_MCBdist(a_mat, b_mat)
                 else:
@@ -1507,10 +1518,38 @@ try:
             # Revised diagonalized Wishart
             elif dchoice == 'rdw':
                 dist = np.sum((np.diag(a_mat)**2 + np.diag(b_mat)**2)/(np.diag(a_mat)*np.diag(b_mat))) - 6
+
+            elif dchoice == 'le':
+                dist = np.linalg.norm(MCB.matLog(a_mat) - MCB.matLog(b_mat), 'fro')
+
+            # IGARSS distances
             # Diagonalized geodesic distance (generic)
-            elif dchoice == 'dgd':
-                dist = np.exp(np.sqrt(np.sum(np.log(np.diag(a_mat)/np.diag(b_mat))**2)))
-            return dist if np.isfinite(dist) else np.inf
+            elif dchoice == 'dg':
+                A = np.diag(np.diag(a_mat))
+                B = np.diag(np.diag(b_mat))
+                dist = np.linalg.norm(MCB.matLog(A) - MCB.matLog(B), 'fro')
+            elif dchoice == 'rws':
+                dist = np.trace(np.dot(a_mat, np.linalg.inv(b_mat)) + np.dot(b_mat, np.linalg.inv(a_mat)))/2
+            elif dchoice == 'drws':
+                A = np.diag(np.diag(a_mat))
+                B = np.diag(np.diag(b_mat))
+                dist = (np.trace(np.dot(A, np.diag(1/np.diag(b_mat))) + np.dot(B, np.diag(1/np.diag(a_mat))))/2)
+            elif dchoice == 'sg':
+                A = np.trace(a_mat)
+                B = np.trace(b_mat)
+                dist = np.abs(np.log(A) - np.log(B))
+            elif dchoice == 'srws':
+                A = np.trace(a_mat)
+                B = np.trace(b_mat)
+                dist = ((A/B)+(B/A))/2
+            return abs(dist) if np.isfinite(dist) else np.inf
+
+        @staticmethod
+        def matLog(matrix):
+            # Performs the matrix logarithm of a Hermitian matrix
+            w, v = np.linalg.eigh(matrix)
+            aprime = np.dot(np.conj(v).T, np.dot(matrix, v))
+            return np.dot(v, np.dot(np.diag(np.log(np.diag(aprime))), np.conj(v).T))
 
     @pyrat.docstringfrom(MCB)
     def mcb(*args, **kwargs):

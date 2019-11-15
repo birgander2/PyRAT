@@ -10,186 +10,30 @@ used by DLR-HR institute and some others.
 
 """
 
-from functools import reduce
 import ctypes
 import os
-import string
-from xml.etree import ElementTree as ET
+import copy
 
-from scipy import misc
 import numpy as np
-import warnings
 import mmap
-import h5py
-from operator import mul
 from functools import reduce
+
+import warnings
+
+try:
+    import lxml.etree as ET
+except ImportError:
+    warnings.warn('Failed to import ET from "lxml.etree". The Py2XML class will not work.', ImportWarning)
+
+try:
+    from pkg_resources import resource_string
+    from mako.template import Template
+except ImportError:
+    warnings.warn('Failed ot import pkg_resources and/or mako. Writing geo-Envi-headers for RAT files will not work.',
+                  ImportWarning)
 
 red = "\033[91m"
 endc = "\033[0m"
-
-def write_pixmap(filename, image_array, palette=True):
-    """Save a ``numpy`` 2D array as jpg/png/etc.
-    
-    Parameters
-    ----------
-    filename : str
-        Output filename.
-    image : ndarray, MxN or MxNx3 or MxNx4
-        Array containing image values. If the shape is ``MxN``, the array
-        represents a grey-level image. Shape ``MxNx3`` stores the red, green
-        and blue bands along the last dimension. An alpha layer may be
-        included, specified as the last colour band of an ``MxNx4`` array.
-    """
-    from .visualisation import myPalette
-
-    if palette is True and myPalette is not False:
-        p = myPalette
-        misc.imsave(filename, p[image_array])
-    else:
-        misc.imsave(filename, image_array)
-
-
-write_png = write_pixmap
-write_jpg = write_pixmap
-
-
-def rarr(filename, **kwargs):
-    """
-    Reads STE-HDF5 file, returns it as a np ndarray variable
-    """
-    hdfobj = HDFarray(filename)
-    array = hdfobj.read(**kwargs)
-    if "annotation" in hdfobj.file.attrs:
-        if hdfobj.file.attrs["annotation"] != "":
-            print("Content :", hdfobj.file.attrs["annotation"])
-    return array
-
-
-def rarr_info(filename):
-    hdfobj = HDFarray(filename)
-    return hdfobj.info
-
-
-def sarr(filename, array, info=""):
-    """
-    Writes a numpy ndarray into a STE-HDF5 file.
-    """
-    hdfobj = HDFarray(filename)
-    hdfobj.write(array)
-    hdfobj.annotate(info)
-
-
-def aarr(filename, array):
-    """
-    Adds a numpy ndarray to an existing STE-HDF5 file.
-    """
-    hdfobj = HDFarray(filename)
-    hdfobj.add(array)
-
-
-class HDFarray(object):
-    """
-    Class to read/write single numpy arrays to HDF5  files in simple manner. Should work mostly like rrat/srat
-    when using the helper routines rarr / sarr.
-    """
-    file = None
-
-    def __init__(self, filename):
-        if not filename.endswith(".hd5"):
-            filename += ".hd5"
-        self.filename = filename
-        self.file = h5py.File(self.filename, 'a')
-        if "annotation" in self.file.attrs:
-            self.info = self.file.attrs["annotation"]
-        else:
-            self.info = None
-
-    def read(self, annotation=[], **kwargs):
-        if 'block' in kwargs:
-            print("ERROR: block write not yet implemented")
-
-        # if 'block' in kwargs:
-        #     block = kwargs['block']
-        #     self.data = self.file['data']
-        #     shp = self.data.shape
-        #     if len(shp) == 1:    # 1D data -> use only 1st block parameter
-        #         return self.data[block[0]:block[0]+block[2]]
-        #     elif len(shp) == 2:  # 2D data -> easy
-        #         return self.data[block[0]:block[0]+block[2], block[1]:block[1]+block[3]]
-        #     else:                # >2D data -> check for pixel or band interleave
-        #         p1 = reduce(mul, shp[-2:], 1)
-        #         p2 = reduce(mul, shp[:-2], 1)
-        #         p3 = reduce(mul, shp[0:2], 1)
-        #         p4 = reduce(mul, shp[2:], 1)
-        #         foo = [p1, p2, p3, p4]
-        #         idx = foo.index(min(foo))
-        #         if idx == 0 or idx == 3:  # pixel interleave
-        #             return self.data[block[0]:block[0]+block[2], block[1]:block[1]+block[3], ...]
-        #         else:                     # band interleave
-        #             return self.data[..., block[0]:block[0]+block[2], block[1]:block[1]+block[3]]
-        # else:
-        data = []
-        for ds in self.file:
-            data.append(self.file[ds][...])
-        if len(data) == 1:
-            return data[0]
-        elif len(data) == 0:
-            return None
-        else:
-            return data
-
-    def write(self, array, **kwargs):
-        if 'block' in kwargs:
-            print("ERROR: block write not yet implemented")
-
-        for ds in self.file:
-            del self.file[ds]
-        if not isinstance(array, list):
-            array = [array]
-        for k, arr in enumerate(array):
-            self.file.create_dataset("D"+str(k+1), data=arr)
-
-    def add(self, array, **kwargs):
-        if not isinstance(array, list):
-            array = [array]
-        n = 0
-        for ds in self.file:
-            n += 1
-        for k, arr in enumerate(array):
-            self.file.create_dataset("D"+str(k+n+1), data=arr)
-
-    def annotate(self, text, **kwargs):
-        self.file.attrs['annotation'] = text
-    
-    def expose(self):
-        data = []
-        for ds in self.file:
-            data.append(self.file[ds])
-        if len(data) == 1:
-            data = data[0]
-        return data
-
-    def __del__(self):
-        if self.file is not None:
-            self.file.close()
-
-
-def hdflist(filename):
-    """
-    Lists the logical structure of a HDF5 file (h5py)
-    """
-    print("Structure of HDF5 file "+filename+":")
-    file = h5py.File(filename, "r")
-
-    def listme(hdobj):
-        for element in hdobj:
-            if isinstance(hdobj[element], h5py._hl.group.Group):
-                print("G " + hdobj[element].name)
-                listme(hdobj[element])
-            else:
-                print("D " + hdobj[element].name)
-    listme(file)
-    file.close()
 
 
 def rrat(filename, **kwargs):
@@ -484,9 +328,14 @@ class RatFile():
             self.var = int(self.Header.Rat.var)
             self.nchannel = int(self.Header.Rat.nchannel)
             self.exists = True
-        except IOError:
+        except (IOError, IndexError):
             self.exists = False
 
+
+    @classmethod
+    def _ioerror(cls, msg):
+        print(red + msg + endc)
+        raise IOError(msg)
 
     def create(self, shape=None, header=None, **kwargs):
         """Create an empty ``RAT`` file and write a RAT header into it.
@@ -521,8 +370,7 @@ class RatFile():
         """
         # raise an error if neither header nor shape is given as an arg
         if (header is None) and (shape is None):
-            print(red + 'Please, specify either shape or header!' + endc)
-            raise IOError
+            self._ioerror('Please, specify either shape or header!')
 
         if header is not None:
             self.Header = header
@@ -539,6 +387,8 @@ class RatFile():
 
         self.shape = self._get_shape()
         self.dtype = self._get_dtype()
+        self.Header.Rat.ndim = ctypes.c_int(len(self.shape))
+        self.Header.Rat.nchannel = ctypes.c_int(int(np.product(self.shape[2:])))
 
         if 'rattype' in kwargs:
             self.Header.Rat.rattype = ctypes.c_int(kwargs['rattype'])
@@ -620,9 +470,8 @@ class RatFile():
             block = self._check_block(block, arr=arr)
 
             if 'header' in kwargs:
-                print(red + 'The header should have been written prior to block '
-                            'writting!' + endc)
-                raise IOError
+                self._ioerror('The header should have been written prior to block '
+                              'writting!')
 
             # for 2D arrays an offset for both axes is allowed
             if arr.ndim == 2:
@@ -642,6 +491,7 @@ class RatFile():
                 # The header should be written prior block writting
                 lun.seek(offset)
                 arr.tofile(lun)
+                lun.flush()
                 self.exists = True
             return
 
@@ -675,11 +525,12 @@ class RatFile():
                     self.Header.Rat.rattype = kwargs['rattype']
 
             else:
-                print(red + "Specify a header, an array or both!" + endc)
-                raise IOError
+                self._ioerror('Specify a header, an array or both!')
 
             self.dtype = self._get_dtype()
             self.shape = self._get_shape()
+            self.Header.Rat.ndim = ctypes.c_int(len(self.shape))
+            self.Header.Rat.nchannel = ctypes.c_int(int(np.product(self.shape[2:])))
 
             n_bytes_total = (
             1000 + reduce(lambda x, y: x * y, self.shape) * self.dtype.itemsize)
@@ -692,6 +543,7 @@ class RatFile():
                 if lun.tell() > n_bytes_total:
                     warnings.warn("The size of the RAT file exceed! The array "
                                   "is written outside the header's dimensions!")
+                lun.flush()
             return
     # --------------------------------------------------------------------------
     def read(self, **kwargs):
@@ -712,8 +564,7 @@ class RatFile():
           ``RAT`` header.
         """
         if self.exists == False:
-            print(red + "ERROR: The file is not found" + endc)
-            raise IOError
+            self._ioerror('ERROR: The file "%s" does not exist'%self.filename)
         if 'block' in kwargs:
             block = kwargs['block']
             # check if the block var meets the requirements
@@ -730,8 +581,7 @@ class RatFile():
         elif self.version == 1.0:
             offset = int(104 + 4 * self.Header.Rat.ndim + 4 * self.xdrflag)
         else:
-            print(red + "ERROR: RAT version not supported" + endc)
-            raise IOError
+            self._ioerror('ERROR: RAT version not supported')
 
         with open(self.filename, 'rb') as lun:
             mm = mmap.mmap(
@@ -765,8 +615,7 @@ class RatFile():
           ``RAT`` header.
         """
         if self.exists == False:
-            print(red + "ERROR: The file is not found" + endc)
-            raise IOError
+            self._ioerror('ERROR: The file is not found')
         if 'block' in kwargs:
             block = kwargs['block']
             # check if the block var meets the requirements
@@ -783,8 +632,7 @@ class RatFile():
         elif self.version == 1.0:
             offset = int(104 + 4 * self.Header.Rat.ndim + 4 * self.xdrflag)
         else:
-            print(red + "ERROR: RAT version not supported" + endc)
-            raise IOError
+            self._ioerror('ERROR: RAT version not supported')
 
         with open(self.filename, 'rb') as lun:
             mm = mmap.mmap(
@@ -813,9 +661,8 @@ class RatFile():
 
         # check if the array's and header's shape correspond to each other
         if len(self.shape) > 1 and (self.shape[1:] != arr.shape[1:]):
-            print(red + "The shape specified in the header and the shape of "
-                        "the array don't correspond to each other!" + endc)
-            raise IOError
+            self._ioerror('The shape specified in the header %s and the shape of '
+                          'the array %s don\'t correspond to each other!' % (str(self.shape[1:]),str(arr.shape[1:])))
 
         n_bytes_total = 1000 + reduce(lambda x, y: x * y, self.shape) * arr.itemsize
 
@@ -862,8 +709,7 @@ class RatFile():
             self.Header.Info.info = info
 
         else:
-            print(red + "ERROR: RAT version not supported" + endc)
-            raise IOError
+            self._ioerror('ERROR: RAT version not supported')
 
         self.dtype = self._get_dtype()
 
@@ -885,6 +731,12 @@ class RatFile():
             f.write('byte order      = 0\n')
             if (len(sensorType) > 0):
                 f.write('sensor type     = %s\n' % sensorType)
+
+    def write_geo_envi_header(self):
+            tmpl = Template(resource_string(__package__+'.templates', 'envihdr.tpl'))
+            envi_hdr = tmpl.render(file=self.filename, hdr=self.Header)
+            with open(self.filename+'.hdr','w') as f:
+                f.write(envi_hdr)
 
     #--------------------------------------------------------------------------
 
@@ -946,52 +798,44 @@ class RatFile():
         stop_more_than_shape = reduce(lambda x, y: x or y, (
             map(lambda x, y: (x > y), block[1::2], self.shape)))
         if stop_more_than_shape:
-            print(red + 'Value of block exceeds '
-                        'the array shape!' + endc)
-            raise IOError
+            self._ioerror('Value of block exceeds the array shape!')
 
         block = np.asarray(block)
         if block.dtype.kind not in ('i','u'):
-            print(red + 'Block extent must be given by integers!' + endc)
-            raise IOError
+            self._ioerror('Block extent must be given by integers!')
 
         if np.min(block) < 0:
-            print(red + 'The items in block must be nonnegative!' + endc)
-            raise IOError
+            self._ioerror('The items in block must be nonnegative!')
 
         if 'arr' in kwargs:
             if len(block) // 2 != kwargs['arr'].ndim:
-                print(red + 'The dimensions of block do not correspond to the '
-                            'dimensions of array!' + endc)
-                raise IOError
+                self._ioerror('The dimensions of block do not correspond to the '
+                              'dimensions of array!')
 
             block_not_shape = reduce(lambda x, y: x or y,
                                      map(lambda x, y, z: (x - y) != z,
                                          block[1::2], block[::2],
                                          kwargs['arr'].shape))
             if block_not_shape:
-                print(red + 'Lenght of block components does not correspond to'
-                            ' the shape of the array!' + endc)
-                raise IOError
+                self._ioerror('Length of block components %s does not correspond to'
+                              ' the shape of the array %s!'%(str(block),str(kwargs['arr'].shape)))
         return block
 
 
     def _check_dtypes(self, arr):
-        """Check if dtypes of given array and the one in header are the equal"""
+        """Check if dtypes of given array and the one in header are equal"""
         if self.Header.Rat.var != get_var(arr.dtype).value:
-            print(red + "The data type of the array to be written and "
-                        "the one specified in file's header"
-                         "don't correspond to each other!" + endc)
-            raise IOError
+            self._ioerror('The data type of the array to be written and '
+                          'the one specified in file\'s header '
+                          'don\'t correspond to each other!')
 
     def _get_dtype(self):
         """Get data type give ```Header.Rat.var``."""
         try:
             return np.dtype(dtype_dict[self.Header.Rat.var])
         except KeyError:
-            print(red + "The data type is either not specified or "
-                        "not supported!" + endc)
-            raise IOError
+            self._ioerror('The data type is either not specified or '
+                          'not supported!')
 
     def _get_shape(self):
         """Get numpy array shape from ``Header.Rat.shape`` that is IDL style"""
@@ -1014,8 +858,7 @@ def get_var(dtype):
     var = [key for (key, value) in dtype_dict.items() if
            value == dtype]
     if var == []:
-        print(red + 'The data type is not supported!' + endc)
-        raise IOError
+        RatFile._ioerror('The data type is not supported!')
     else:
         return ctypes.c_int(var[0])
 
@@ -1033,188 +876,213 @@ dtype_dict = {1: 'uint8',
               15: 'uint64'}
 
 
-class Xml2Py(object):
-    """Turns a STEP XML document (e.g. processing parameters) into a structure.
 
-    Example usage:
-    pp = Xml2Py(<path to pp file>)
-    pp.v0
-    (Python prints 89.1)
-    pp.v0?
-    (Type is numpy double)
-    pp.r?
-    (Numpy ndarray of doubles)
 
-    Currently does not support complex data, pointer arrays and structure
-    arrays.
 
-     :author: Marc Jaeger
+class Py2Xml(object):
+    """
+    Class to read/write DLR-STE XML documents (primarily used by the STEP processor for processing parameters)
 
-     :param fileName: Path to XML document.
-     :type fileName: string
+    Allows python object-like access to parameters.
 
-     :param elem: For internal use only! Do not use.
-     :type elem: XML element object
+    For example, for STEP processing parameters (XML files in RGI/RGI-RDP):
+
+    pp = Py2Xml('path_to_pp.xml')
+    print(pp.v0)     # v0 is automatically converted to floating point
+    print(pp.r[:10]) # first 10 values of range vector, also floating point
+
+    The parameter object also allows dictionary-like access to handle problematic parameter names
+    (which clash with python keywords). For example:
+
+    print(pp['lambda']) # pp.lambda would be a syntax error
+    print(pp['pass'])   # same as above
+    print(pp['v0'])     # dictionary style access works for other parameters, too!
+
+    The class provides full read/write support. Parameter values are changed by standard assignment
+    and structures can be saved using the write method:
+
+    pp.v0 = 100
+    pp.write('path_to_new_pp.xml')
 
     """
 
-    def __init__(self, fileName, elem=None):
-        if (elem == None):
-            tree = ET.parse(fileName)
-            root = tree.getroot()
-            elem = root[0]
+    def __init__(self, root):
+        if isinstance(root, str):
+            self.__dict__['__root__'] = ET.parse(root).find('object')
+        else:
+            self.__dict__['__root__'] = root
 
-        self.xml2struct(elem)
+        if self.__root__ is None:
+            raise ValueError('Expected an "object" element below the root element!')
+
+        self.__dict__['__iterend__'] = False
 
 
-    def xml2struct(self, elem):
-        for f in elem:
-            self.xml2field(f)
+    def __getstate__(self):
+        return ET.tostring(self.__root__, encoding=str)
 
+    def __setstate__(self, root):
+        self.__dict__['__root__'] = ET.fromstring(root)
+        self.__dict__['__iterend__'] = False
+
+    def copy(self):
+        return Py2Xml(copy.deepcopy(self.__dict__['__root__']))
+
+    def __getparam__(self, name):
+        p = [p for p in self.__root__.iterchildren('parameter') if p.attrib['name'] == name]
+        if len(p) != 1:
+            raise AttributeError('Expected a unique match parameter name "%s", got %i matches.' % (name, len(p)))
+
+        return [p[0].find(tag) for tag in ('remark', 'datatype', 'value')]
+
+
+    def params(self):
+        return [p.attrib['name'] for p in self.__root__.iterchildren('parameter')]
 
     @staticmethod
-    def xml2val(elem):
-        typElem = elem.find('datatype')
-        dType = typElem.text
-        dDim = typElem.attrib['length']
-        dDim = np.asarray([np.long(d) for d in dDim.split()])[::-1]
-        dLen = np.prod(dDim)
+    def xml2val(v, t):
+        type = t.text
+        shape = t.attrib['length']
+        shape = np.asarray([np.uint64(d) for d in shape.split()])[::-1]
+        size = np.prod(shape)
 
-        valElem = elem.find('value')
-        if (dType == 'pointer'):
-            return Xml2Py.xml2val(valElem.find('parameter'))
+        if (type == 'pointer'):
+            p = v.find('parameter')
+            return Py2Xml.xml2val(*[p.find(t) for t in ('value', 'datatype')])
 
-        if (dType == 'struct'):
-            return Xml2Py(None, valElem[0])
+        if (type == 'struct'):
+            obj_arr = [Py2Xml(obj) for obj in v.iterchildren('object')]
+            return obj_arr[0] if size <= 1 else obj_arr
 
-        val = elem.find('value').text
-        if (dLen > 1):
-            val = val.strip('[]').split(',')
-
-        conv = {'int': np.int, 'long': np.long, 'float': np.float, 'double': np.double, 'string': lambda s:s}
+        conv = {'int': int, 'long': int, 'float': np.float, 'double': np.double, 'string': lambda s: s}
         try:
-            if (dLen > 1):
-                val = np.asarray([conv[dType](v) for v in val]).reshape(dDim)
+            if size > 1:
+                val = np.asarray([conv[type](v) for v in v.text.strip('[]').split(',')]).reshape(shape)
             else:
-                val = conv[dType](val)
+                val = conv[type](v.text)
         except KeyError:
-            print('WARNING: Unsupported data type {} in field {}! Ignoring...'.format(dType, name))
+            print('PY2XML WARNING: Unsupported data type "%s" encountered. Skipping!' % (type))
             return None
 
         return val
 
-
-
-    def xml2field(self, elem):
-        name = elem.attrib['name']
-        setattr(self,name,self.xml2val(elem))
-
-
-class Py2Xml(object):
-    def __init__(self, template):
-        self.__dict__['tree'] = ET.parse(template)
-        self.__dict__['attrs'] = {}
-
-        obj = self.tree.getroot().find('object')
-        if (obj == None):
-            raise ValueError('Expected an "object" element below the root!')
-
-        self.get_attrs(obj)
-
-
-    def get_attrs(self, obj, prefix=[]):
-        for f in obj.iter('parameter'):
-            name = prefix+[f.attrib['name']]
-
-            while (f.find('./value/parameter') is not None):
-                f = f.find('./value/parameter')
-
-            v = f.find('value')
-            t = f.find('datatype')
-
-            if (v.find('object') is not None):
-                self.get_attrs(v.find('object'),name)
-                continue
-
-            self.attrs['_'.join(name)] = (v,t,f)
-
-
-    def __getattr__(self,name):
-        if (name in self.__dict__):
-            return self.__dict__[name]
-        v,t,f = self.__dict__['attrs'][name]
-        return Xml2Py.xml2val(f)
-
-
-    def __setattr__(self,name,value):
-        if (name in self.__dict__):
-            self.__dict__[name] = value
-        v,t,f = self.attrs[name]
-        return self.val2xml(v,t,value)
-
-
     @staticmethod
     def val2xml(v, t, value):
         cdict = {str: (str, 'string'), \
-                 int: (str,'long'), \
-                 float:(str,'double'), \
-                 complex:(lambda z:'({},{})'.format(z.real,z.imag),'complex')}
+                 int: (str, 'long'), \
+                 float: (str, 'double'), \
+                 complex: (lambda z: '({},{})'.format(z.real, z.imag), 'complex')}
         cdict[np.uint8] = cdict[int]
         cdict[np.int32] = cdict[int]
         cdict[np.uint32] = cdict[int]
         cdict[np.int64] = cdict[int]
         cdict[np.uint64] = cdict[int]
-        cdict[np.float32] = (str,'float')
+        cdict[np.float32] = (str, 'float')
         cdict[np.float64] = cdict[float]
         cdict[np.complex64] = cdict[complex]
+        cdict[bool] = cdict[str]
 
-        if (isinstance(value, np.ndarray)):
-            t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
-            vtype = type(value.flat[0])
-            t.text = cdict[vtype][1]
-            v.text = '['+', '.join([cdict[vtype][0](val) for val in value.flat])+']'
-        else:
-            try:
-                if isinstance(value,str):
-                    raise ValueError()
-                t.attrib['length'] = str(len(value))
-                t.text = cdict[type(value[0])][1]
-                v.text = '['+', '.join([cdict[type(value[0])][0](val) for val in value])+']'
-            except:
-                t.attrib['length'] = '1'
-                t.text = cdict[type(value)][1]
-                v.text = cdict[type(value)][0](value)
-
-
-    def set_attr(self, name, value, prefix=[]):
-
-        if isinstance(value,dict):
-            for k in value:
-                self.set_attr(k,value[k],prefix+[name])
-            return
+        if (t.text == 'pointer'):
+            p = v.find('parameter')
+            return Py2Xml.val2xml(*([p.find(t) for t in ('value', 'datatype')] + [value]))
 
         try:
-            v,t,f = self.attrs['_'.join(prefix+[name])]
-            self.val2xml(v, t, value)
-        except KeyError:
-            pass
+            vsize = 1 if isinstance(value, str) else len(value)
+        except TypeError:
+            vsize = 1
 
+        t.attrib['length'] = str(vsize)
+        v.clear()
+        if vsize == 1 and not isinstance(value, Py2Xml):
+            t.text = cdict[type(value)][1]
+            v.text = cdict[type(value)][0](value)
+        elif all([isinstance(v, Py2Xml) for v in value]):
+            t.text = 'struct'
+            for obj in value:
+                v.append(copy.deepcopy(obj.__root__))
+        else:
+            if isinstance(value, np.ndarray):
+                t.attrib['length'] = ' '.join([str(l) for l in value.shape[::-1]])
+                value = value.flat
+            vtype = type(value[0])
+            t.text = cdict[vtype][1]
+            v.text = '[' + ', '.join([cdict[vtype][0](val) for val in value]) + ']'
+
+    def __getattr__(self, key):
+        if key in self.__dict__:
+            return self.__dict__[key]
+        if key == 0:
+            return self
+        r, t, v = self.__getparam__(key)
+        return Py2Xml.xml2val(v, t)
+
+    def __getitem__(self, key):
+        return self.__getattr__(key)
+
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            self.__dict__[name] = value
+            return
+        r, t, v = self.__getparam__(name)
+        Py2Xml.val2xml(v, t, value)
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
+
+    def __contains__(self, key):
+        try:
+            _ = self.__getparam__(key)
+        except AttributeError:
+            return False
+        return True
+
+    def __len__(self):
+        return 1
+
+    def __iter__(self):
+        self.__iterend__ = False
+        return self
+
+    def __next__(self):
+        if self.__iterend__:
+            raise StopIteration()
+        self.__iterend__ = True
+        return self
 
     def update(self, obj):
-        d = obj
-        if (hasattr(obj,'__dict__')):
-            d = obj.__dict__
-
-        if not isinstance(d,dict):
-            raise ValueError('Expected a dictionary or an object with a __dict__ attribute!')
+        if isinstance(obj, Py2Xml):
+            d = {k: obj[k] for k in obj.params()}
+        else:
+            try:
+                d = obj.__dict__
+            except AttributeError:
+                d = obj
+            if not isinstance(d, dict):
+                raise ValueError('Expected a dictionary or an object with a __dict__ attribute!')
 
         for k in d:
-            self.set_attr(k,d[k])
+            try:
+                self.__setattr__(k, d[k])
+            except AttributeError:
+                pass
 
+    def __totree(self):
+        ste_root = ET.Element('stexml')
+        ste_root.text = '\n'
+        ste_root.append(copy.deepcopy(self.__root__))
+        ste_root.addprevious(ET.PI('xml-stylesheet', 'type="text/xsl" href="stexml.xsl"'))
+        tree = ET.ElementTree(ste_root)
+        return tree
 
     def write(self, filename):
-        self.tree.write(filename)
-
+        self.__totree().write(filename, pretty_print=True, encoding='UTF-8', xml_declaration=True)
 
     def tostring(self):
-        return ET.tostring(self.tree.getroot())
+        return ET.tostring(self.__totree().getroot(), encoding='UTF-8')
+
+    @staticmethod
+    def fromstring(string):
+        return Xml2Py(ET.fromstring(string).find('object'))
+
+# for backwards-compatiblity (the old Xml2Py class is now obsolete!)
+Xml2Py = Py2Xml

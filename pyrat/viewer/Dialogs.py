@@ -248,6 +248,8 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
 
             if 'info' in meta:
                 ltext = meta['info']
+            elif pyrat.data.layers[layer].name is not '':
+                ltext = pyrat.data.layers[layer].name
             else:
                 ltext = layer.strip('/')
             self.treelements[lname] = QtWidgets.QTreeWidgetItem()
@@ -379,7 +381,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
 
             scaling = self.viewer.display[itemname]['scaling']
 
-            methods = ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']
+            methods = ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'labels']
             for meth in methods:
                 foo = QtWidgets.QAction(meth, scalemenu, checkable=True)
                 if scaling == meth:

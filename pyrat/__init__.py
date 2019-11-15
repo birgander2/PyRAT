@@ -1,4 +1,4 @@
-__version__ = '0.60-oss'
+__version__ = '0.62-oss'
 
 import logging, sys, os
 

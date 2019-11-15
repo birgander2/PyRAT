@@ -168,7 +168,7 @@ def setlayername(name, **kwargs):
     """
     Sets the name of a layer
     :param name: string with a descriptive name
-    :param layer: layer name to extract meta data (optional, default=active)
+    :param layer: layer identifier to assign the name (optional, default=active)
     """
     from pyrat import data
 
@@ -283,7 +283,7 @@ def show(*args, method='amplitude', **kwargs):
     import sys
     from PyQt5 import QtWidgets, QtCore
 
-    if method not in ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'lables']:
+    if method not in ['amplitude', 'intensity', 'phase', '0.0->1.0', 'min->max', 'labels']:
         method = 'amplitude'
 
     if 'layer' in kwargs:
@@ -298,6 +298,9 @@ def show(*args, method='amplitude', **kwargs):
     else:
         new_app = False
     pyrat.app = pyrat.viewer.MainWindow()
+    pyrat.app.updateViewer(method=method)
+    if 'palette' in kwargs:
+        pyrat.app.config['palette'] = kwargs['palette']
     pyrat.app.updateViewer(method=method)
     if new_app is True:
         app.exec_()

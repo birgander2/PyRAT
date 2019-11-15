@@ -35,11 +35,12 @@ class Rat(pyrat.ImportWorker):
                         'geo_min_north': geo.min_north,
                         'geo_ps_east': geo.ps_east,
                         'geo_ps_north': geo.ps_north,
-                        'geo_zone': geo.zone
+                        'geo_zone': geo.zone,
+                        'path': self.file
                     }
         except IOError:
             pass
-        return None
+        return {'path': self.file}
 
     def getsize(self, *args, **kwargs):
         try:
@@ -113,7 +114,7 @@ class RatHDF(pyrat.Worker):
         shutil.copyfile(self.file, tmp_filename)
         lay = pyrat.data.addLayer(file=tmp_filename)
         pyrat.activate(lay)
-
+        return lay
 
 @pyrat.docstringfrom(RatHDF)
 def rathdf(*args, **kwargs):

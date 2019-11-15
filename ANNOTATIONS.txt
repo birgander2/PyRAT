@@ -17,3 +17,13 @@ ps_rg           float           slant / ground range pixel spacing [m]
 
 CH_pol          string          HH, VV, VH, HV, XX (symmetrised cross)
 CH_name         string          names for sublayers to be displayed in GUI
+labels          str            dictionary containing the label description
+
+geo_projection  int             Geoprojection id (schema of rat files)
+geo_zone        int             UTM zone
+geo_ps_north    float           Pixelspacing in north direction
+geo_ps_east     float           Pixelspacing in east direction
+geo_min_east    float           Minimum easting
+geo_min_north   float           Minimum northing
+
+path            string          The path of the source file (if loaded from rat file)

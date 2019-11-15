@@ -38,3 +38,26 @@ class MathExpr(pyrat.FilterWorker):
 @pyrat.docstringfrom(MathExpr)
 def mathexpr(*args, **kwargs):
     return MathExpr(*args, **kwargs).run(**kwargs)
+
+
+class Negate(pyrat.FilterWorker):
+    """
+    Negates all values (+ -> -, - -> +)
+    """
+
+    gui = {'menu': 'Tools', 'entry': 'Negate values'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        self.name = "Negate values"
+
+    def filter(self, array, *args, **kwargs):
+        if type(array) is list:
+            return [np.negative(layer) for layer in array]
+        else:
+            return np.negative(array)
+
+
+@pyrat.docstringfrom(Negate)
+def negate(*args, **kwargs):
+    return Negate(*args, **kwargs).run(*args, **kwargs)

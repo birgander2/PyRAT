@@ -31,6 +31,12 @@ class Pixmap(pyrat.ExportWorker):
             self.name = "EXPORT TO PIXMAP"
         if len(args) == 1:
             self.file = args[0]
+        if self.order == '0':
+            self.order = [0, 2, 1]
+        elif self.order == '1':
+            self.order = [0, 1, 2]
+        else:
+            self.order = [1, 2, 0]
 
     def writer(self, array, *args, **kwargs):
         if isinstance(self.file, tuple):  # remove file type if present
@@ -67,6 +73,12 @@ class Pixmap(pyrat.ExportWorker):
             return False
 
         if array.ndim == 3:
+            if out.shape[0] < 3:
+                oshp = out.shape
+                oshp[0] = 3
+                out = np.resize(out, oshp)
+            if out.shape[0] > 3:
+                out = out[0:3, ...]
             out = np.rollaxis(np.rollaxis(out[self.order, ...], 2), 2)
         else:
             out = colortables(self.palette)[1][out]
@@ -94,7 +106,7 @@ class Pixmap(pyrat.ExportWorker):
         ]
 
         if cls.key == 'JPEG':
-            paras[0]['extensions'] = 'JPEG file (*.jpg, *.jpeg)'
+            paras[0]['extensions'] = 'JPEG file (*.jpg *.jpeg)'
         elif cls.key == 'PNG':
             paras[0]['extensions'] = 'PNG file (*.png)'
         elif cls.key == 'TIFF':
@@ -118,7 +130,8 @@ class Pixmap(pyrat.ExportWorker):
                 img = np.squeeze(viewer.img)
                 try:
                     pilimg = Image.fromarray(img)
-                    pilimg.save(para['file'], format=cls.key)
+                    filename = para['file'][0] if isinstance(para['file'], tuple) else para['file']
+                    pilimg.save(filename, format=cls.key)
                     return True
                 except IOError as err:
                     logging.error("ERROR:" + str(err))

@@ -118,7 +118,7 @@ def subsample(args):
             s[d] = n1
             if mode == 'phase':
                 arr = np.angle(np.exp(1j * arr.reshape(s)).mean(d + 1))
-            elif mode == 'lables':
+            elif mode == 'labels':
                 arr = np.take(arr.reshape(s), 0, d + 1)
             else:
                 arr = arr.reshape(s).mean(d + 1)

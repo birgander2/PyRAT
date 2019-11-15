@@ -60,7 +60,31 @@ class CoherenceMat(pyrat.FilterWorker):
 def coherencemat(*args, **kwargs):
     return CoherenceMat(*args, **kwargs).run(**kwargs)
 
+class CoherenceCov(pyrat.FilterWorker):
+    """
+    Calc coherency from an inteferometric covariance matrix
+    """
+    def __init__(self, *args, **kwargs):
+        super(CoherenceCov, self).__init__(*args, **kwargs)
+        self.name = "CALC InSAR COHERENCE from CM"
+        if 'win' not in self.__dict__:
+            self.win = [3, 3]
+        if 'ch' not in self.__dict__:
+            self.ch = [0, 1]
+        self.blockoverlap = self.win[0] / 2 + 1
+        self.blockprocess = False
+        self.nthreads = 1
 
+    def filter(self, array, *args, **kwargs):
+        coh = np.abs(smooth(array[self.ch[0],self.ch[1],...], self.win)
+                     / np.sqrt(smooth(array[self.ch[0],self.ch[0],...], self.win)
+                               * smooth(array[self.ch[1],self.ch[1],...], self.win)))
+        return np.clip(np.nan_to_num(coh), 0.0, 1.0)  # get rid of numerical inaccuracies!
+
+
+@pyrat.docstringfrom(CoherenceCov)
+def coherencecov(*args, **kwargs):
+    return CoherenceCov(*args, **kwargs).run(**kwargs)
 
 class InterfMat(pyrat.FilterWorker):
     """

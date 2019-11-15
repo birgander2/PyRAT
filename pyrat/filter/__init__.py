@@ -3,6 +3,7 @@ help = pyrat_help(__name__, "\n  Collection of various image filtering and image
                             "processing routines")
 
 from .Despeckle import *
+from .Filter import *
 from .Edgedetect import *
 from .Texture import *
 from .Spectrum import *

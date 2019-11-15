@@ -38,31 +38,32 @@ class Rat(pyrat.ExportWorker):
             logging.error("Cannot export multiple layers at once!")
             return False
         else:
-            header = RatHeader()
+            if self.header is None:
+                self.header = RatHeader()
             dtype = data['dtype']
             var = [k for k, v in dtype_dict.items() if v == dtype][0]
-            header.Rat.ndim = data['ndim']
-            header.Rat.idl_shape[:data['ndim']] = data['shape'][::-1]
-            header.Rat.var = var
+            self.header.Rat.ndim = data['ndim']
+            self.header.Rat.idl_shape[:data['ndim']] = data['shape'][::-1]
+            self.header.Rat.var = var
             # todo: missing nchannels
             # todo: missing info string
 
             annotation = pyrat.data.getAnnotation(layer=self.layer)
             if "geo_projection" in annotation:
-                header.Geo.projection = annotation['geo_projection']
+                self.header.Geo.projection = annotation['geo_projection']
             if "geo_min_east" in annotation:
-                header.Geo.min_east = annotation['geo_min_east']
+                self.header.Geo.min_east = annotation['geo_min_east']
             if "geo_min_north" in annotation:
-                header.Geo.min_north = annotation['geo_min_north']
+                self.header.Geo.min_north = annotation['geo_min_north']
             if "geo_ps_east" in annotation:
-                header.Geo.ps_east = annotation['geo_ps_east']
+                self.header.Geo.ps_east = annotation['geo_ps_east']
             if "geo_ps_north" in annotation:
-                header.Geo.ps_north = annotation['geo_ps_north']
+                self.header.Geo.ps_north = annotation['geo_ps_north']
             if "geo_zone" in annotation:
-                header.Geo.zone = annotation['geo_zone']
+                self.header.Geo.zone = annotation['geo_zone']
 
             self.lun = open(self.file, 'wb')
-            self.lun.write(header)
+            self.lun.write(self.header)
             self.lun.flush()
             self.rat = RatFile(self.file)
             return True

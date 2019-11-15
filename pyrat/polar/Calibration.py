@@ -124,6 +124,43 @@ class Beta2Gamma(pyrat.FilterWorker):
 def beta2gamma(*args, **kwargs):
     return Beta2Gamma(*args, **kwargs).run(*args, **kwargs)
 
+class Beta2Sigma(pyrat.FilterWorker):
+    """
+    Beta0 to Sigma0 conversion
+    """
+    para = [
+        {'var': 'type', 'value': False, 'type': 'bool', 'text': 'intensity / covariance'}
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(Beta2Sigma, self).__init__(*args, **kwargs)
+        self.blockprocess = True
+
+    def filter(self, array, *args, **kwargs):
+        meta = kwargs['meta'][0]
+        arr = array[0]
+        dem = array[1].astype(np.float32)
+
+        r0 = meta['rd'] * meta['c0'] / 2.0 + meta['c0'] / meta['rsf'] / 2.0 * np.arange(meta['nrg'])
+        h0 = meta['h0']
+
+        for k in range(arr.shape[-2]):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                theta = np.arccos((h0 - dem[k, :]) / r0)
+            theta[~np.isfinite(theta)] = 0
+            if self.type is True:
+                arr[..., k, :] *= np.sin(theta)  # intensity
+            else:
+                arr[..., k, :] *= np.sqrt(np.sin(theta))  # amplitude
+
+        return arr
+
+
+@pyrat.docstringfrom(Beta2Sigma)
+def beta2sigma(*args, **kwargs):
+    return Beta2Sigma(*args, **kwargs).run(*args, **kwargs)
+
 
 class NESZFilter(pyrat.FilterWorker):
     """

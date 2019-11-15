@@ -37,7 +37,9 @@ cdef extern from "eigenH.h":
     cdef double sqrt3 "_sqrt3"
 
 # Main Beltrami routine. Calculates the neighbors distances using a region growing algorithm.
-def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=2] distance_array,  np.ndarray[np.int_t, ndim=2] all_neigh, np.ndarray[np.int_t, ndim=1] neighbours_local, float sigma, float beta, float betastr, int window_size, long rdim):
+def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=2] distance_array,  np.ndarray[np.int_t,
+    ndim=2] all_neigh, np.ndarray[np.int_t, ndim=1] neighbours_local, float sigma, float beta, float betastr,
+     int window_size, long rdim, looks, bint llmmse=True):
     cdef int ddim = np.shape(cov_array)[1]
     cdef double complex [:,:,:] avg = np.empty_like(cov_array)
     cdef double fac = sigma/(betastr * beta)
@@ -63,6 +65,9 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
     cdef float currentD, tempD
     cdef float gamma = 1
     cdef double gammad = np.sqrt(2)
+    cdef double klee, varx, vary, imean, vary0
+    cdef float sig2 = 1.0 / looks
+    cdef float sfak = 1.0 + sig2
 
     # For all pixels
     for k in range(maxp):
@@ -171,10 +176,39 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
         for i in range(totalW):
             down += tmp[i]
 
-        for i in range(ddim):
-            for j in range(ddim):
-                avg[k, i, j] = up[i, j] / down
+        if llmmse == True:
 
+            # calculate LLMMSE (Lee) factor
+            imean = 0.0
+            vary = 0
+            vary0 = 0
+            for i in range(totalW):
+                for j in range(ddim):
+                    imean += creal(included[i,j,j])
+            imean /= totalW
+
+            for i in range(totalW):
+                for j in range(ddim):
+                    vary0 += creal(included[i,j,j])
+                vary -= vary0 - (imean)**2
+            vary /= (totalW - 1)
+            varx = ((vary - sig2 * imean ** 2) / sfak)
+            if varx < 0.0:
+                varx = 0.0
+            klee = varx / vary
+
+            # LLMMSE filtering of region
+            for i in range(ddim):
+                for j in range(ddim):
+                    avg[k, i, j] = (cov_array[k,i,j] - up[i, j] / down) * klee + up[i, j] / down
+            #for v in range(nv):
+            #    for z in range(nz):
+            #        out[v, z, y, x] = (array[v, z, y, x] - res[v, z] / nnew) * klee + res[v, z] / nnew
+        else:
+            #        out[v, z, y, x] = res[v, z] / nnew
+            for i in range(ddim):
+                for j in range(ddim):
+                    avg[k, i, j] = up[i, j] / down
     return np.squeeze(avg)
 
 @cython.cdivision(True)

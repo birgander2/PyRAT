@@ -122,11 +122,15 @@ class PolExtract(pyrat.FilterWorker):
         super(PolExtract, self).__init__(*args, **kwargs)
         self.name = "Extract Channel"
         self.allowed_ndim = [3]
-        self.blockprocess = True
+        self.blockprocess = False
 
     def filter(self, array, *args, **kwargs):
         attrs = kwargs['meta']
-        ch_idx = attrs['CH_pol'].index(self.pol)
-        attrs['CH_pol'] = self.pol
+        chpol = attrs['CH_pol']
+        ch_idx = [i for i, x in enumerate(chpol) if x == self.pol.upper()]
+        attrs['CH_pol'] =[chpol[ch_idx[k]] for k in range(np.size(ch_idx))]
         return array[ch_idx,...]
 
+@pyrat.docstringfrom(PolExtract)
+def polextract(*args, **kwargs):
+    return PolExtract(*args, **kwargs).run(*args, **kwargs)
