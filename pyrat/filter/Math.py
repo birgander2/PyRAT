@@ -1,4 +1,4 @@
-import numexpr as ne
+aimport numexpr as ne
 import numpy as np
 import pyrat
 
