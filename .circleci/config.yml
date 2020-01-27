@@ -40,14 +40,14 @@ jobs:
             - ~/miniconda
           key: v1-dependencies-{{ checksum "requirements.txt" }}
 
-      - build:
+      - run:
           name: run build steps
           command: |
             source activate ~/miniconda
             python setup.py build_ext --inplace
             python setup.py install --user
 
-      - test:
+      - run:
           name: import pyrat and run basic commands
           command: |
             source activate ~/miniconda
