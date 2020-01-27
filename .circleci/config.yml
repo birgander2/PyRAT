@@ -35,6 +35,11 @@ jobs:
             source activate ~/miniconda
             conda env update -n base -f requirements.txt
 
+      - save_cache:
+          paths:
+            - ~/miniconda
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+
       - build:
           name: run build steps
           command: |
@@ -47,8 +52,3 @@ jobs:
           command: |
             source activate ~/miniconda
             python -c "from pyrat import *"
-
-      - save_cache:
-          paths:
-            - ~/miniconda
-          key: v1-dependencies-{{ checksum "requirements.txt" }}
