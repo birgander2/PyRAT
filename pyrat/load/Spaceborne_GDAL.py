@@ -197,7 +197,10 @@ class Sentinel1(pyrat.ImportWorker):
     """
 
     gui = {'menu': 'File|Import spaceborne', 'entry': 'Sentinel-1 (primitive)'}
-    para = [{'var': 'dir', 'value': '', 'type': 'opendir', 'text': 'Product directory'}]
+    para = [
+        {'var': 'dir', 'value': '', 'type': 'opendir', 'text': 'Product directory'},
+        {'var': 'swath', 'value': 1, 'type': 'int', 'range': [1, 3], 'text': 'Swath to Load'}
+    ]
 
     def __init__(self, *args, **kwargs):
         super(Sentinel1, self).__init__(*args, **kwargs)
@@ -207,14 +210,26 @@ class Sentinel1(pyrat.ImportWorker):
     def reader(self, *args, **kwargs):
         volfile = glob.glob(self.dir + "/manifest.safe")
         if len(volfile) > 0:
-            self.ds = gdal.Open(volfile[0])
-            if self.ds is not None:
+            ds = gdal.Open(volfile[0])
+            if ds is not None:
                 self.band = []
-                for band in range(self.ds.RasterCount):
-                    self.band.append(self.ds.GetRasterBand(band + 1))
-                nswath = len(self.band)
-                YSize = [band.YSize for band in self.band]
-                XSize = [band.XSize for band in self.band]
+                if ds.GetMetadata()['PRODUCT_TYPE'] == 'SLC':
+                    # Open sub-swath dataset and every band in it
+                    sds_list = ds.GetSubDatasets()
+                    self.ds = gdal.Open(sds_list[((self.swath-1)*3)+2][0])
+                    for band in range(self.ds.RasterCount):
+                        self.band.append(self.ds.GetRasterBand(band + 1))
+                        nswath = len(self.band)
+                        YSize = [band.YSize for band in self.band]
+                        XSize = [band.XSize for band in self.band]
+                else:
+                    # Keep existing functionality for GRD data
+                    self.ds = ds
+                    for band in range(self.ds.RasterCount):
+                        self.band.append(self.ds.GetRasterBand(band + 1))
+                        nswath = len(self.band)
+                        YSize = [band.YSize for band in self.band]
+                        XSize = [band.XSize for band in self.band]
             else:
                 logging.error("ERROR: product directory not recognised!")
                 return False, False
@@ -227,8 +242,11 @@ class Sentinel1(pyrat.ImportWorker):
 
         meta = {}
         meta['sensor'] = "Sentinel-1"
+        # Attach subdataset metadata with actual swath info
         metain = self.ds.GetMetadata()
         meta.update(metain)
+        # TODO: Attach per sub-swath GCP info
+        # TODO: Attach polarimetric interpretation to band
 
         return array, meta
 
