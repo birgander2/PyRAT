@@ -217,19 +217,15 @@ class Sentinel1(pyrat.ImportWorker):
                     # Open sub-swath dataset and every band in it
                     sds_list = ds.GetSubDatasets()
                     self.ds = gdal.Open(sds_list[((self.swath-1)*3)+2][0])
-                    for band in range(self.ds.RasterCount):
-                        self.band.append(self.ds.GetRasterBand(band + 1))
-                        nswath = len(self.band)
-                        YSize = [band.YSize for band in self.band]
-                        XSize = [band.XSize for band in self.band]
                 else:
                     # Keep existing functionality for GRD data
                     self.ds = ds
-                    for band in range(self.ds.RasterCount):
-                        self.band.append(self.ds.GetRasterBand(band + 1))
-                        nswath = len(self.band)
-                        YSize = [band.YSize for band in self.band]
-                        XSize = [band.XSize for band in self.band]
+                # Load bands as usual
+                for band in range(self.ds.RasterCount):
+                    self.band.append(self.ds.GetRasterBand(band + 1))
+                    nswath = len(self.band)
+                    YSize = [band.YSize for band in self.band]
+                    XSize = [band.XSize for band in self.band]
             else:
                 logging.error("ERROR: product directory not recognised!")
                 return False, False
