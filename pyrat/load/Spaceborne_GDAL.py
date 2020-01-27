@@ -223,9 +223,10 @@ class Sentinel1(pyrat.ImportWorker):
                 # Load bands as usual
                 for band in range(self.ds.RasterCount):
                     self.band.append(self.ds.GetRasterBand(band + 1))
-                    nswath = len(self.band)
-                    YSize = [band.YSize for band in self.band]
-                    XSize = [band.XSize for band in self.band]
+                # FIXME: These variables are unused
+                nswath = len(self.band)
+                YSize = [band.YSize for band in self.band]
+                XSize = [band.XSize for band in self.band]
             else:
                 logging.error("ERROR: product directory not recognised!")
                 return False, False
