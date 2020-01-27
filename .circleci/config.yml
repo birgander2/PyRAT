@@ -32,7 +32,7 @@ jobs:
           command: |
             wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
             bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda
-            source activate ~/miniconda
+            source ~/miniconda/bin/activate
             conda env update -n base -f requirements.txt
 
       - save_cache:
@@ -43,12 +43,12 @@ jobs:
       - run:
           name: run build steps
           command: |
-            source activate ~/miniconda
+            source ~/miniconda/bin/activate
             python setup.py build_ext --inplace
             python setup.py install --user
 
       - run:
           name: import pyrat and run basic commands
           command: |
-            source activate ~/miniconda
+            source ~/miniconda/bin/activate
             python -c "from pyrat import *"
