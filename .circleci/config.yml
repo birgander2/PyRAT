@@ -28,7 +28,7 @@ jobs:
             source ~/miniconda/bin/activate
             conda env update -n base -f requirements.txt
             conda upgrade sip
-            sudo apt-get install libfftw3-dev
+            sudo apt-get install -y libfftw3-dev
             conda install -c conda-forge liblapack
 
       - run:
