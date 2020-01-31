@@ -170,7 +170,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue["General"].addAction(self.viewBrighter)
         self.menue["General"].addAction(self.viewDarker)
         self.menue["General"].addSeparator()
-        self.viewSel = QtWidgets.QActionGroup(self.menue["General"], exclusive=True)
+        self.viewSel = QtWidgets.QActionGroup(self.menue["General"])
         foo = self.viewSel.addAction(self.viewAmpAct)
         self.menue["General"].addAction(foo)
         foo = self.viewSel.addAction(self.viewPhaAct)
