@@ -1,0 +1,20 @@
+channels:
+- defaults
+- conda-forge
+dependencies:
+- qgis=3.4
+- numexpr
+- scipy
+- h5py
+- pillow
+- cython
+- matplotlib
+- scikit-image
+- mako
+- pyqtgraph>=0.10
+- cvxpy
+- pywavelets
+- mkl-service
+- gdal>=2.1
+- libgdal>=2.1
+- hdf5=1.10.4
