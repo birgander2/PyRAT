@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+import pyrat
 
 class StatusBar:
     def __init__(self, parent):
@@ -47,8 +47,10 @@ class StatusBar:
             self.__statusLabel.show()
 
         if size > 0:
-            self.statusSize.setText(str(self.parent.size[0]) + ' x ' + str(self.parent.size[1]))
-        
+            # self.statusSize.setText(str(self.parent.size[0]) + ' x ' + str(self.parent.size[1]))
+            size = pyrat.data.queryLayer(self.parent.current)['dshape']
+            self.statusSize.setText(str(size[1]) + ' x ' + str(size[0]))
+
         if zoom > 0:
             self.statusZoom.setText(str(int(self.parent.factor)) + '%')
         
