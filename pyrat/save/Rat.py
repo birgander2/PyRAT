@@ -34,6 +34,9 @@ class Rat(pyrat.ExportWorker):
         if isinstance(self.file, tuple):                                       # remove file type if present
             self.file = self.file[0]
         data = pyrat.data.queryLayer(self.layer)
+        if data["dtype"] == "bool":                                            # save boolean as uint 8
+            data["dtype"] = "uint8"
+
         if isinstance(data, list):
             logging.error("Cannot export multiple layers at once!")
             return False
@@ -83,7 +86,8 @@ class Rat(pyrat.ExportWorker):
 
     def block_writer(self, array, *args, **kwargs):
         out = array[..., kwargs['valid'][0]:kwargs['valid'][1], :]
-
+        if out.dtype == "bool":                                            # save boolean as uint 8
+            out = out.astype("uint8")
         nx = out.shape[-1]
         ny = out.shape[-2]
         nchannels = 1
