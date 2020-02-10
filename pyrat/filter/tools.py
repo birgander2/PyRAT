@@ -44,7 +44,7 @@ def rebin(arr, *shape, **kwargs):
             if phase is True:
                 oarr = np.angle(np.exp(1j * oarr.reshape(s)).mean(d + 1))
             else:
-                oarr = oarr.reshape(s).mean(d + 1)
+                oarr = oarr.reshape(s).mean(d + 1).astype(oarr.dtype)
         elif n1 > n2:
             oarr = oarr.repeat(n1 // n2, axis=d)
         else:
