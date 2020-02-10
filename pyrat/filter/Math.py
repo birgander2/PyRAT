@@ -24,11 +24,14 @@ class MathExpr(pyrat.FilterWorker):
         self.blockprocess = True
 
     def filter(self, array, *args, **kwargs):
+        if isinstance(array, np.ndarray):   # list of arrays required as imput
+            array = [array]
 
         letter = 'A'
         for var in array:
             vars()[letter] = var
             letter = chr(ord(letter) + 1)
+
         out = ne.evaluate(self.expr)
         if self.dtype:
             out = out.astype(self.dtype)
