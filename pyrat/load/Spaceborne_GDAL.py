@@ -192,7 +192,7 @@ class Sentinel1(pyrat.ImportWorker):
     Very basic import of Sentinel-1 satellite data. The current driver uses GDAL and therefore does not
     perform debursting and combination of subswaths. This routine needs to be improved in future.
 
-    **author:** Andreas Reigber\n
+    **author:** Andreas Reigbergdal-1
     **status:** --beta-- Mostly untested!
     """
 
@@ -234,16 +234,17 @@ class Sentinel1(pyrat.ImportWorker):
             logging.error("ERROR: manifest.save file not found!")
             return False, False
         array = []
+        meta = {}
+        meta['CH_pol'] = []
         for band in self.band:
             array.append(band.ReadAsArray())
-
-        meta = {}
+            meta['CH_pol'].append(band.GetMetadata()["POLARISATION"])
+        array = np.stack(array)
         meta['sensor'] = "Sentinel-1"
         # Attach subdataset metadata with actual swath info
         metain = self.ds.GetMetadata()
         meta.update(metain)
         # TODO: Attach per sub-swath GCP info
-        # TODO: Attach polarimetric interpretation to band
 
         return array, meta
 
