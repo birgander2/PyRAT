@@ -7,7 +7,6 @@ h5py
 gdal>=2.1
 libgdal>=2.1
 pillow
-cython
 matplotlib
 lxml
 scikit-image
