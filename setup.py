@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 from distutils.core import setup
-from Cython.Build import cythonize
+from distutils.extension import Extension
 import numpy
 import os
+import pyrat.lib.nlsar.nlsetup as nlsetup
+
+try:
+    raise ImportError
+    from Cython.Build import cythonize
+    USE_CYTHON = True
+except ImportError:
+    USE_CYTHON = False
 
 os.environ['CFLAGS'] = '-Wno-maybe-uninitialized -Wno-cpp'
-
-import pyrat.lib.nlsar.nlsetup as nlsetup
 
 # extract internal version number (hehe, what a hack!)
 pyrat_version = 'unknown'
@@ -16,11 +22,22 @@ with open('pyrat/__init__.py') as f:
             _, _, pyrat_version = line.replace("'", '').split()
             break
 
+# set extensions (with or without cython)
+ext = '.pyx' if USE_CYTHON else '.c'
+extensions = [Extension("pyrat.lib.ste.interpolation_extensions", ["pyrat/lib/ste/interpolation_extensions"+ext]),
+              Extension("pyrat.filter.Despeckle_extensions", ["pyrat/filter/Despeckle_extensions"+ext]),
+              Extension("pyrat.viewer.tools_extensions", ["pyrat/viewer/tools_extensions"+ext]),
+              nlsetup.nlsar]
+
+if USE_CYTHON:
+    from Cython.Build import cythonize
+    extensions = cythonize(extensions, force=True)
+
 # the actual setup process
 setup(name='PyRAT',
       version=pyrat_version,
       description='PyRAT - Radar Tools',
-      ext_modules=cythonize(["pyrat/lib/ste/*.pyx", "pyrat/filter/*.pyx", "pyrat/viewer/*.pyx"]) + [nlsetup.nlsar],
+      ext_modules=extensions,
       include_dirs=[numpy.get_include()],
       packages=['pyrat', 'pyrat.save', 'pyrat.filter', 'pyrat.load', 'pyrat.filter', 'pyrat.viewer',
                 'pyrat.layer', 'pyrat.insar', 'pyrat.transform', 'pyrat.polar', 'pyrat.plugins',

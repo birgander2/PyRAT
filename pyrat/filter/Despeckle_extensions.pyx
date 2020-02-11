@@ -1,3 +1,4 @@
+# cython: language_level=3
 import cython
 cimport cython
 
@@ -18,13 +19,13 @@ ctypedef fused fltcpl_t:
 ctypedef cython.doublecomplex DTYPE_t
 
 cdef extern from "math.h":
-    double sqrt(double)
+#    double sqrt(double)
     double sin(double)
     double cos(double)
     double atan2(double, double)
     double fabs(double)
     double log(double)
-    double exp(double)
+#    double exp(double)
 cdef extern from "complex.h":
     double creal(double complex)
     double cimag(double complex)
