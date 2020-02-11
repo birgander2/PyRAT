@@ -6,7 +6,6 @@ import os
 import pyrat.lib.nlsar.nlsetup as nlsetup
 
 try:
-    raise ImportError
     from Cython.Build import cythonize
     USE_CYTHON = True
 except ImportError:
