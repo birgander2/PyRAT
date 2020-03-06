@@ -138,10 +138,20 @@ class PyRATBridge:
             pyratTool.name = pyratTool.__name__
 
         if len(pyratTool.para) > 0:
-            dlg = FlexInputDialog(pyratTool.para,
-                                  parent=iface.mainWindow(),
-                                  title=pyratTool.name,
-                                  doc=pyratTool.__doc__)
+            if pyratTool is pyrat.load.FSAR:
+                dlg = pyrat.load.FsarImportWidget(parent=iface.mainWindow())
+                dlg.update()
+            elif pyratTool is pyrat.load.ESAR:
+                dlg = pyrat.load.EsarImportWidget(parent=iface.mainWindow())
+                dlg.update()
+            elif pyratTool is pyrat.load.UAVSAR:
+                dlg = pyrat.load.UAVSARImportWidget(parent=iface.mainWindow())
+                dlg.update()
+            else:
+                dlg = FlexInputDialog(pyratTool.para,
+                                      parent=iface.mainWindow(),
+                                      title=pyratTool.name,
+                                      doc=pyratTool.__doc__)
 
         if len(pyratTool.para) == 0 or dlg.exec_() == 1:
             task = PyRATTask(pyratTool, para_backup)
