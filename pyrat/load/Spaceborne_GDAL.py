@@ -112,8 +112,10 @@ class PALSAR(pyrat.ImportWorker):
         meta['sensor'] = "PALSAR"
         metain = self.ds.GetMetadata()
         meta.update(metain)
+        meta['CH_pol'] = []
         for band in self.band:
             metain = band.GetMetadata()
+            meta['CH_pol'].append(metain['POLARIMETRIC_INTERP'])
             meta.update(metain)
         return meta
 
