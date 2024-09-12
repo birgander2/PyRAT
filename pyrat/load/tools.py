@@ -416,7 +416,7 @@ class Py2Xml(object):
             obj_arr = [Py2Xml(obj) for obj in v.iter('object')]
             return obj_arr[0] if size<=1 else obj_arr
 
-        conv = {'int': int, 'long': int, 'float': np.float, 'double': np.double, 'string': lambda s: s}
+        conv = {'int': int, 'long': int, 'float': np.float32, 'double': np.float64, 'string': lambda s: s}
         try:
             if size > 1:
                 val = np.asarray([conv[type](v) for v in v.text.strip('[]').split(',')]).reshape(shape)

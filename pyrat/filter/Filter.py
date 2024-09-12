@@ -98,7 +98,7 @@ class Gauss(pyrat.FilterWorker):
 
     gui = {'menu': 'Tools|Filter', 'entry': 'Gauss'}
     para = [
-        {'var': 'win', 'value': [7, 7], 'type': 'int', 'range': [3, 999], 'text': 'Sigma',
+        {'var': 'win', 'value': [7, 7], 'type': 'float', 'range': [1, 999], 'text': 'Sigma',
          'subtext': ['range', 'azimuth']},
         {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}
     ]
@@ -107,7 +107,7 @@ class Gauss(pyrat.FilterWorker):
         super(Gauss, self).__init__(*args, **kwargs)
         self.name = "GAUSS FILTER"
         self.blockprocess = True
-        self.blockoverlap = 2 * self.win[0] + 1
+        self.blockoverlap = 2 * int(self.win[0]) + 1
 
     def filter(self, array, *args, **kwargs):
         win = self.win
@@ -179,4 +179,37 @@ class PLR(pyrat.FilterWorker):
 def plr(*args, **kwargs):
     return PLR(*args, **kwargs).run(**kwargs)
 
+
+class KernelFilter(pyrat.FilterWorker):
+    """
+    Custom filtering of data arrays given a given (2d) window.
+
+    :author: Joel Amao
+    """
+    para = [{'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase'}]
+    def __init__(self, *args, **kwargs):
+        super(KernelFilter, self).__init__(*args, **kwargs)
+        self.name = "KERNEL FILTER"
+        self.blockprocess = True
+        self.blockoverlap = 11 // 2 + 1
+
+    def filter(self, array, *args, **kwargs):
+        win = self.win
+        if array.ndim == 3:
+            win = win[np.newaxis,...]
+        if array.ndim == 4:
+            win = win[np.newaxis, np.newaxis, ...]
+
+        if np.iscomplexobj(array):
+            return filters.convolve(array.real, weights=win) + 1j * filters.convolve(array.imag, weights=win)
+        elif self.phase is True:
+            tmp = np.exp(1j * array)
+            tmp = filters.convolve(tmp.real, weights=win) + 1j * filters.convolve(tmp.imag, weights=win)
+            return np.angle(tmp)
+        else:
+            return filters.convolve(array.real, weights=win)
+
+@pyrat.docstringfrom(KernelFilter)
+def kernelfilter(*args, **kwargs):
+    return KernelFilter(*args, **kwargs).run(**kwargs)
 

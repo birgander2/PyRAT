@@ -28,11 +28,12 @@ class MathExpr(pyrat.FilterWorker):
             array = [array]
 
         letter = 'A'
+        vars = {}
         for var in array:
-            vars()[letter] = var
+            vars[letter] = var
             letter = chr(ord(letter) + 1)
 
-        out = ne.evaluate(self.expr)
+        out = ne.evaluate(self.expr, local_dict=vars)
         if self.dtype:
             out = out.astype(self.dtype)
         return out

@@ -1,6 +1,4 @@
-import matplotlib
-matplotlib.use('Qt5Agg')
-import pylab as plt
+import matplotlib.pyplot as plt
 
 import pyrat
 import numpy as np

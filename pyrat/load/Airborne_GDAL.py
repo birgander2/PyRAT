@@ -6,7 +6,7 @@ import numpy as np
 
 class AIRSAR(pyrat.ImportWorker):
     """
-    Import of JPL AIRSAR covariance files (\*.STK).
+    Import of JPL AIRSAR covariance files (*.STK).
 
     **author:** Andreas Reigber\n
     **status:** --beta-- Mostly untested.

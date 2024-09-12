@@ -14,7 +14,12 @@ class FilterWorker(pyrat.Worker):
 
         if self.checkinput():
             self.pre(*args, **kwargs)
-            newlayer = self.layer_process(self.filter, silent=False, **kwargs)
+            if 'silent' in kwargs:
+                silent = kwargs['silent']
+                del kwargs['silent']
+            else:
+                silent = False
+            newlayer = self.layer_process(self.filter, silent=silent, **kwargs)
             pyrat.data.activateLayer(newlayer)
             self.post(*args, **kwargs)
 

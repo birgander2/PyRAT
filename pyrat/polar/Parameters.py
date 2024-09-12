@@ -6,7 +6,7 @@ from scipy.ndimage import filters
 class Entalpani(pyrat.FilterWorker):
     """
     Estimation of polarimetric entropy, alpha angle (max & mean) and anisotropy.
-    Expects a layer with an eigenvalue decomposition as imput.
+    Expects a layer with an eigenvalue decomposition (ew and ev) as input.
     """
     gui = {'menu': 'PolSAR|Parameters', 'entry': 'Entropy / Alpha / Anisotropy'}
 
@@ -20,13 +20,17 @@ class Entalpani(pyrat.FilterWorker):
         zdim = array[1].shape[0]
         sew = np.sum(array[0], axis=0)
         pi = (array[0] + (sew == 0)) / (sew + (sew == 0))
-
         np.seterr(divide='ignore', invalid='ignore')
         entropy = np.sum(-pi * np.log(pi) / np.log(zdim), axis=0)
         alphamax = np.arccos(np.abs(array[1][0, 0, ...]))
         alphamean = np.sum(np.arccos(np.abs(array[1][0, ...])) * pi, axis=0)
-        sew = array[0][1, ...] + array[0][2, ...]
-        anisotropy = (array[0][1, ...] - array[0][2, ...]) / (sew + (sew == 0))
+
+        sew = array[0][0, ...] + array[0][1, ...]
+        anisotropy = (array[0][0, ...] - array[0][1, ...]) / (sew + (sew == 0))
+
+#        sew = array[0][1, ...] + array[0][2, ...]
+#        anisotropy = (array[0][1, ...] - array[0][2, ...]) / (sew + (sew == 0))
+
         np.seterr(divide='warn', invalid='warn')
         meta = meta[0]
         meta['CH_name'] = ['Entropy', 'AlphaMax', 'AlphaMean', 'Anisotropy']

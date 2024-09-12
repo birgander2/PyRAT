@@ -494,12 +494,12 @@ class DiscLayer():
         self.id = group
         self.name = name
         if os.path.isfile(self.fn):                                            # import existing layer file
-            self.file = h5py.File(self.fn, 'a')
+            self.file = h5py.File(self.fn, 'r')
             self.group = self.file['D']
             self.attrs = {'_type':  'Disc'}
             self.attrs.update(self.file.attrs)
         else:                                                                  # new layer file
-            self.file = h5py.File(self.fn, 'a')
+            self.file = h5py.File(self.fn, 'w')
             self.group = self.file.create_group("D")
             self.attrs = {'_type':  'Disc'}
             lshape, dshape = deshape(shape)
@@ -512,6 +512,39 @@ class DiscLayer():
             self.attrs.update(self.file.attrs)
             self.group.create_group("P")                                              # Preview subgroup
             self.group.create_dataset("D", (np.prod(lshape),) + dshape, dtype=dtype)  # create data layer
+            self.reopen('r')
+
+    def reopen(self, mode):
+        """
+        Close the HDF file object and re-open it in a different mode (e.g. re-open for writing)
+        :param mode: a valid HDF5 file mode (e.g. 'r', 'a' or 'w')
+        :return:
+        """
+        self.file.close()
+        self.file = h5py.File(self.fn, mode)
+        self.group = self.file['D']
+
+    def __getstate__(self):
+        """
+        Custom serialisation for pickle (don't try to pickle HDF5 objects!)
+        :return: state of the disk layer
+        """
+        return { 'filename': self.fn,
+                 'group': self.id,
+                 'shape': self.file.attrs['_shape'],
+                 'dtype': self.file.attrs['_dtype'],
+                 'block': self.file.attrs['_block'],
+                 '__attrs__': self.attrs
+                 }
+
+    def __setstate__(self, state):
+        """
+        Custom de-serialization for un-pickle
+        :param state: returned from __getstate__ above
+        :return: None
+        """
+        self.__init__(**state, mode='r')
+        self.attrs.update(state['__attrs__'])
 
     def setCrop(self, block, reset=False):
         block = list(block)
@@ -526,6 +559,7 @@ class DiscLayer():
             # self.setMeta({'offset':self.attrs['_offset']})
 
     def setMeta(self, meta, layer=None):
+        self.reopen('a')
         if meta is not None:
             for k, v in meta.items():
                 if layer is not None and 'D' in layer and 'CH_' in k:
@@ -541,6 +575,7 @@ class DiscLayer():
                         if 'U' in str(v.dtype):  # if unicode
                             v = v.astype('S')    # then convert to string
                     self.group.attrs[k] = v
+        self.reopen('r')
 
     def getMeta(self, key=False, layer=None):
         meta = dict(self.group.attrs)
@@ -571,6 +606,7 @@ class DiscLayer():
         else:
             block[3] += offset[1]
 
+        self.reopen('a')
         if layer is None or layer == self.id:
             nchannels = np.prod(self.attrs["_lshape"])
             if self.attrs['_block'] == 'D':
@@ -590,6 +626,7 @@ class DiscLayer():
                 self.group["D"][channel, ...] = array
         else:
             logging.error('Layer name unknown')
+        self.reopen('r')
 
     def getData(self, block=(0, 0, 0, 0), layer=None):
         offset = self.attrs['_offset']

@@ -185,7 +185,7 @@ class IDAN(pyrat.FilterWorker):
         self.name = "IDAN FILTER"
         self.blockprocess = True
         self.blocksize = self.nmax * 4
-        self.blockoverlap = self.nmax
+        self.blockoverlap = int(0.5+np.sqrt(self.nmax))
         # self.nthreads = 1
         # todo: add a mininum nmax parameters
         # todo: test InSAR data
@@ -920,6 +920,7 @@ except ImportError:
 # ---------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------
 
+from pyrat.lib.ste import Blocxy
 
 try:
     from .Despeckle_extensions import cy_MCB
@@ -948,7 +949,7 @@ try:
             self.name = "N-Dimensional Beltrami Filter"
             self.blockprocess = True
             if 'win' not in self.__dict__:
-                self.win = 5
+                self.win = 7
             self.blocksize = (self.win - 2) * 8
             self.blockoverlap = self.win - 2
 
@@ -1095,7 +1096,8 @@ try:
                 newlayer = self.layer_process(self.realmcb, layer=oldlayer, beta=self.beta, sigma=self.sigma, betastr=self.phi,
                                               window_size=self.win, preprocess=self.preprocess,
                                               neighbours_local=self.neighbours_local, poldistance = self.poldis,
-                                              enl = enl, boxp = self.boxp, dF = self.dF, llmmse = self.llmmse)
+                                              enl = enl, boxp = self.boxp, dF = self.dF, llmmse = self.llmmse,
+                                              bs = self.bs)
 
                 if self.showlayers is False:
                     if iter != 0:
@@ -1222,7 +1224,7 @@ try:
                 k1 = np.zeros((rdim[1] * rdim[0], ldim[1]), dtype=np.complex64)
                 k2 = np.zeros((ldim[0], ldim[1], rdim[0], rdim[1]), dtype=np.complex64)
                 res = looks - np.floor(looks)
-                looks = np.int(np.floor(looks))
+                looks = int(np.floor(looks))
 
                 # Computing L number of k scattering vectors
                 for k in range(looks):
@@ -1320,7 +1322,7 @@ try:
 
         @staticmethod
         def realmcb(array, beta, sigma, betastr, window_size, preprocess, neighbours_local, poldistance,
-                    enl, boxp, dF, llmmse,  **kwargs):
+                    enl, boxp, dF, llmmse, bs,  **kwargs):
             """
             Main part of the filter, if the input is SLC then a preprocessing step
             is added where the data is edge filtered to better preserve statistics. This step is avoided
@@ -1334,6 +1336,7 @@ try:
             # Obtaining covariance matrices if numdim = 3, adding necessary dimensions if the data has numdim = 2
             if numdim == 3:
                 array = array[np.newaxis, :, :, :] * array[:, np.newaxis, :, :].conjugate()
+
             elif numdim == 2:
                 array = array[np.newaxis, np.newaxis, :, :]
             array[np.isnan(array)] = 0.0
@@ -1486,6 +1489,19 @@ try:
                                 distance_array[i, k] = MCB.distances(distmes, dist_data[k, :], dist_data[nx, :])
                                 i += 1
                     return np.asarray(distance_array)
+
+        @staticmethod
+        def get_res(block, pha):
+            corr = np.abs(block)
+            size = corr.shape[0]
+            amax = np.unravel_index(corr.argmax(), corr.shape)
+            row = np.fft.fftfreq(size)[amax[0]]
+            col = np.fft.fftfreq(size)[amax[1]]
+            res = np.zeros_like(pha)
+            res = [[pha[i, j] * np.exp(-1j * 2 * np.pi * (row * i + col * j)) for j in range(size)] for i in
+                   range(size)]
+            res = np.asarray(res)
+            return res, row, col, np.max(corr)
 
         @staticmethod
         def distances(dchoice, a_mat, b_mat):
@@ -1654,7 +1670,7 @@ class BilateralFilter(pyrat.FilterWorker):
             self.gammaR = 1.33
         if 'nit' not in self.__dict__:
             self.nit = 1
-        self.H = np.int(np.ceil(np.sqrt(3) * self.gammaS))
+        self.H = int(np.ceil(np.sqrt(3) * self.gammaS))
         self.blockoverlap = self.H
 
     def filter(self, array, *args, **kwargs):
@@ -1991,7 +2007,7 @@ try:
             self.name = "IDAN-Q SPECKLE FILTER"
             self.blockprocess = True
             # self.nthreads = 1
-            self.blockoverlap = self.size + 1
+            self.blockoverlap = int(np.sqrt(self.size) + 1)
             self.blocksize = self.blockoverlap * 4
 
         def filter(self, array, *args, **kwargs):
@@ -2015,6 +2031,7 @@ try:
                     array = np.abs(array)
                 span = array.copy()
                 array = array[np.newaxis, np.newaxis, ...]
+            span = np.asarray(span, dtype=np.float32)
             array = cy_idanq(span, array, looks=self.looks, nmax=self.size, llmmse=self.llmmse)
             array[~np.isfinite(array)] = 0.0
             if self.type == "amplitude":

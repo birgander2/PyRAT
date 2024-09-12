@@ -106,7 +106,6 @@ def rotate(*args, **kwargs):
     return Rotate(*args, **kwargs).run(*args, **kwargs)
 
 
-
 class PolExtract(pyrat.FilterWorker):
     """
     Extract a single polarimetric channel
@@ -129,8 +128,89 @@ class PolExtract(pyrat.FilterWorker):
         chpol = attrs['CH_pol']
         ch_idx = [i for i, x in enumerate(chpol) if x == self.pol.upper()]
         attrs['CH_pol'] =[chpol[ch_idx[k]] for k in range(np.size(ch_idx))]
-        return array[ch_idx,...]
+        return np.squeeze(array[ch_idx,...])
+
 
 @pyrat.docstringfrom(PolExtract)
 def polextract(*args, **kwargs):
     return PolExtract(*args, **kwargs).run(*args, **kwargs)
+
+
+class PolTrace(pyrat.FilterWorker):
+    """
+    Extract the trace of a polarimetric matrix
+
+    :author: Marc Jaeger
+    """
+    gui = {'menu': 'PolSAR|Transform', 'entry': 'Matrix Trace'}
+    para = [
+        {'var': 'average', 'value': True, 'type': 'bool', 'text': 'average trace by number of channels'}    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "Matrix Trace"
+        self.allowed_ndim = [4]
+        self.blockprocess = False
+
+    def filter(self, array, *args, **kwargs):
+        attrs = kwargs['meta']
+        attrs['CH_pol'] = attrs['CH_pol'][0][:2]
+        return np.einsum('ii...', array).real / (array.shape[0] if self.average else 1)
+
+
+@pyrat.docstringfrom(PolTrace)
+def poltrace(*args, **kwargs):
+    return PolTrace(*args, **kwargs).run(*args, **kwargs)
+
+
+
+class Quad2Compact(pyrat.FilterWorker):
+    """
+    Transforms quadpol data into compact pol dual-channel data
+
+    :author: Andreas Reigber
+    """
+    gui = {'menu': 'PolSAR|Transform', 'entry': 'Quad -> Compact'}
+    para = [
+        {'var': 'mode', 'value': 'CTLR', 'type': 'list', 'range': ['CTLR', 'PI4', 'DCP'], 'text': 'Compact mode'}]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "CTLR"
+        self.allowed_ndim = [3]
+        self.blockprocess = True
+
+    def filter(self, array, *args, **kwargs):
+        attrs = kwargs['meta']
+        pol = attrs['CH_pol']
+        idx_hh = pol.index('HH')
+        idx_vv = pol.index('VV')
+        if len(pol) == 4:
+            idx_hv = pol.index('HV')
+            idx_vh = pol.index('VH')
+        elif len(pol) == 3:
+            idx_hv = pol.index('XX')
+            idx_vh = pol.index('XX')
+
+        shp = list(array.shape)
+        shp[0] = 2
+        oarray = np.empty(shp, dtype=array.dtype)
+        if self.mode == "CTLR":
+            oarray[0, ...] = 1.0 / np.sqrt(2) * (array[idx_hh, ...] - 1j * array[idx_hv, ...])
+            oarray[1, ...] = 1.0 / np.sqrt(2) * (array[idx_vh, ...] - 1j * array[idx_vv, ...])
+            attrs['CH_pol'] = ["CTLR_1", "CTLR_2"]
+        if self.mode == "PI4":
+            oarray[0, ...] = 1.0 / np.sqrt(2) * (array[idx_hh, ...] + array[idx_hv, ...])
+            oarray[1, ...] = 1.0 / np.sqrt(2) * (array[idx_vh, ...] + array[idx_vv, ...])
+            attrs['CH_pol'] = ["PI4_1", "PI4_2"]
+        if self.mode == "DCP":
+            oarray[0, ...] = 0.5 * (array[idx_hh, ...] - array[idx_vv, ...] + 1j * array[idx_hv, ...] + 1j * array[idx_vh, ...])
+            oarray[1, ...] = 0.5 * (1j * array[idx_hh, ...] + 1j * array[idx_vv, ...] + array[idx_vh, ...] - array[idx_hv, ...])
+            attrs['CH_pol'] = ["DCP_1", "DCP_2"]
+        return oarray
+
+
+@pyrat.docstringfrom(Quad2Compact)
+def quad2compact(*args, **kwargs):
+    return Quad2Compact(*args, **kwargs).run(*args, **kwargs)
+

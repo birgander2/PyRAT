@@ -37,9 +37,9 @@ class KOMPSAT5(pyrat.ImportWorker):
         QLK = fileID['S01']['QLK']
         SBI = fileID['S01']['SBI']
 
-        if len(SBI.shape) is 2:
+        if len(SBI.shape) == 2:
             data = SBI[:, :]
-        elif len(SBI.shape) is 3:
+        elif len(SBI.shape) == 3:
             re = SBI[:, :, 0]
             im = SBI[:, :, 1]
             data = re + 1j * im
@@ -48,8 +48,8 @@ class KOMPSAT5(pyrat.ImportWorker):
 
         # crop image
         if not tuple(self.crop) == (0, 0, 0, 0):
-            self.crop[1] = data.shape[0] if self.crop[1] is 0 else self.crop[1]
-            self.crop[3] = data.shape[1] if self.crop[3] is 0 else self.crop[3]
+            self.crop[1] = data.shape[0] if self.crop[1] == 0 else self.crop[1]
+            self.crop[3] = data.shape[1] if self.crop[3] == 0 else self.crop[3]
             data = data[self.crop[2]:self.crop[3], self.crop[0]:self.crop[1]]
 
         # read meta

@@ -16,7 +16,7 @@ class Rat(pyrat.ImportWorker):
     """
 
     gui = {'menu': 'File|Import raster', 'entry': 'RAT (v1/v2)'}
-    para = [{'var': 'file', 'value': '', 'type': 'openfile', 'text': 'Open RAT file', 'extensions': 'RAT V1/V2 (*.rat)'}]
+    para = [{'var': 'file', 'value': '', 'type': 'openfiles', 'text': 'Open RAT file', 'extensions': 'RAT V1/V2 (*.rat)'}]
 
     def __init__(self, *args, **kwargs):
         super(Rat, self).__init__(*args, **kwargs)

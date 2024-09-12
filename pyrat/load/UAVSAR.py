@@ -1,154 +1,22 @@
 """
-Import UAVSAR data (SLC's and Kz's) to perform TomoSAR
-
-As in : https://github.com/mdenbina/kapok
+Import UAVSAR SLC's
 
 Author: Gustavo Daniel Martín del Campo Becerra
 E-Mail: Gustavo.MartindelCampoBecerra@dlr.de
 """
 
-import logging
-import os
-import os.path
-import time
 import pyrat
+import glob, os
+import logging
+import copy
 import numpy as np
-
-from glob import glob
-from scipy.ndimage.interpolation import zoom
+from PyQt5 import QtCore, QtWidgets
 from pyrat.tools import bcolors
-
-
-
-def findsegment(az, azsize):
-    """For a given azimuth index, return the segment number and
-    the azimuth index within the given segment.
-
-    Arguments:
-        az: Azimuth index of interest.
-        azsize: List containing the azimuth size of each segment.
-
-    Returns:
-        seg: Segment number.
-        azoff: Azimuth index within the segment.
-
-    """
-    azstart = np.insert(np.cumsum(azsize), 0, 0)[0:-1]
-
-    if az <= np.sum(azsize):
-        seg = np.max(np.where(azstart <= az))
-        azoff = az - azstart[seg]
-    else:
-        seg = azstart.shape[0] - 1
-        azoff = azsize[seg]
-        logging.info('')
-        logging.info(bcolors.WARNING + 'SLC row index of ' + str(az) + ' is larger than the size of the data. Returning maximum index.' + bcolors.ENDC)
-
-    return seg, azoff
-
-
-
-def mlook(data, mlwin):
-    """Multilook/rebin image to smaller image by averaging.
-
-    Arguments:
-        data: Array (up to 4D) containing data to multilook.
-        mlwin (tuple, int): Tuple of ints containing the smoothing window
-            sizes in each dimension.
-
-    Returns:
-        mldata: Array containing multilooked data.
-
-    """
-    if mlwin == (1, 1):
-        return data
-
-    data = np.asarray(data)
-    n_dim = len(data.shape)
-
-    nshape = np.array(data.shape) // np.array(list(mlwin) + [1] * (n_dim - len(mlwin)))
-
-    sh = np.array([[nshape[i], data.shape[i] // nshape[i]] for i, x in enumerate(nshape)]).flatten()
-
-    if n_dim == 2:
-        if not any(np.mod(data.shape, nshape)):
-            return data.reshape(sh).mean(-1).mean(1)
-        else:
-            return data[0:sh[0] * sh[1], 0:sh[2] * sh[3]].reshape(sh).mean(-1).mean(1)
-    elif n_dim == 3:
-        if not any(np.mod(data.shape, nshape)):
-            return data.reshape(sh).mean(1).mean(2).mean(3)
-        else:
-            return data[0:sh[0] * sh[1], 0:sh[2] * sh[3], 0:sh[4] * sh[5]] \
-                .reshape(sh).mean(1).mean(2).mean(3)
-    elif n_dim == 4:
-        if not any(np.mod(data.shape, nshape)):
-            return data.reshape(sh).mean(1).mean(2).mean(3).mean(4)
-        else:
-            return data[0:sh[0] * sh[1], 0:sh[2] * sh[3], 0:sh[4] * sh[5], 0:sh[6] * sh[7]] \
-                .reshape(sh).mean(1).mean(2).mean(3).mean(4)
-    else:
-        logging.info('')
-        logging.info(bcolors.FAIL + 'Given number of dimensions not considered. Aborting.' + bcolors.ENDC)
-
-    return
-
-
-
-def getslcblock(file, rngsize, azstart, azend, rngbounds=None, file2=None,
-                azsize=None):
-    """Load SLC data into a NumPy array buffer.  If the file2 argument is
-    specified in the arguments, this function will treat the two files as
-    consecutive segments, and will join them.
-
-    Arguments:
-        file (str): Filename of the first SLC.
-        rngsize (int): Number of columns (range bins).  Same for both SLCs.
-        azstart (int): Azimuth index at which to start the buffer, in the
-            first SLC.
-        azend (int): Azimuth index at which to end the buffer.  If file2
-            is specified, this is an azimuth index in the second SLC.  If
-            file2 is not specified, this is an azimuth index in the first SLC.
-            The row specified by azend is not actually included in the buffer,
-            as in the Python range() function.  (azend-1) is the last line
-            included in the buffer.  To load the entire SLC, azend should be
-            equal to the number of rows in SLC.
-        rngbounds (tuple, int): Starting and ending range bounds, if range
-            subsetting is desired.
-        file2 (str): Filename of the second SLC, if combining multiple
-            segments is desired.
-        azsize (int): Number of rows (azimuth bins) for the first SLC.  Only
-            required if file2 is specified.  Otherwise we only load in the
-            lines of the SLC before azend.
-
-    Returns:
-        block: NumPy array of complex64 datatype, containing the loaded SLC
-        data between the specified azimuth bounds.
-
-    """
-    if file2 is None:
-        byteoffset = rngsize * 8 * azstart
-        slc = np.memmap(file, dtype='complex64', mode='c', offset=byteoffset, shape=(azend - azstart, rngsize))
-        if rngbounds is not None:
-            slc = slc[:, rngbounds[0]:rngbounds[1]]
-        return slc
-    elif azsize is None:
-        logging.info('')
-        logging.info(bcolors.FAIL + '"file2" argument specified, but "azsize" argument missing. Aborting.' + bcolors.ENDC)
-        return
-    else:
-        byteoffset = rngsize * 8 * azstart
-        slca = np.memmap(file, dtype='complex64', mode='c', offset=byteoffset, shape=(azsize - azstart, rngsize))
-        slcb = np.memmap(file2, dtype='complex64', mode='c', shape=(azend, rngsize))
-        if rngbounds is not None:
-            slca = slca[:, rngbounds[0]:rngbounds[1]]
-            slcb = slcb[:, rngbounds[0]:rngbounds[1]]
-        return np.vstack((slca, slcb))
-
+from pyrat.viewer.Widgets import HLine, CropBoxWidget, BoolWidget, FileselWidget, ProductContentWidget_UAVSAR
 
 
 class Ann(object):
-    """Class for loading and interacting with a UAVSAR annotation file."""
+    """Class for loading and interacting with an UAVSAR annotation file."""
 
     def __init__(self, file):
         """Load in the specified .ann file as a list of strings and
@@ -189,455 +57,340 @@ class Ann(object):
         return None
 
 
-
-class Scene(pyrat.Worker):
-    """Scene object for reading the UAVSAR dataset composed of only one segment.
-        Arguments:
-            infile (str): Path and filename of a UAVSAR .ann file containing the
-                metadata for a UAVSAR SLC stack.
-            azbounds: List containing starting and ending SLC azimuth index for
-                desired subset.  Data outside these bounds will not be loaded.
-                Default is to import all data.
-            rngbounds: List containing starting and ending SLC range index for
-                desired subset.  Data outside these bounds will not be loaded.
-                Default is to import all data.
-            select: List containing desired track indices to import.  For example,
-                tracks=[0,1] will import only the first two tracks listed in the
-                annotation file.  Default: All tracks imported.
-            master: Master track index.
+class UAVSAR(pyrat.ImportWorker):
     """
+    Import of UAVSAR SLC product. This class loads the SLC data of one or several bands and / or one
+    or several polarisations and / or one of several tracks, together with their meta data into a
+    new PyRAT layer(s).
+
+    :param dir: The UAVSAR product directory.
+    :type dir: str
+    :param bands: Load only this band. '*' to load all bands. Default='*'
+    :type band: string
+    :param polar: Load only this polarisation. '*' to load all bands. Default='*'
+    :type polar: string
+    :param tracks: Load only this track. '*' to load all tracks. Default='*'
+    :type tracks: string
+    :param product: Selects the product component to import. Default='SLC'
+    :type product: string
+    :param crop: A crop region / subset to import (az_start, az_end, rg_start, rg_end)
+    :type crop: tuple
+    :param sym: PolSAR symmetrisation. If set, HV and VH are averaged on import. Default=False
+    :type sym: bool
+    :author:  Gustavo Daniel Martín del Campo Becerra
+    """
+
+    gui = {'menu': 'File|Import airborne', 'entry': 'UAVSAR'}
     para = [
-        {'var': 'infile', 'value': ''},
-        {'var': 'azbounds', 'value': None},
-        {'var': 'rngbounds', 'value': None},
-        {'var': 'select', 'value': None},
-        {'var': 'master', 'value': 0}
-    ]
+        {'var': 'dir', 'value': ''},
+        {'var': 'band', 'value': '*'},
+        {'var': 'polar', 'value': '*'},
+        {'var': 'tracks', 'value': '*'},
+        {'var': 'product', 'value': 'SLC'},
+        {'var': 'crop', 'value': [0, 0, 0, 0]},
+        {'var': 'sym', 'value': False, 'type': 'bool', 'text': 'Cross-polar symmetrisation'}]
 
     def __init__(self, *args, **kwargs):
-        """Scene initialization method."""
-        super(Scene, self).__init__(*args, **kwargs)
-        self.name = "UAVSAR COV AND KZ IMPORT"
-        self.blockprocess = False
-        return
+        super(UAVSAR, self).__init__(*args, **kwargs)
+        self.name = "UAVSAR SLC IMPORT"
+        if len(args) == 1:
+            self.dir = args[0]
 
+    def reader(self, *args, **kwargs):
+        array = []
+        meta = []
 
+        code_pos = 5
+        code_pos_tracks = 3
 
-    ###################
-    # Getters
-    def get_npols(self):
-        return self.__num_pol
+        files = glob.glob(os.path.join(self.dir, '*' + '_00' + self.tracks + '_' + '*' + '_' + self.band.upper()
+                                       + '*' + self.polar.upper() + '*.slc'))
+        files_ann = glob.glob(os.path.join(self.dir, '*' + '_00' + self.tracks + '_' + '*' + '_' + self.band.upper()
+                                           + '*' + self.polar.upper() + '*.ann'))
+        pols = list(set([os.path.basename(slc).split('_')[code_pos][4:6].upper() for slc in files]))
+        bands = list(set([os.path.basename(slc).split('_')[code_pos][0] for slc in files]))
+        tracks = list(set([os.path.basename(slc).split('_')[code_pos_tracks][-1].upper() for slc in files]))
+        tracks.sort()
 
-    def get_ntracks(self):
-        return self.__num_tracks
+        for band in bands:
+            if len(bands) > 0 and self.band != '*' and (band not in self.band):
+                logging.warning(band + '-band data not found in specified directory')
+            else:
+                bandfiles = [f for f in files if '_' + band in f]
+                bandfiles_ann = [f for f in files_ann if '_' + band in f]
 
-    def get_site(self):
-        return self.__site
+            trackfiles = []
+            trackfiles_ann = []
+            for track in tracks:
+                trackfiles.append([f for f in bandfiles if '_00' + track in f])
+                trackfiles_ann.append([f for f in bandfiles_ann if '_00' + track in f])
 
-    def get_url(self):
-        return self.__url
+            for index in range(len(trackfiles)):
+                azsize_crop = self.crop[1] - self.crop[0]
+                rgsize_crop = self.crop[3] - self.crop[2]
 
-    def get_sensor(self):
-        return self.__sensor
-
-    def get_stack_name(self):
-        return self.__stack_name
-
-
-
-    ###################
-    # Loading data
-    def run(self, *args, **kwargs):
-
-        # Load the annotation file.
-        try:
-            ann = Ann(self.infile)
-        except:
-            logging.info('')
-            logging.info(bcolors.FAIL + "Cannot load UAVSAR annotation file. Aborting." + bcolors.ENDC)
-            return
-
-        # Get SLC dimensions
-        rngsize_slc = int(ann.query('slc_1_1x1 Columns'))
-        azsize_slc = int(ann.query('slc_1_1x1 Rows'))
-
-        # Get track filenames and number of tracks.
-        temp = ann.query('stackline1')
-        num = 1
-        if temp is not None:
-            tracknames = [temp.split('_L090')[0]]
-            num += 1
-            temp = ann.query('stackline' + str(num))
-            while temp is not None:
-                tracknames.append(temp.split('_L090')[0])
-                num += 1
-                temp = ann.query('stackline' + str(num))
-        else:
-            logging.info('')
-            logging.info(bcolors.FAIL + "Cannot find track names in UAVSAR annotation file. Aborting." + bcolors.ENDC)
-            return
-
-        # Subset track names if desired tracks were specified:
-        tracknames = np.array(tracknames)
-        if self.select is not None:
-            tracks = np.array(self.select, dtype='int')
-            tracknames = tracknames[tracks]
-
-        logging.info('')
-        logging.info(bcolors.OKBLUE + "Importing metadata" + bcolors.ENDC)
-
-        self.__tracks = np.array(tracknames, dtype='S')
-        self.__num_tracks = len(tracknames)  # Number of Tracks
-        self.__num_baselines  = int(self.__num_tracks * (self.__num_tracks - 1) / 2)  # Number of Baselines
-        self.__num_pol = int(3)  # Number of Polarizations (HH, sqrt(2)*HV, VV)
-        self.__num_elements = self.__num_tracks * self.__num_pol
-
-        self.__stack_name = ann.query('Stack Name')
-        self.__site = ann.query('Site Description')
-        self.__url = ann.query('URL')
-        self.__sensor = 'UAVSAR'
-
-        logging.info('')
-        logging.info(bcolors.OKBLUE + 'Stack ID: ' + self.__stack_name + bcolors.ENDC)
-        logging.info(bcolors.OKBLUE + 'Site Description: ' + self.__site + bcolors.ENDC)
-        logging.info(bcolors.OKBLUE + 'URL: ' + self.__url + bcolors.ENDC)
-
-        self.__average_altitude = float(ann.query('Average Altitude'))
-        self.__image_starting_slant_range = float(ann.query('Image Starting Slant Range')) * 1000
-        self.__slc_azimuth_pixel_spacing = float(ann.query('1x1 SLC Azimuth Pixel Spacing'))
-        self.__slc_slant_range_pixel_spacing = float(ann.query('1x1 SLC Range Pixel Spacing'))
-
-        # Get SCH Peg from Annotation File
-        self.__peglat = float(ann.query('Peg Latitude'))
-        self.__peglon = float(ann.query('Peg Longitude'))
-        self.__peghdg = float(ann.query('Peg Heading'))
-
-        if (self.azbounds is not None) or (self.rngbounds is not None):
-            self.__subset = True
-        else:
-            self.__subset = False
-
-        # Check azimuth bounds for validity.
-        if self.azbounds is None:
-            self.azbounds = [0, np.sum(azsize_slc)]
-
-        if self.azbounds[1] <= self.azbounds[0]:
-            logging.info('')
-            logging.info(bcolors.FAIL + 'Invalid azimuth bounds. Must be ascending. Aborting.' + bcolors.ENDC)
-            return
-
-        if self.azbounds[0] < 0:
-            logging.info('')
-            logging.info(bcolors.WARNING + 'Lower azimuth bound (' + str(self.azbounds[0]) + ') is less than zero. Setting lower azimuth bound to zero.' + bcolors.ENDC)
-            self.azbounds[0] = 0
-
-        if self.azbounds[1] > np.sum(azsize_slc):
-            logging.info('')
-            logging.info(bcolors.WARNING + 'Upper azimuth bound (' + str(self.azbounds[1]) + ') greater than number of SLC lines (' + str(azsize_slc) + ').' + bcolors.ENDC)
-            logging.info(bcolors.WARNING + 'Setting upper azimuth bound to ' + str(azsize_slc) + '.' + bcolors.ENDC)
-            self.azbounds[1] = np.sum(azsize_slc)
-
-        # Check range bounds for validity.
-        if self.rngbounds is None:
-            self.rngbounds = [0, rngsize_slc]
-
-        if self.rngbounds[1] <= self.rngbounds[0]:
-            logging.info('')
-            logging.info(bcolors.FAIL + 'Invalid range bounds. Must be ascending. Aborting.' + bcolors.ENDC)
-            return
-
-        if self.rngbounds[0] < 0:
-            logging.info('')
-            logging.info(bcolors.WARNING + 'Lower range bound (' + str(self.rngbounds[0]) + ') is less than zero.  Setting lower azimuth bound to zero.' + bcolors.ENDC)
-            self.rngbounds[0] = 0
-
-        if self.rngbounds[1] > rngsize_slc:
-            logging.info('')
-            logging.info(bcolors.WARNING + 'Upper range bound (' + str(self.rngbounds[1]) + ') greater than number of SLC columns (' + str(rngsize_slc) + ').' + bcolors.ENDC)
-            logging.info(bcolors.WARNING + 'Setting upper range bound to ' + str(rngsize_slc) + '.' + bcolors.ENDC)
-            self.rngbounds[1] = rngsize_slc
-
-        # Image dimensions:
-        azsize = (self.azbounds[1] - self.azbounds[0])
-        rngsize = (self.rngbounds[1] - self.rngbounds[0])
-        self.__dim = (azsize, rngsize)
-        self.__dim_slc = (int(np.sum(azsize_slc)), int(rngsize_slc))
-        self.__dim_slc_stack = (self.__num_pol, azsize, rngsize)
-        self.__dim_kz_stack = (self.__num_tracks, azsize, rngsize)
-
-        # Path containing SLCs and other files (assume in same folder as .ann):
-        datapath = os.path.dirname(self.infile)
-        if datapath != '':
-            datapath = datapath + '/'
-
-        # Get filenames of SLCs for each track, in polarization order HH, HV, VV.
-        slcfiles = []
-        for tr in range(self.__num_tracks):
-            for pol in ['HH', 'HV', 'VV']:
-                file = glob(datapath + tracknames[tr] + '*' + pol + '_*_s' + str(1) + '_1x1.slc')
-
-                if len(file) == 1:
-                    slcfiles.append(file[0])
-                elif len(file) > 1:
+                if azsize_crop <= 0 or rgsize_crop <= 0:
                     logging.info('')
-                    logging.info(bcolors.FAIL + 'Too many SLC files matching pattern: "' + datapath + tracknames[tr] + '*_' + pol + '_*_1x1.slc' + '". Aborting.' + bcolors.ENDC)
-                    return
-                else:
-                    logging.info('')
-                    logging.info(bcolors.FAIL + 'Cannot find SLC file matching pattern: "' + datapath + tracknames[tr] + '*_' + pol + '_*_1x1.slc' + '".  Aborting.' + bcolors.ENDC)
+                    logging.info(bcolors.FAIL + "Incorrect crop size. Aborting." + bcolors.ENDC)
                     return
 
-        slcstack = np.empty(self.__dim_slc_stack, dtype='complex64')
-        slc_layer = []
-        index = 0
-        for slcnum in range(0, self.__num_elements):
-            logging.info('')
-            logging.info(bcolors.OKBLUE + 'Loading SLCs: ' + str(slcnum + 1) + '/' + str(self.__num_elements) + '. (' + time.ctime() + ')' + bcolors.ENDC)
+                barr = np.empty((len(trackfiles[index]), azsize_crop, rgsize_crop), dtype='complex64')
+                bmeta = {}
+                bmeta['sensor'] = 'UAVSAR'
+                bmeta['band'] = band
+                bmeta['CH_pol'] = [' '] * len(pols)
+                for k, f in enumerate(trackfiles[index]):
+                    try:
+                        ann = Ann(trackfiles_ann[index][k])
+                    except:
+                        logging.info('')
+                        logging.info(bcolors.FAIL + "Cannot load UAVSAR annotation file. Aborting." + bcolors.ENDC)
+                        return
 
-            file = slcfiles[slcnum]
-            slc = np.memmap(file, dtype='complex64', mode='c', shape=(self.__dim_slc))
+                    bmeta['CH_pol'][k] = os.path.basename(trackfiles[index][k]).split('_')[code_pos][4:6].upper()
 
-            if self.rngbounds is not None:
-                slc = slc[:, self.rngbounds[0]:self.rngbounds[1]]
-            if self.azbounds is not None:
-                slc = slc[self.azbounds[0]:self.azbounds[1], :]
-
-            if (slcnum % 3) == 1:  # HV Polarization
-                slcstack[index,...] = np.sqrt(2) * slc
-            else:  # HH or VV Polarization
-                slcstack[index,...] = slc
-
-            index += 1
-            if index == 3:
-                slc_layer.append(pyrat.adddata(slcstack))
-                index = 0
-
-        # LLH Subset Bounds and Offsets for Trimming Multilooked Arrays
-        mlwin_lkv = (int(ann.query('Number of Azimuth Looks in 2x8 SLC')), int(ann.query('Number of Range Looks in 2x8 SLC')))
-        azllhstart = self.azbounds[0] // mlwin_lkv[0]
-        azllhend = self.azbounds[1] // mlwin_lkv[0]
-        azllhoffset = self.azbounds[0] % mlwin_lkv[0]
-        rngllhstart = self.rngbounds[0] // mlwin_lkv[1]
-        rngllhend = self.rngbounds[1] // mlwin_lkv[1]
-        rngllhoffset = self.rngbounds[0] % mlwin_lkv[1]
-
-        # Import .kz files
-
-        self.__kz_units = 'radians/meter'
-        self.__kz_description = 'Interferometric Vertical Wavenumber'
-        self.__kz_indexing = 'track'
-
-        kz_stack = np.empty(self.__dim_kz_stack, dtype='complex64')
-        for tr in range(0, self.__num_tracks):
-            logging.info('')
-            logging.info(bcolors.OKBLUE + 'Importing kz between track ' + str(tr) + ' and reference track. (' + time.ctime() + ')' + bcolors.ENDC)
-
-            kz_temp = None
-            file = glob(datapath + tracknames[tr] + '*s' + str(1) + '*.kz')
-            file_alt = glob(datapath + tracknames[tr] + '*.kz')
-
-            if len(file) >= 1:
-                kz_rows = int(ann.query('lkv_' + str(1) + '_2x8 Rows'))
-                kz_cols = int(ann.query('lkv_' + str(1) + '_2x8 Columns'))
-                if kz_temp is None:
-                    kz_temp = np.memmap(file[0], dtype='float32', mode='r', shape=(kz_rows, kz_cols))
-                else:
-                    kz_temp = np.vstack(
-                        (kz_temp, np.memmap(file[0], dtype='float32', mode='r', shape=(kz_rows, kz_cols))))
-            elif (len(file_alt) >= 1):
-                kz_rows = int(ann.query('lkv_' + str(1) + '_2x8 Rows'))
-                kz_cols = int(ann.query('lkv_' + str(1) + '_2x8 Columns'))
-                if kz_temp is None:
-                    kz_temp = np.memmap(file_alt[0], dtype='float32', mode='r', shape=(kz_rows, kz_cols))
-                else:
-                    kz_temp = np.vstack((kz_temp, np.memmap(file_alt[0], dtype='float32', mode='r', shape=(kz_rows, kz_cols))))
-            else:
-                break
-
-            # kz files appear to be kz_i0 rather than kz_0i.  Multiplying by -1 so that in the Scene object, kz_ij = kz[j] - kz[i].
-            kz_stack[tr,...] = -1*zoom(kz_temp[azllhstart:azllhend,rngllhstart:rngllhend],mlwin_lkv)[azllhoffset:(azllhoffset+azsize),rngllhoffset:(rngllhoffset+rngsize)]
-
-        kz = np.empty(self.__dim_kz_stack, dtype=np.complex64)
-        for i in range(self.__num_tracks):
-            kz[i, ...] = (kz_stack[self.master,...] - kz_stack[i,...])
-
-        kz_layer = pyrat.adddata(kz)
-
-        logging.info('')
-        logging.info(bcolors.OKBLUE + 'Complete. (' + time.ctime() + ')' + bcolors.ENDC)
-
-        return kz_layer, slc_layer
-
-
-    def quicklook(self, tr=0, pol='hh', mlwin=(40, 10), savefile=None, crop=None):
-        """Display a quick look intensity image for a given UAVSAR SLC stack.
-
-        Arguments:
-            infile (str): Input annotation file of the UAVSAR stack.
-            tr (int): Track index of the desired image.  Default: 0
-                (first track in .ann file).
-            pol (str): Polarization str of the desired image.  Options are 'hh',
-                'hv', or 'vv'.  Default: 'hh'
-            mlwin (tuple): Multi-looking window size to use for the quick look
-                image.  Note:  The original SLC azimuth indices will be displayed
-                on the axes of the image, so that the image can be used as a guide
-                for suitable values of the azbounds and rngbounds keywords in
-                uavsar.load.  These multi-looking windows are in terms
-                of the original 1x1 SLC image size, not the 8x2 or 4x1
-                image sizes.
-            savefile (str): Output path and filename to save the displayed image.
-
-        """
-        import matplotlib.pyplot as plt
-        import matplotlib.patches as patches
-
-        # Load the annotation file.
-        try:
-            ann = Ann(self.infile)
-        except:
-            logging.info('')
-            logging.info(bcolors.FAIL + "Cannot load UAVSAR annotation file. Aborting." + bcolors.ENDC)
-            return
-
-        # Get track filenames and number of tracks.
-        temp = ann.query('stackline1')
-        num = 1
-        if temp is not None:
-            tracknames = [temp.split('_L090')[0]]
-            num += 1
-            temp = ann.query('stackline' + str(num))
-            while temp is not None:
-                tracknames.append(temp.split('_L090')[0])
-                num += 1
-                temp = ann.query('stackline' + str(num))
-        else:
-            logging.info('')
-            logging.info(
-                bcolors.FAIL + "Cannot find track names in UAVSAR annotation file. Aborting." + bcolors.ENDC)
-            return
-
-        # Path containing SLCs and other files (assume in same folder as .ann):
-        datapath = os.path.dirname(self.infile)
-        if datapath != '':
-            datapath = datapath + '/'
-
-        pol = pol.upper()
-
-        slcfiles = []
-        file = glob(datapath + tracknames[tr] + '*' + pol + '_*_s' + str(1) + '_2x8.slc')
-
-        if len(file) == 1:
-            slcfiles.append(file[0])
-            slcwindow = (8, 2)
-            rngsize_slc = ann.query('slc_1_2x8 Columns')
-            azsize_slc = ann.query('slc_1_8x2 Rows')
-        elif len(file) > 1:
-            logging.info('')
-            logging.info(
-                bcolors.FAIL + 'Too many SLC files matching pattern: "' + datapath + tracknames[tr] + '*_' + pol + '_*_2x8.slc' + '".  Aborting.' + bcolors.ENDC)
-            return
-        else:
-            file = glob(datapath + tracknames[tr] + '*' + pol + '_*_s' + str(1) + '_4x1.slc')
-
-            if len(file) == 1:
-                slcfiles.append(file[0])
-                slcwindow = (4, 1)
-                rngsize_slc = ann.query('slc_1_1x4 Columns')
-                azsize_slc = ann.query('slc_1_1x4 Rows')
-            elif len(file) > 1:
-                logging.info('')
-                logging.info(bcolors.FAIL + 'Too many SLC files matching pattern: "' + datapath + tracknames[
-                    tr] + '*_' + pol + '_*_1x4.slc' + '". Aborting.' + bcolors.ENDC)
-                return
-            else:
-                file = glob(datapath + tracknames[tr] + '*' + pol + '_*_s' + str(1) + '_1x1.slc')
-
-                if len(file) == 1:
-                    slcfiles.append(file[0])
-                    slcwindow = (1, 1)
                     rngsize_slc = ann.query('slc_1_1x1 Columns')
                     azsize_slc = ann.query('slc_1_1x1 Rows')
-                elif len(file) > 1:
-                    logging.info('')
-                    logging.info(bcolors.FAIL + 'Too many SLC files matching pattern: "' + datapath + tracknames[
-                        tr] + '*_' + pol + '_*_1x1.slc' + '". Aborting.' + bcolors.ENDC)
-                    return
-                else:
-                    logging.info('')
-                    logging.info(bcolors.FAIL + 'Cannot find SLC file matching pattern: "' + datapath + tracknames[
-                            tr] + '*_' + pol + '_*_1x1.slc' + '". Aborting.' + bcolors.ENDC)
-                    return
 
-        mlwin = (mlwin[0] // slcwindow[0], mlwin[1] // slcwindow[1])
-        azsize = np.sum(azsize_slc) // mlwin[0]
-        rngsize = rngsize_slc // mlwin[1]
+                    # Load slc
+                    qlimage = np.zeros((azsize_crop, rgsize_crop), dtype='complex64')
 
-        # Get SLC dimensions for the 1x1 SLCs -- these get displayed on the plot axes.
-        rngsize_slc1x1 = ann.query('slc_1_1x1 Columns')
-        azsize_slc1x1 = ann.query('slc_1_1x1 Rows')
+                    num_blocks = int(np.sum(azsize_slc) * rngsize_slc * 8 / 1e9)
+                    if num_blocks < 2:
+                        num_blocks = 2
+                    az_vector = np.round(np.linspace(self.crop[0], self.crop[1], num=num_blocks + 1)).astype('int')
+                    az_vector[num_blocks] = self.crop[1]
 
-        # Load and multilook quicklook intensity image.
-        qlimage = np.zeros((azsize, rngsize), dtype='float32')
+                    for n, azstart in enumerate(az_vector[0:-1]):
+                        azend = az_vector[n + 1]
+                        azstart_slc = azstart
+                        azend_slc = azend
+                        seg_start, azoffset_start = self.findsegment(azstart_slc, azsize_slc)
+                        seg_end, azoffset_end = self.findsegment(azend_slc, azsize_slc)
 
-        num_blocks = int(np.sum(azsize_slc) * rngsize_slc * 8 / 1e9)
-        if num_blocks < 2:
-            num_blocks = 2
-        az_vector = np.round(np.linspace(0, azsize, num=num_blocks + 1)).astype('int')
-        az_vector[num_blocks] = azsize
+                        if seg_start == seg_end:
+                            slc = self.getslcblock(f, rngsize_slc, azoffset_start, azoffset_end,
+                                                   rngbounds=self.crop[-2:])
+                        else:
+                            file2 = f[seg_end]
+                            slc = self.getslcblock(f, rngsize_slc, azoffset_start, azoffset_end, file2=file2,
+                                                   azsize=azsize_slc[seg_start], rngbounds=self.crop[-2:])
 
-        for n, azstart in enumerate(az_vector[0:-1]):
-            azend = az_vector[n + 1]
-            azstart_slc = azstart * mlwin[0]
-            azend_slc = azend * mlwin[0]
-            seg_start, azoffset_start = findsegment(azstart_slc, azsize_slc)
-            seg_end, azoffset_end = findsegment(azend_slc, azsize_slc)
+                        qlimage[(azstart - self.crop[0]):(azend - self.crop[0]), :] = slc
 
-            file = slcfiles[seg_start]
+                    barr[k, ...] = qlimage
 
-            if seg_start == seg_end:
-                slc = getslcblock(file, rngsize_slc, azoffset_start, azoffset_end)
-            else:
-                file2 = slcfiles[seg_end]
-                slc = getslcblock(file, rngsize_slc, azoffset_start, azoffset_end, file2=file2,
-                                  azsize=azsize_slc[seg_start])
+                if self.sym is True and barr.ndim == 3 and barr.shape[0] == 4:
+                    pol = bmeta['CH_pol']
+                    idx_hh = pol.index('HH')
+                    idx_vv = pol.index('VV')
+                    idx_hv = pol.index('HV')
+                    idx_vh = pol.index('VH')
+                    barr[idx_hv, ...] = (barr[idx_hv, ...] + barr[idx_vh, ...]) / np.sqrt(2)
+                    barr = np.delete(barr, idx_vh, axis=0)
+                    bmeta['CH_pol'][idx_hv] = 'XX'
+                    bmeta['CH_pol'].remove('VH')
+                array.append(barr)
+                meta.append(bmeta)
 
-            qlimage[azstart:azend, :] = mlook(np.real(slc * np.conj(slc)), mlwin)
+        if len(array) == 0:
+            return None, None
+        elif len(array) == 1:
+            return array[0], meta[0]
+        else:
+            return array, meta
 
-        qlimage = np.real(qlimage)
-        qlimage[qlimage <= 1e-10] = 1e-10
-        qlimage = 10 * np.log10(qlimage)
+    def findsegment(self, az, azsize):
+        """For a given azimuth index, return the segment number and
+        the azimuth index within the given segment.
 
-        fig1, ax1 = plt.subplots(1)
+        Arguments:
+            az: Azimuth index of interest.
+            azsize: List containing the azimuth size of each segment.
 
-        cs1 = ax1.imshow(qlimage, vmin=-25, vmax=0, cmap='gray', aspect=0.25, interpolation='nearest',
-                         extent=(0, rngsize_slc1x1, np.sum(azsize_slc1x1), 0))
+        Returns:
+            seg: Segment number.
+            azoff: Azimuth index within the segment.
 
-        if crop is not None:
-            # Create a Rectangle patch
-            rect1 = patches.Rectangle((crop[2], crop[0]), crop[3]- crop[2], crop[1]- crop[0],
-                                      linewidth=2, edgecolor='r', facecolor='none')
-            # Add the patch to the Axes
-            ax1.add_patch(rect1)
+        """
+        azstart = np.insert(np.cumsum(azsize), 0, 0)[0:-1]
 
-        cbar = fig1.colorbar(cs1)
-        cbar.set_label(label=pol + ' Backscatter (dB)', fontsize=20)
-        cbar.ax.tick_params(labelsize=18)
+        if az <= np.sum(azsize):
+            seg = np.max(np.where(azstart <= az))
+            azoff = az - azstart[seg]
+        else:
+            seg = azstart.shape[0] - 1
+            azoff = azsize[seg]
+            logging.info('')
+            logging.info(bcolors.WARNING + 'SLC row index of ' + str(
+                az) + ' is larger than the size of the data. Returning maximum index.' + bcolors.ENDC)
 
-        ax1.set_xlabel('Range Index', fontsize=20)
-        ax1.set_ylabel('Azimuth Index', fontsize=20)
-        ax1.tick_params(labelsize=18)
-        fig1.tight_layout()
+        return seg, azoff
 
-        if savefile is not None:
-            fig1.savefig(savefile, dpi=125, bbox_inches='tight', pad_inches=0.1)
+    def getslcblock(self, file, rngsize, azstart, azend, rngbounds=None, file2=None,
+                    azsize=None):
+        """Load SLC data into a NumPy array buffer.  If the file2 argument is
+        specified in the arguments, this function will treat the two files as
+        consecutive segments, and will join them.
 
-        return
+        Arguments:
+            file (str): Filename of the first SLC.
+            rngsize (int): Number of columns (range bins).  Same for both SLCs.
+            azstart (int): Azimuth index at which to start the buffer, in the
+                first SLC.
+            azend (int): Azimuth index at which to end the buffer.  If file2
+                is specified, this is an azimuth index in the second SLC.  If
+                file2 is not specified, this is an azimuth index in the first SLC.
+                The row specified by azend is not actually included in the buffer,
+                as in the Python range() function.  (azend-1) is the last line
+                included in the buffer.  To load the entire SLC, azend should be
+                equal to the number of rows in SLC.
+            rngbounds (tuple, int): Starting and ending range bounds, if range
+                subsetting is desired.
+            file2 (str): Filename of the second SLC, if combining multiple
+                segments is desired.
+            azsize (int): Number of rows (azimuth bins) for the first SLC.  Only
+                required if file2 is specified.  Otherwise we only load in the
+                lines of the SLC before azend.
+
+        Returns:
+            block: NumPy array of complex64 datatype, containing the loaded SLC
+            data between the specified azimuth bounds.
+
+        """
+        if file2 is None:
+            byteoffset = rngsize * 8 * azstart
+            slc = np.memmap(file, dtype='complex64', mode='c', offset=byteoffset, shape=(azend - azstart, rngsize))
+            if rngbounds is not None:
+                slc = slc[:, rngbounds[0]:rngbounds[1]]
+            return slc
+        elif azsize is None:
+            logging.info('')
+            logging.info(
+                bcolors.FAIL + '"file2" argument specified, but "azsize" argument missing. Aborting.' + bcolors.ENDC)
+            return
+        else:
+            byteoffset = rngsize * 8 * azstart
+            slca = np.memmap(file, dtype='complex64', mode='c', offset=byteoffset, shape=(azsize - azstart, rngsize))
+            slcb = np.memmap(file2, dtype='complex64', mode='c', shape=(azend, rngsize))
+            if rngbounds is not None:
+                slca = slca[:, rngbounds[0]:rngbounds[1]]
+                slcb = slcb[:, rngbounds[0]:rngbounds[1]]
+            return np.vstack((slca, slcb))
+
+    @classmethod
+    def guirun(cls, viewer):
+        para_backup = copy.deepcopy(cls.para)  # keep a deep copy of the default parameters
+        wid = UAVSARImportWidget()
+        wid.update()
+        res = wid.exec_()
+        if res == 1:
+            plugin = cls(dir=wid.dir, product=wid.product, band=wid.bands, polar=wid.polar, crop=wid.crop, sym=wid.sym,
+                         tracks=wid.tracks)
+            viewer.statusBar.setMessage(message=plugin.name + ' running', colour='R')
+            plugin.run()
+            del plugin
+            viewer.statusBar.setMessage(message='Ready', colour='G')
+            viewer.updateViewer()
 
 
-@pyrat.docstringfrom(Scene)
-def scene(*args, **kwargs):
-    return Scene(*args, **kwargs).run(*args, **kwargs)
+class UAVSARImportWidget(QtWidgets.QDialog):
+    def __init__(self, parent=None, dir=None):
+        super(UAVSARImportWidget, self).__init__(parent)
+        self.setWindowTitle("UAVSAR import")
+        mainlayout = QtWidgets.QVBoxLayout(self)
 
-@pyrat.docstringfrom(Scene)
-def sceneObject(*args, **kwargs):
-    return Scene(*args, **kwargs)
+        self.dirwidget = FileselWidget(title='UAVSAR product dir', type='opendir')
+        self.dirwidget.setvalue(dir)
+        mainlayout.addWidget(self.dirwidget)
+        mainlayout.addWidget(HLine())
+        self.productwidget = ProductContentWidget_UAVSAR(products=['SLC'], tracks=[])
+        mainlayout.addWidget(self.productwidget)
+        mainlayout.addWidget(HLine())
+        self.cropwidget = CropBoxWidget(title='Select crop (0=maximum)')
+        mainlayout.addWidget(self.cropwidget)
+        mainlayout.addWidget(HLine())
+        self.symwidget = BoolWidget(text="Cross-polar symmetrisation")
+        mainlayout.addWidget(self.symwidget)
+
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+                                                  QtCore.Qt.Horizontal, self)
+        mainlayout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+        self.dirwidget.text.textChanged.connect(lambda: self.update(mode=0))  # update all
+
+        self.bandupdate = lambda: self.update(mode=1)  # update band
+        self.productwidget.band.currentIndexChanged.connect(self.bandupdate)
+
+    def update(self, mode=0):
+        self.dir = str(self.dirwidget.getvalue())
+        self.product = self.productwidget.getvalue(0)
+        self.tracks = self.productwidget.getvalue(1)
+        self.bands = self.productwidget.getvalue(2)
+        self.polar = self.productwidget.getvalue(3)
+
+        code_pos = 5
+        code_pos_tracks = 3
+
+        files = glob.glob(os.path.join(self.dir, '*' + '_' + self.bands.upper() + '*' + self.polar.upper() + '*.ann'))
+
+        if mode == 0:
+            allfiles = glob.glob(os.path.join(self.dir, '*.ann'))
+            self.bands = '*'
+            self.polar = '*'
+            self.tracks = '*'
+        if mode == 1:
+            allfiles = glob.glob(os.path.join(self.dir, '*' + '_' + self.bands.upper() + '*.ann'))
+
+        allbands = list(set([os.path.basename(slc).split('_')[code_pos][0] for slc in allfiles]))
+        allpols = list(set([os.path.basename(slc).split('_')[code_pos][4:6].upper() for slc in allfiles]))
+        alltracks = list(set([os.path.basename(slc).split('_')[code_pos_tracks][-1].upper() for slc in allfiles]))
+        alltracks.sort()
+
+        nrg = 0
+        naz = 0
+        for filename in files:
+            try:
+                ann = Ann(filename)
+            except:
+                logging.info('')
+                logging.info(bcolors.FAIL + "Cannot load UAVSAR annotation file. Aborting." + bcolors.ENDC)
+                return
+
+            # Get SLC dimensions for the 1x1 SLCs
+            nrg_max = ann.query('slc_1_1x1 Columns')
+            naz_max = ann.query('slc_1_1x1 Rows')
+            nrg = max(nrg, nrg_max)
+            naz = max(naz, naz_max)
+        self.cropwidget.setrange([[0, naz], [0, naz], [0, nrg], [0, nrg]])
+        self.cropwidget.setvalues([0, naz, 0, nrg])
+
+        if mode == 0:
+            self.productwidget.band.currentIndexChanged.disconnect(self.bandupdate)
+            self.productwidget.updatepolar(allpols)
+            self.productwidget.updatebands(allbands)
+            self.productwidget.updatetracks(alltracks)
+            self.productwidget.setvalue(1, self.tracks)
+            self.productwidget.setvalue(2, self.bands)
+            self.productwidget.setvalue(3, self.polar)
+            self.productwidget.band.currentIndexChanged.connect(self.bandupdate)
+
+        elif mode == 1:
+            self.productwidget.updatepolar(allpols)
+            self.productwidget.setvalue(3, self.polar)
+
+    def accept(self):
+        self.product = self.productwidget.getvalue(0)
+        self.tracks = self.productwidget.getvalue(1)
+        self.bands = self.productwidget.getvalue(2)
+        self.polar = self.productwidget.getvalue(3)
+        self.crop = self.cropwidget.getvalues()
+        self.sym = self.symwidget.getvalue()
+        super(UAVSARImportWidget, self).accept()
+
+
+@pyrat.docstringfrom(UAVSAR)
+def uavsar(*args, **kwargs):
+    return UAVSAR(*args, **kwargs).run(*args, **kwargs)

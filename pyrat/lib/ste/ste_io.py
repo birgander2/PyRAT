@@ -161,7 +161,7 @@ class RatHeaderRat(ctypes.Structure):
                     self.nchannel = ctypes.c_int(1)
                 else:
                 #    self.nchannel = ctypes.c_int(kwargs['shape'][-1])
-                    self.nchannel = ctypes.c_int(np.product(kwargs['shape'][2::]))
+                    self.nchannel = ctypes.c_int(np.prod(kwargs['shape'][2::]))
         if 'var' in kwargs:
             self.var = ctypes.c_int(kwargs['var'])
         if 'rattype' in kwargs:
@@ -306,7 +306,7 @@ class RatFile():
         If the file exists reads the file's header, if not then initializes
         the empty ``RatFile`` **instance** with a given filename.
 
-        :param filename: either a RAT filename (with \*.rat extension) if the
+        :param filename: either a RAT filename (with *.rat extension) if the
           file is in current working directory or an absolute path of the file.
         :type filename: string
         :return: RatFile instance
@@ -347,7 +347,7 @@ class RatFile():
         a ``dtype`` keyword if the proper datatype wasn't specified in
         header's ``RatHeaderRat.var`` attribute).
 
-        :param shape: the shape of the data to store in \*.rat file
+        :param shape: the shape of the data to store in *.rat file
         :type shape: list
         :param header: a rat header
         :type header: RatHeaderRat
@@ -388,7 +388,7 @@ class RatFile():
         self.shape = self._get_shape()
         self.dtype = self._get_dtype()
         self.Header.Rat.ndim = ctypes.c_int(len(self.shape))
-        self.Header.Rat.nchannel = ctypes.c_int(int(np.product(self.shape[2:])))
+        self.Header.Rat.nchannel = ctypes.c_int(int(np.prod(self.shape[2:])))
 
         if 'rattype' in kwargs:
             self.Header.Rat.rattype = ctypes.c_int(kwargs['rattype'])
@@ -530,7 +530,7 @@ class RatFile():
             self.dtype = self._get_dtype()
             self.shape = self._get_shape()
             self.Header.Rat.ndim = ctypes.c_int(len(self.shape))
-            self.Header.Rat.nchannel = ctypes.c_int(int(np.product(self.shape[2:])))
+            self.Header.Rat.nchannel = ctypes.c_int(int(np.prod(self.shape[2:])))
 
             n_bytes_total = (
             1000 + reduce(lambda x, y: x * y, self.shape) * self.dtype.itemsize)
@@ -570,7 +570,7 @@ class RatFile():
             # check if the block var meets the requirements
             block = self._check_block(block)
         else:
-            block = np.zeros(2 * len(self.shape), dtype=np.int)
+            block = np.zeros(2 * len(self.shape), dtype=np.int32)
             block[1::2] = self.shape
 
         ind = tuple(map(
@@ -621,7 +621,7 @@ class RatFile():
             # check if the block var meets the requirements
             block = self._check_block(block)
         else:
-            block = np.zeros(2 * len(self.shape), dtype=np.int)
+            block = np.zeros(2 * len(self.shape), dtype=np.int32)
             block[1::2] = self.shape
 
         ind = tuple(map(
@@ -954,7 +954,7 @@ class Py2Xml(object):
             obj_arr = [Py2Xml(obj) for obj in v.iterchildren('object')]
             return obj_arr[0] if size <= 1 else obj_arr
 
-        conv = {'int': int, 'long': int, 'float': np.float, 'double': np.double, 'string': lambda s: s}
+        conv = {'int': int, 'long': int, 'float': np.float32, 'double': np.float64, 'string': lambda s: s}
         try:
             if size > 1:
                 val = np.asarray([conv[type](v) for v in v.text.strip('[]').split(',')]).reshape(shape)

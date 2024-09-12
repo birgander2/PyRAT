@@ -1,3 +1,4 @@
+# cython: language_level=3
 # distutils: extra_compile_args = -fopenmp
 # distutils: extra_link_args = -fopenmp
 
@@ -16,8 +17,8 @@ def mtrebin2d(float [:, :] arr, float [:, :] out, int threads=0):
     cdef int bx = out.shape[1]
     cdef int ny = arr.shape[0]
     cdef int nx = arr.shape[1]
-    cdef int fy = arr.shape[0] / by
-    cdef int fx = arr.shape[1] / bx
+    cdef int fy = arr.shape[0] // by
+    cdef int fx = arr.shape[1] // bx
     cdef float norm = fy * fx
     cdef int y=0, x=0, dy=0, dx=0
 

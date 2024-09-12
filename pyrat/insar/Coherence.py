@@ -40,8 +40,8 @@ class CoherenceMat(pyrat.FilterWorker):
         if 'win' not in self.__dict__:
             self.win = [7, 7]
         self.blockoverlap = self.win[0] / 2 + 1
-        self.blockprocess = False
-        self.nthreads = 1
+        self.blockprocess = True
+        # self.nthreads = 1
 
     def filter(self, array, *args, **kwargs):
 
@@ -62,7 +62,7 @@ def coherencemat(*args, **kwargs):
 
 class CoherenceCov(pyrat.FilterWorker):
     """
-    Calc coherency from an inteferometric covariance matrix
+    Calc coherency from an interferometric covariance matrix
     """
     def __init__(self, *args, **kwargs):
         super(CoherenceCov, self).__init__(*args, **kwargs)

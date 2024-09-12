@@ -1,11 +1,15 @@
-__version__ = '0.62-oss'
+__version__ = '0.65+oss'
 
 import logging, sys, os
 
-os.environ['OMP_NUM_THREADS'] = '1'
+if 'OMP_NUM_THREADS' not in os.environ:
+    os.environ['OMP_NUM_THREADS'] = '1'
 
 sysexcepthook = sys.excepthook
 from PIL import Image  # workaround for problems with pillow / gdal not working nicely together
+
+# blacklist pooch to avoid PermissionError when importing skimage (which creates directories!)
+sys.modules['pooch'] = None
 
 if sys.version < "3":
     logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
@@ -59,15 +63,9 @@ def docstringfrom(fromclass):
 def pyrat_help(modulename, docstring):
     def f():
         import sys
-        from inspect import getmembers, isclass, isfunction
-        if 'plugins' in modulename:
-            current_module = pyrat.plugins
-            modules = getmembers(current_module, isclass)
-            for mod in modules:
-                mod[1].__module__ = 'pyrat.plugins.' + mod[1].__module__
-        else:
-            current_module = sys.modules[modulename]
-            modules = getmembers(current_module, isclass)
+        from inspect import getmembers, isclass
+        current_module = sys.modules[modulename]
+        modules = getmembers(current_module, isclass)
         logging.info("")
         logging.info("Functions within the module " + modulename + ":")
         logging.info("")
@@ -99,7 +97,6 @@ from .GroupWorker import *
 from .LayerWorker import *
 
 import matplotlib.pyplot      # pseudo-import to suppress some unnecessary debug code
-logging.basicConfig(format='  %(levelname)s: %(message)s', level=logging.DEBUG)
 
 from . import layer
 from . import filter
@@ -114,18 +111,20 @@ from .tools import bcolors
 import logging, atexit, tempfile, sys
 import multiprocessing
 from configparser import ConfigParser
-import json
 
+
+# initialise global variables
 data = False
 _debug = False
 _cfg = {}
+_nthreads = multiprocessing.cpu_count()
 
 
 # def pyrat_init(tmpdir=None, debug=False, nthreads=min(multiprocessing.cpu_count(), 4)):
 def pyrat_init(debug=False, **kwargs):
     global data
 
-    global _debug, _nthreads, _cfg
+    global _debug, _nthreads, _cfg, _sc
     _debug = debug
 
     # read config file (~/.pyratrc or the win version)
@@ -138,23 +137,24 @@ def pyrat_init(debug=False, **kwargs):
         _nthreads = kwargs['nthreads']
     elif _cfg['nthreads'] != '':
         _nthreads = int(_cfg['nthreads'])
-    else:
-        _nthreads = multiprocessing.cpu_count()
 
     # config debug mode
 
     pyrat_debug(debug)
 
+    # set up silent mode
+    if 'silent' in kwargs:
+        silent = kwargs['silent']
+    else:
+        silent = False
+
     # import plugins
 
     import_plugins(plugin_paths=_cfg["plugindirs"], verbose=debug)
-    pyrat.plugins.__name__ = "pyrat.plugins"
-    pyrat.plugins.__module__ = "pyrat.plugins"
-    pyrat.plugins.help = pyrat.pyrat_help("plugins", "\n  Various PyRat plugins (this can be anything!)")
 
-
-    logging.info('\n  Welcome to PyRAT (v%s)' % (__version__))
-    logging.info('OS detected : ' + sys.platform)
+    if not silent:
+        logging.info('\n  Welcome to PyRAT (v%s)' % (__version__))
+        logging.info('OS detected : ' + sys.platform)
 
     # set up tmp dir
 
@@ -164,20 +164,37 @@ def pyrat_init(debug=False, **kwargs):
         tmpdir = _cfg["tmpdir"]
     else:
         tmpdir = tempfile.gettempdir()
-        logging.warning(
-            bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
-        logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
+        if not silent:
+            logging.warning(
+                bcolors.FAIL + bcolors.BOLD + "WARNING: Temporary directory not configured, using system default.")
+            logging.warning("This often causes problems, better set it in ~/.pyratrc" + bcolors.ENDC)
 
     if not os.path.exists(tmpdir):
         if os.path.exists(os.path.dirname(tmpdir)):
             os.mkdir(tmpdir)
         else:
-            logging.warning("WARNING: Temporary directory doesn't exist: " + tmpdir)
-    logging.info("Temporary directory: " + str(tmpdir))
+            if not silent:
+                logging.warning("WARNING: Temporary directory doesn't exist: " + tmpdir)
+
+    if not silent:
+        logging.info("Temporary directory: " + str(tmpdir))
+
+    if _cfg['spark'] is not None:
+        # initialise the Spark context when the configuration contains a spark setting such as
+        # spark: yarn
+        # for processing using an entire YARN cluster (or local[8] for using just 8 local cores)
+        _sc = get_pyrat_spark_conext(_cfg['spark'])
+        if not silent:
+            logging.info("Initialised Spark context for multi-processing" + '\n')
+    else:
+        _sc = None
+        if not silent:
+            logging.info("Pool with " + str(_nthreads) + " workers initialised" + '\n')
 
     data = LayerData(tmpdir)
-    logging.info("Pool with " + str(_nthreads) + " workers initialised" + '\n')
-    logging.info("help() will show a list of available commands!")
+    if not silent:
+        logging.info("help() will show a list of available commands!")
+
     atexit.register(pyrat_exit)
     sys.excepthook = exithook
 
@@ -220,8 +237,9 @@ def read_config_file(config_file=None, verbose=True):
         cfgp['pyrat'] = {k.lower(): v for k, v in cfgp['pyrat'].items()}
 
         cfg["tmpdir"] = cfgp["pyrat"]["tempdir"]
-        cfg["nthreads"] = cfgp["pyrat"]["nthreads"]
+        cfg["nthreads"] = cfgp["pyrat"].get("nthreads",8)
         cfg["plugindirs"] = [dir.strip() for dir in cfgp["pyrat"]["plugindirs"].split(',')]
+        cfg["spark"] = cfgp["pyrat"].get("spark", None)
 
         if "qgis" in cfgp:
             cfg["qgispath"] = cfgp["qgis"]["path"]
@@ -243,58 +261,96 @@ def new_conigfile(config_file):
         lun.write("NThreads: " + str(multiprocessing.cpu_count()) + "\n")
 
 
-class Plugins:
-    """Will contain imported plugins, similar to previous module plugins"""
-    pass
-
-
-plugins = Plugins()
-
-
 def import_plugins(plugin_paths=[], verbose=False):
-    import pyrat
-    pyrat_path = pyrat.__path__[0]
-    default_plugin_path = os.path.dirname(pyrat_path) + "/pyrat/plugins"
+    import importlib.abc
+    import importlib.util
 
-    imported = []  # to import only the first occurence
-    for directory in plugin_paths + [default_plugin_path]:
-        if verbose:
-            logging.info("Scanning for plugins: {}".format(directory))
+    class CustomImporter(importlib.abc.Loader, importlib.abc.MetaPathFinder):
 
-        if not os.path.isdir(directory):
-            if verbose:
-                logging.debug(" - Skip. Not a directory: {}".format(directory))
-            continue
+        def __init__(self, verbose: bool, plugin_paths: list):
+            super().__init__()
+            default_plugin_path = os.path.dirname(__path__[0]) + "/pyrat/plugins"
+            self.plugin_paths = plugin_paths + [default_plugin_path]
+            self.verbose = verbose
 
-        sys.path.append(directory)
-        for item in os.walk(directory):
-            dirpath = item[0]
-            for filename in item[2]:
-                if not filename.endswith(".py") or filename == "__init__.py":
+        def find_spec(self, fullname, path, *args):
+            if fullname == "pyrat.plugins":
+                return importlib.util.spec_from_loader(fullname, self)  # Return itself
+
+        def exec_module(self, module):
+            pathbackup = sys.path
+
+            for directory in self.plugin_paths:
+                if not os.path.isdir(directory):
+                    if self.verbose:
+                        logging.info(" - Skip. Not a directory: {}".format(directory))
                     continue
-                candidate = os.path.join(dirpath, filename)
 
-                if filename in imported:
-                    continue  # don't import if another version imported
-                else:
-                    imported.append(filename)
+                sys.path = [directory]
+                for item in os.walk(directory):
+                    for filename in item[2]:
+                        if not filename.endswith(".py"):
+                            continue
 
-                try:
-                    mod = __import__(filename.split('.py')[0],
-                                     globals=globals(),
-                                     locals=locals(), fromlist=['*'])
-                    try:
-                        attrlist = mod.__all__
-                    except AttributeError:
-                        attrlist = dir(mod)
-                    for attr in attrlist:
-                        setattr(plugins, attr, getattr(mod, attr))
-                    if verbose:
-                        logging.info(" + Imported external plugin: " + bcolors.OKGREEN + filename + bcolors.ENDC)
-                except Exception as exvar:
-                    logging.info(bcolors.FAIL + "Unable to import the code in plugin: %s" % filename + bcolors.ENDC)
-                    if verbose:
-                        logging.debug(exvar)
+                        modname = filename.split('.py')[0]
+                        try:
+                            spec = importlib.util.find_spec(modname)
+                            spec.loader.name = 'pyrat.plugins.' + modname
+                            mod = spec.loader.load_module('pyrat.plugins.' + modname)
+                        except Exception as exvar:
+                            logging.info(
+                                bcolors.FAIL + "Unable to import the code in plugin: %s" % filename + bcolors.ENDC)
+                            if self.verbose:
+                                logging.debug(exvar)
+                            continue
+
+                        setattr(module, modname, mod)
+                        for attrname in dir(mod):
+                            if attrname.startswith("__"):  # Do not import module internals
+                                continue
+
+                            setattr(module, attrname, getattr(mod, attrname))
+                        if self.verbose:
+                            logging.info(" + Imported external plugin: " + bcolors.OKGREEN + filename + bcolors.ENDC)
+
+            module.help = pyrat.pyrat_help("pyrat.plugins", "\n  Various PyRat plugins (this can be anything!)")
+            sys.path = pathbackup
+            return module
+
+    sys.meta_path.insert(0, CustomImporter(verbose, plugin_paths))
+    from . import plugins
+
+
+def get_pyrat_spark_conext(spark_master):
+    """
+    initialises the PyRAT spark context, optionally restoring some conda environment settings
+    :param spark_master: spark master URL, such as 'local[8]' or 'yarn'
+    :return: initialised spark context
+    """
+    try:
+        # normaly, this import should work (e.g. when running pyrat in a properly configured pyrat VE)
+        import pyspark as spark
+    except ImportError:
+        # special case: pyrat was started with the correct python interpreter, but the environment
+        # variables for the conda environment have not been set.
+        # This happens when running pyrat in pycharm, where the correct python interpreter is used
+        # but the actual environment is never fully "activated". In this case, we restore the conda
+        # environment settings explicitly!
+        conda_state = os.path.join(os.path.dirname(sys.executable), '..', 'conda-meta', 'state')
+        try:
+            with open(conda_state, 'r') as f:
+                import json
+                state = json.load(f)
+                os.environ.update(state['env_vars'])
+            path_ext = [p for p in os.environ.get('PYTHONPATH', '').split(':') if len(p) > 0]
+            sys.path.extend(path_ext)
+        except IOError:
+            pass
+        import pyspark as spark
+    # create and return the contex
+    conf = spark.SparkConf(True).setAppName('PyRAT')
+    conf.setMaster(spark_master)
+    return spark.SparkContext(conf=conf)
 
 
 def foo(bar):

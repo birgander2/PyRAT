@@ -1,5 +1,6 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
 import pyrat
+import ast
 
 
 class FlexInputDialog(QtWidgets.QDialog):
@@ -47,7 +48,8 @@ class FlexInputDialog(QtWidgets.QDialog):
                     wid = QtWidgets.QComboBox()
                     wid.addItems(para['range'])
                     wid.setCurrentIndex(para['range'].index(val))
-                elif para['type'] in ['openfile', 'opendir', 'savefile']:
+                elif para['type'] in ['openfile', 'openfiles',
+                                      'opendir', 'savefile']:
                     if 'extensions' in para:
                         extensions = para['extensions']
                     else:
@@ -85,6 +87,8 @@ class FlexInputDialog(QtWidgets.QDialog):
                     val.append(str(wid.text()))
                 elif readline['type'] in ['openfile', 'opendir']:
                     val.append(str(wid.getValue()))
+                elif readline['type'] == 'openfiles':
+                    val.append(wid.value)
                 elif readline['type'] == 'savefile':
                     val.append((wid.getValue(), wid.extension))
 
@@ -128,6 +132,9 @@ class FlexFilesel(QtWidgets.QWidget):
         if self.type == 'openfile':
             self.value = str(QtWidgets.QFileDialog.getOpenFileName(self, "Load data", value, self.extensions)[0])
             self.wid.setText(self.value)
+        elif self.type == 'openfiles':
+            self.value = QtWidgets.QFileDialog.getOpenFileNames(self, "Load data", value, self.extensions)[0]
+            self.wid.setText(' '.join(self.value))
         elif self.type == 'opendir':
             self.value = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Open directory", value))
             self.wid.setText(self.value)
@@ -141,6 +148,68 @@ class FlexFilesel(QtWidgets.QWidget):
 
     def setValue(self, text):
         self.wid.setText(text)
+
+
+class MetadataEditor(QtWidgets.QDialog):
+
+    class MetaField(QtWidgets.QWidget):
+        def __init__(self, parent, key, value):
+            super().__init__(parent)
+            self.layout = QtWidgets.QHBoxLayout(self)
+            self.key = QtWidgets.QLineEdit()
+            self.key.setText(key)
+            self.layout.addWidget(self.key)
+            self.value = QtWidgets.QLineEdit()
+            self.value.setText(value)
+            self.layout.addWidget(self.value)
+
+    def __init__(self, layer, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Metadata Editor - " + layer)
+        self.layer = layer
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.fields = []
+
+        metadata: dict = pyrat.getmeta(layer=layer)
+        for key in metadata:
+            value = metadata[key]
+            field = MetadataEditor.MetaField(self, key, repr(value))
+            self.fields.append(field)
+            self.layout.addWidget(field)
+
+        self.moreButton = QtWidgets.QPushButton("+", self)
+        self.moreButton.clicked.connect(self.more)
+        self.layout.addWidget(self.moreButton)
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+                                                  QtCore.Qt.Horizontal, self)
+        self.layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def more(self):
+        self.layout.removeWidget(self.moreButton)
+        self.layout.removeWidget(self.buttons)
+        field = MetadataEditor.MetaField(self, '', '')
+        self.fields.append(field)
+        self.layout.addWidget(field)
+        self.layout.addWidget(self.moreButton)
+        self.layout.addWidget(self.buttons)
+
+    def accept(self):
+        newMeta = {}
+        for field in self.fields:
+            key = field.key.text()
+            if key == "":
+                continue
+            value = field.value.text()
+            try:
+                value = ast.literal_eval(value)
+            except:
+                pass
+            newMeta[key] = value
+        pyrat.setmeta(newMeta, layer=self.layer)
+        super(MetadataEditor, self).accept()
 
 
 class PaletteSelector(QtWidgets.QDialog):
@@ -248,7 +317,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
 
             if 'info' in meta:
                 ltext = meta['info']
-            elif pyrat.data.layers[layer].name is not '':
+            elif pyrat.data.layers[layer].name != '':
                 ltext = pyrat.data.layers[layer].name
             else:
                 ltext = layer.strip('/')
@@ -368,12 +437,13 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
         item = self.currentItem()
         itemname = item.whatsThis(0).split('/')[-1]
         menu = QtWidgets.QMenu()
-        if itemname[0] is 'L':
+        if itemname[0] == 'L':
             itemname = item.whatsThis(0)
             menu.addAction("show / activate", lambda: self.activate(itemname))
             menu.addSeparator()
             menu.addAction("add to activation", lambda: self.addactive(itemname))
             menu.addAction("remove activation", lambda: self.delactive(itemname))
+            menu.addAction("Metadata editor", lambda: self.metaeditor(itemname))
             menu.addSeparator()
             menu.addAction("delete data set", lambda: self.delayer(itemname))
             menu.addSeparator()
@@ -389,7 +459,7 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
                 foo.changed.connect(lambda m=meth: self.scaling(itemname, m))
                 scalemenu.addAction(foo)
 
-        elif itemname[0] is 'D':
+        elif itemname[0] == 'D':
             itemname = item.whatsThis(0)
             itemlayer = '/' + itemname.split('/')[1]
 
@@ -427,6 +497,11 @@ class LayerTreeWidget(QtWidgets.QTreeWidget):
         self.viewer.updateViewer()
         self.redraw()
         self.setFonts()
+
+    def metaeditor(self, layer):
+        metaeditor = MetadataEditor(layer)
+        metaeditor.exec_()
+        self.redraw()
 
     def activate(self, layer):
         pyrat.data.activateLayer(layer)

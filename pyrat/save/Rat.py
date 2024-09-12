@@ -19,7 +19,8 @@ class Rat(pyrat.ExportWorker):
     """
     gui = {'menu': 'File|Export to raster', 'entry': 'RAT (v2)', 'before': 'HDF5 file'}
     para = [{'var': 'file', 'value': '', 'type': 'savefile', 'text': 'Save to :', 'extensions': 'RAT (*.rat)'},
-            {'var': 'geo_envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write ENVI header'}]
+            {'var': 'envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write ENVI header'},
+            {'var': 'geo_envi_hdr', 'value': False, 'type': 'bool', 'text': 'Write GEO ENVI header'}]
 
     def __init__(self, *args, **kwargs):
         super(Rat, self).__init__(*args, **kwargs)
@@ -78,6 +79,14 @@ class Rat(pyrat.ExportWorker):
             logging.info(self.name + '  Writing GEO ENVI Header (.hdr)...')
             hdr = RatFile(self.file).Header
             tmpl = Template(resource_string('pyrat.lib.templates', 'envi_geo_hdr.tpl'))
+            envi_hdr = tmpl.render(file=self.file, hdr=hdr)
+            with open(self.file+'.hdr','w') as f:
+                f.write(envi_hdr)
+
+        if self.envi_hdr is True:
+            logging.info(self.name + '  Writing ENVI Header (.hdr)...')
+            hdr = RatFile(self.file).Header
+            tmpl = Template(resource_string('pyrat.lib.templates', 'envi_hdr.tpl'))
             envi_hdr = tmpl.render(file=self.file, hdr=hdr)
             with open(self.file+'.hdr','w') as f:
                 f.write(envi_hdr)

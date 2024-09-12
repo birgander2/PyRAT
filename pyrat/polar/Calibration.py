@@ -1,9 +1,7 @@
 import pyrat
 import numpy as np
 from scipy.ndimage import filters
-import logging
 import warnings
-
 
 class CalibXsym(pyrat.FilterWorker):
     """
@@ -85,7 +83,6 @@ class CalibXsym(pyrat.FilterWorker):
 @pyrat.docstringfrom(CalibXsym)
 def calibxsym(*args, **kwargs):
     return CalibXsym(*args, **kwargs).run(*args, **kwargs)
-
 
 class Beta2Gamma(pyrat.FilterWorker):
     """

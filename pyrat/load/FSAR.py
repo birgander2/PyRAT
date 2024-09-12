@@ -75,7 +75,7 @@ class FSAR(pyrat.ImportWorker):
                                            head + '*' + self.bands.upper() + self.polarisations.lower() + '_*.rat'))
 
             if self.product == 'INF-SLC':
-                if len(files) is 0:
+                if len(files) == 0:
                     head = 'slc_coreg'
                     files = glob.glob(os.path.join(self.dir, src[0], src[1], head + '*' + self.bands.upper()
                                                    + self.polarisations.lower() + '_*.rat'))

@@ -313,7 +313,7 @@ def help(*args, **kwargs):
 
     if len(args) > 0:
         for arg in args:
-            if ismodule(arg) or arg.__name__ == "pyrat.plugins" and hasattr(arg, 'help'):
+            if ismodule(arg) and hasattr(arg, 'help'):
                 logging.info(arg.help.__doc__)
                 arg.help()
             else:

@@ -1,3 +1,4 @@
+# cython: language_level=3
 import cython
 cimport cython
 
@@ -18,13 +19,13 @@ ctypedef fused fltcpl_t:
 ctypedef cython.doublecomplex DTYPE_t
 
 cdef extern from "math.h":
-    double sqrt(double)
+#    double sqrt(double)
     double sin(double)
     double cos(double)
     double atan2(double, double)
     double fabs(double)
     double log(double)
-    double exp(double)
+#    double exp(double)
 cdef extern from "complex.h":
     double creal(double complex)
     double cimag(double complex)
@@ -37,12 +38,12 @@ cdef extern from "eigenH.h":
     cdef double sqrt3 "_sqrt3"
 
 # Main Beltrami routine. Calculates the neighbors distances using a region growing algorithm.
-def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=2] distance_array,  np.ndarray[np.int_t,
-    ndim=2] all_neigh, np.ndarray[np.int_t, ndim=1] neighbours_local, float sigma, float beta, float betastr,
-     int window_size, long rdim, looks, bint llmmse=True):
+def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=2] distance_array,  np.ndarray[np.int32_t,
+    ndim=2] all_neigh, np.ndarray[np.int32_t, ndim=1] neighbours_local, float sigma, float beta, float betastr,
+     int window_size, long rdim, looks, float gamma):
     cdef int ddim = np.shape(cov_array)[1]
     cdef double complex [:,:,:] avg = np.empty_like(cov_array)
-    cdef double fac = sigma/(betastr * beta)
+    cdef double fac = 1.0 / (betastr * beta)
     cdef int maxp = np.shape(cov_array)[0]
     cdef int i, j, k, z, iter1, iter2, dx
     cdef int totalW = window_size * window_size
@@ -63,13 +64,17 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
     cdef double [:] tmp = np.zeros(totalW)
     cdef double complex [:,:,:] included = np.zeros((totalW, ddim, ddim), dtype = np.complex_)
     cdef float currentD, tempD
-    cdef float gamma = 1
-    cdef double gammad = np.sqrt(2)
+    cdef bint llmmse = False
+    # cdef float gamma = 1
+    # cdef double gammad = np.sqrt(2)
     cdef double klee, varx, vary, imean, vary0
     cdef float sig2 = 1.0 / looks
     cdef float sfak = 1.0 + sig2
 
     # For all pixels
+
+    llmmse = False
+
     for k in range(maxp):
         for i in range(totalW):
             # Initilizating the distances with a big number
@@ -95,9 +100,10 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
                 local_idx = localID + dx
                 currentD = dBeltrami[local_idx]
                 coord = center_pixel2
+                # 0, 2, 4, 6 use gammad
                 if flag == 0:
                     if 0 <= coord < maxp:
-                        tempD = gammad + fac*distance_array[0, coord] + original_distance
+                        tempD = gamma + fac*distance_array[0, coord] + original_distance
                         if tempD < currentD:
                             dBeltrami[local_idx] = tempD
                             if 0 <= coord - rdim + 1 < maxp:
@@ -113,7 +119,7 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
 
                 elif flag == 2:
                     if 0 <= coord < maxp:
-                        tempD = gammad + fac*distance_array[2, coord] + original_distance
+                        tempD = gamma + fac*distance_array[2, coord] + original_distance
                         if tempD < currentD:
                             dBeltrami[local_idx] = tempD
                             if 0 <= coord + 1 + rdim < maxp:
@@ -130,7 +136,7 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
                 elif flag == 4:
                     coord = center_pixel2 - 1 + rdim
                     if 0 <= coord < maxp:
-                        tempD = gammad + fac*distance_array[0, coord] + original_distance
+                        tempD = gamma + fac*distance_array[0, coord] + original_distance
                         if tempD < currentD:
                             dBeltrami[local_idx] = tempD
                             idxBeltrami[local_idx] = coord
@@ -144,7 +150,7 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
                 elif flag == 6:
                     coord = center_pixel2 - rdim - 1
                     if 0 <= coord < maxp:
-                        tempD = gammad + fac*distance_array[2, coord] + original_distance
+                        tempD = gamma + fac*distance_array[2, coord] + original_distance
                         if tempD < currentD:
                             dBeltrami[local_idx] = tempD
                             idxBeltrami[local_idx] = coord
@@ -184,28 +190,27 @@ def cy_MCB(np.ndarray[DTYPE_t, ndim=3] cov_array, np.ndarray[np.float32_t, ndim=
             vary0 = 0
             for i in range(totalW):
                 for j in range(ddim):
-                    imean += creal(included[i,j,j])
+                    imean += SQR_ABS(included[i,j,j])
             imean /= totalW
 
             for i in range(totalW):
                 for j in range(ddim):
-                    vary0 += creal(included[i,j,j])
-                vary -= vary0 - (imean)**2
+                    vary0 += SQR_ABS(included[i,j,j])
+                vary += (vary0 - imean)**2
+
             vary /= (totalW - 1)
             varx = ((vary - sig2 * imean ** 2) / sfak)
+
             if varx < 0.0:
                 varx = 0.0
             klee = varx / vary
+            klee = 0
 
             # LLMMSE filtering of region
             for i in range(ddim):
                 for j in range(ddim):
-                    avg[k, i, j] = (cov_array[k,i,j] - up[i, j] / down) * klee + up[i, j] / down
-            #for v in range(nv):
-            #    for z in range(nz):
-            #        out[v, z, y, x] = (array[v, z, y, x] - res[v, z] / nnew) * klee + res[v, z] / nnew
+                    avg[k, i, j] = (cov_array[k ,i ,j] - up[i, j] / down) * klee + up[i, j] / down
         else:
-            #        out[v, z, y, x] = res[v, z] / nnew
             for i in range(ddim):
                 for j in range(ddim):
                     avg[k, i, j] = up[i, j] / down
@@ -246,6 +251,26 @@ def cy_MCBdist(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
     tmp2 = matMul(Sig2, m1)
     m2 = matMul(m1, tmp2)
     m3 = matLog(m2)
+    out = frob(m3)
+    return out
+
+def cy_MCBdist_fast(np.ndarray[DTYPE_t, ndim=2] A, np.ndarray[DTYPE_t, ndim=2] B):
+    cdef double complex [3][3] C = A
+    cdef double complex [3][3] D = B
+
+    cdef double complex [3][3] m1
+    cdef double complex [3][3] m2
+    cdef double complex [3][3] m3
+
+    cdef double out
+    cdef int i, j
+
+    m1 = matLog(C)
+    m2 = matLog(D)
+    for i in range(3):
+        for j in range(3):
+            m3[i][j] = m1[i][j] - m2[i][j]
+
     out = frob(m3)
     return out
 

@@ -5,7 +5,7 @@ import sys
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 import pyrat
-from pyrat.tools import flattenlist, unflattenlist, bcolors, PyRATInputError, multimap
+from pyrat.tools import flattenlist, unflattenlist, bcolors, PyRATInputError, multimap, parallel_rdd_iter
 
 
 def exec_out(args):
@@ -113,7 +113,12 @@ class Worker(object):
             self.initBP(dshape[-2])
 
         if len(self.blocks) > 1 and self.nthreads > 1:  # group chunks of blocks
-            idx = [self.blocks[i:i + self.nthreads] for i in range(0, len(self.blocks), self.nthreads)]
+            if pyrat._sc is None:
+                # block index groups for chunked processing using multimap
+                idx = [self.blocks[i:i + self.nthreads] for i in range(0, len(self.blocks), self.nthreads)]
+            else:
+                # turn off chunked processing in Spark (all blocks distributed to executors in one go!)
+                idx = [self.blocks]
         else:
             idx = [[block] for block in self.blocks]
 
@@ -126,9 +131,9 @@ class Worker(object):
             P.update(0)
         for bidx in idx:  # loop over chunks of blocks
             meta = copy.deepcopy(metain)
-            inputs = []
-            for ix in bidx:  # loop over blocks in chunk
-                data = self.read_block(nb1)
+
+            def get_block(cur_idx, layers):
+                data = self.read_block(cur_idx, layers=layers)
                 if nested is True:
                     data = unflattenlist(data, layshp)
                 kwargs_copy = copy.deepcopy(kwargs)
@@ -139,13 +144,28 @@ class Worker(object):
                 else:
                     kwargs_copy['block'] = tuple(self.blocks[nb1]) + (0, dshape[-1])
                 kwargs_copy['valid'] = tuple(self.valid[nb1])
-                inputs.append((self, func.__name__, kwargs_copy))  # accumulate inputs
-                nb1 += 1
+                return kwargs_copy
 
-            if self.nthreads > 1:
-                result = multimap(inputs)  # do the multiprocessing
+            if pyrat._sc is None:   # is a spark context available? (see pyrat __init__.py)
+                # chunked processing using multimap
+                n_blk = len(bidx)
+                inputs = [(self, func.__name__, get_block(idx, pyrat.data)) for idx in range(nb1,nb1+n_blk)]
+                nb1 += n_blk
+                if self.nthreads > 1:
+                    result = multimap(inputs)  # do the multiprocessing
+                else:
+                    result = map(exec_out, inputs)  # or avoid it...
             else:
-                result = map(exec_out, inputs)  # or avoid it...
+                # parallel processing in spark
+                spark_idx = pyrat._sc.parallelize(range(nb1,nb1+len(bidx)))  # RDD with block indices
+                spark_layers = pyrat._sc.broadcast(pyrat.data)   # make the layer data structure available on all executors
+                inputs = spark_idx.map(lambda idx: get_block(idx, spark_layers.value)) # read blocks
+                def call_func(kws):
+                    kws_flt = {k:kws[k] for k in kws if k != 'args'}
+                    result = func(kws['args'], **kws_flt)
+                    return result, kws_flt['meta']
+                result = parallel_rdd_iter(inputs.map(call_func))  # get apply function and collect output in local iterator
+
             for res in result:  # loop over output blocks (in chunk)
                 metaout = res[1]  # meta data (possibly modified)
                 if nb2 == 0:  # first block -> generate new layer(s)
@@ -425,7 +445,7 @@ class Worker(object):
             else:
                 pyrat.data.setData(dat, layer=output[n])
 
-    def read_block(self, k):
+    def read_block(self, k, layers=None):
         """
         Read block number k from input layer(s).
         """
@@ -433,12 +453,16 @@ class Worker(object):
             input = self.input
         else:
             input = (self.input,)
+
+        if layers is None:
+            layers = pyrat.data
+
         out = []
         for layer in input:
             if self.vblock:
-                out.append(pyrat.data.getData(block=(0, 0, self.blocks[k][0], self.blocks[k][1]), layer=layer))
+                out.append(layers.getData(block=(0, 0, self.blocks[k][0], self.blocks[k][1]), layer=layer))
             else:
-                out.append(pyrat.data.getData(block=(self.blocks[k][0], self.blocks[k][1], 0, 0), layer=layer))
+                out.append(layers.getData(block=(self.blocks[k][0], self.blocks[k][1], 0, 0), layer=layer))
         if len(input) == 1:
             return out[0]
         else:
@@ -446,7 +470,7 @@ class Worker(object):
 
     def checkpara(self, kwargs, para):
         wrong_keys = []
-        allowed = ['layer', 'nthreads', 'blockprocess', 'blocksize', 'delete']
+        allowed = ['layer', 'nthreads', 'blockprocess', 'blocksize', 'delete', 'silent']
         for (key, val) in kwargs.items():
             if key not in para and key not in allowed:  # some keywords are always allowed!
                 logging.warning("WARNING: Parameter '" + key + "' not valid. Removing it!")
@@ -508,22 +532,22 @@ class Worker(object):
 
         action = QtWidgets.QAction(cls.gui['entry'], viewer, shortcut=shortcut)  # generate new menu action
         action.triggered.connect(lambda: cls.guirun(viewer))
+        action.setToolTip(cls.__doc__)
 
         if cls.gui['menu'] not in viewer.menue:
             menus = cls.gui['menu'].split("|")
-            if len(menus) < 2 or menus[0] not in viewer.menue:  # top level menu cannot be created
-                logging.warning("\nWARNING: The gui annotation '" +
-                                cls.gui['menu'] +
-                                "' of the plugin '" +
-                                cls.__name__ +
-                                "' is not present in the PyRat menue!\n")
-                return
+            if menus[0] not in viewer.menue:
+                menu = viewer.menubar.addMenu(menus[0])
+                menu.setToolTipsVisible(True)
+                viewer.menue[menus[0]] = menu
 
             for i in range(1, len(menus)):  # create all necessary menue
-                menuName = '|'.join(menus[:i+1])
+                menuName = '|'.join(menus[:i + 1])
                 if menuName not in viewer.menue:
                     menuAbove = viewer.menue['|'.join(menus[:i])]
-                    viewer.menue.update({menuName: menuAbove.addMenu(menus[i])})
+                    newMenu = menuAbove.addMenu(menus[i])
+                    viewer.menue.update({menuName: newMenu})
+                    newMenu.setToolTipsVisible(True)
 
         before = viewer.exitAct
         if 'before' in cls.gui:  # if there is a "before" specified,

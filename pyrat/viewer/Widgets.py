@@ -88,11 +88,16 @@ class FileselWidget(QtWidgets.QWidget):
 
     def filesel(self):
         if self.type == 'openfile':
-            self.value = str(QtWidgets.QFileDialog(self).getOpenFileName()[0])
+            # self.value = str(QtWidgets.QFileDialog(self).getOpenFileName()[0])
+            self.value = str(QtWidgets.QFileDialog.getOpenFileName(parent=self,
+                                                                   options=QtWidgets.QFileDialog.DontUseNativeDialog)[0])
         elif self.type == 'opendir':
-            self.value = str(QtWidgets.QFileDialog(self).getExistingDirectory())
+            self.value = str(QtWidgets.QFileDialog.getExistingDirectory(parent=self,
+                                                                       options=QtWidgets.QFileDialog.DontUseNativeDialog))
+            # self.value = str(QtWidgets.QFileDialog(self).getExistingDirectory())
         elif self.type == 'savefile':
-            self.value = str(QtWidgets.QFileDialog(self).getSaveFileName()[0])
+            self.value = str(QtWidgets.QFileDialog().getSaveFileName(parent=self,
+                                                                     options=QtWidgets.QFileDialog.DontUseNativeDialog)[0])
 
         self.text.setText(self.value)
 
@@ -170,6 +175,90 @@ class ProductContentWidget(QtWidgets.QWidget):
         self.product.clear()
         for p in products:
             self.product.addItem(p)
+
+
+class ProductContentWidget_UAVSAR(QtWidgets.QWidget):
+    """
+    Custom widget for product component selection UAVSAR
+    """
+    def __init__(self, title=None, parent=None, bands=True, polar=True, products=None, tracks=None):
+        super(ProductContentWidget_UAVSAR, self).__init__(parent)
+        self.bandflag = bands
+        self.polflag = polar
+        mainlayout = QtWidgets.QGridLayout(self)
+        if isinstance(title, str):
+            mainlayout.addWidget(QtWidgets.QLabel(title), 0, 0)
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(QtWidgets.QLabel("Product"), 0, 0)
+        self.product = QtWidgets.QComboBox()
+        self.product.addItems(products)
+        layout.addWidget(self.product, 1, 0)
+
+        layout.addWidget(QtWidgets.QLabel("Tracks"), 0, 1)
+        self.tracks = QtWidgets.QComboBox()
+        self.tracks.addItems(tracks)
+        layout.addWidget(self.tracks, 1, 1)
+        if self.bandflag is True:
+            layout.addWidget(QtWidgets.QLabel("Band"), 0, 2)
+            self.band = QtWidgets.QComboBox()
+            self.band.addItems(["*"])
+            layout.addWidget(self.band, 1, 2)
+        if self.polflag is True:
+            layout.addWidget(QtWidgets.QLabel("Polarisation"), 0, 3)
+            self.polar = QtWidgets.QComboBox()
+            self.polar.addItems(["*"])
+            layout.addWidget(self.polar, 1, 3)
+        mainlayout.addLayout(layout, 1, 0)
+        self.setContentsMargins(0, 0, 0, 0)
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
+    def getvalue(self, index):
+        if index == 0:
+            return str(self.product.currentText())
+        elif index == 1:
+            return str(self.tracks.currentText())
+        elif index == 2 and self.bandflag is True:
+            return str(self.band.currentText())
+        elif index == 3 and self.polflag is True:
+            return str(self.polar.currentText())
+
+    def setvalue(self, index, val):
+        if index == 0:
+            self.product.setCurrentIndex(self.product.findText(val))
+        elif index == 1:
+            self.tracks.setCurrentIndex(self.tracks.findText(val))
+        elif index == 2 and self.bandflag is True:
+            self.band.setCurrentIndex(self.band.findText(val))
+        elif index == 3 and self.polflag is True:
+            self.polar.setCurrentIndex(self.polar.findText(val))
+
+    def updatepolar(self, pols):
+        # for k in range(self.polar.count()):
+        #     self.polar.removeItem(k)
+        self.polar.clear()
+        self.polar.addItem("*")
+        for p in pols:
+            self.polar.addItem(p)
+
+    def updatebands(self, bands):
+        # for k in range(self.band.count()):
+        #     self.band.removeItem(k)
+        self.band.clear()
+        self.band.addItem("*")
+        for b in bands:
+            self.band.addItem(b)
+
+    def updateproducts(self, products):
+        self.product.clear()
+        for p in products:
+            self.product.addItem(p)
+
+    def updatetracks(self, tracks):
+        self.tracks.clear()
+        self.tracks.addItem("*")
+        for p in tracks:
+            self.tracks.addItem(p)
+
 
 class BoolWidget(QtWidgets.QWidget):
     def __init__(self, text=None, parent=None):

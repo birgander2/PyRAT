@@ -1,19 +1,18 @@
 import pyrat
+import sys
 import numpy as np
 import logging
 from PyQt5 import QtGui, QtCore, QtWidgets
 from .Dialogs import PaletteSelector, LayerWidget
 from .StatusBar import *
 from . import egg
-from pyrat.tools import multimap
+from pyrat.tools import multimap, parallel_rdd_iter
 
 from pyrat.tools import colortables
 from pyrat.viewer.tools import sarscale, subsample
 
 
 class MainWindow(QtWidgets.QMainWindow):
-
-    modules = []
 
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
@@ -116,23 +115,18 @@ class MainWindow(QtWidgets.QMainWindow):
         tetris.show()
 
     # ---------------------------------- PLUGINS
-    def initPlugins(self):
-        from inspect import getmembers, isclass
+    def initPlugins(self, plugin=pyrat.Worker):
+        """
+        Init the plugins to be shown in the GUI.
+        """
+        if getattr(sys.modules[plugin.__module__], plugin.__name__, None) is not plugin:
+            return  # Outdated plugin (was reloaded)
+        if hasattr(plugin, 'gui'):
+            logging.debug(" Attaching GUI element : " + plugin.__name__)
+            plugin.registerGUI(self)
+        for subclass in plugin.__subclasses__():
+            self.initPlugins(subclass)
 
-        modules = self.modules.copy()
-        modules += [pyrat.filter, pyrat.load, pyrat.save, pyrat.transform,
-                    pyrat.polar, pyrat.insar, pyrat.plugins, pyrat.viewer]
-
-        logging.debug("Scanning for GUI elements:")
-        for current_module in modules:
-            modules = getmembers(current_module, isclass)
-            for mod in modules:
-                if issubclass(mod[1], pyrat.Worker):
-                    # plugin = mod[1]()
-                    plugin = mod[1]
-                    if hasattr(plugin, 'gui'):
-                        logging.debug(" Attaching GUI element : " + mod[0])
-                        plugin.registerGUI(self)
 
     def makeMenu(self):
         self.menubar = self.menuBar()
@@ -171,6 +165,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue["General"].addAction(self.viewDarker)
         self.menue["General"].addSeparator()
         self.viewSel = QtWidgets.QActionGroup(self.menue["General"])
+        self.viewSel.setExclusive(True)
         foo = self.viewSel.addAction(self.viewAmpAct)
         self.menue["General"].addAction(foo)
         foo = self.viewSel.addAction(self.viewPhaAct)
@@ -200,6 +195,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menue.update({"InSAR|Transform": self.menue["InSAR"].addMenu('Transform')})
         self.menue.update({"Tools|Geometry": self.menue["Tools"].addMenu('Geometry')})
         self.menue.update({"Tools|Filter": self.menue["Tools"].addMenu('Filter')})
+
+        for menu in self.menue.items():
+            if type(menu[1]) is QtWidgets.QMenu:
+                menu[1].setToolTipsVisible(True)
 
         # self.menue["View"].addAction(self.viewAmpAct)
         # self.menue["View"].addAction(self.viewPhaAct)
@@ -754,7 +753,6 @@ class GenPyramid():
             self.layer = pyrat.data.active
         else:
             self.layer = layer
-        self.hdfgroup = pyrat.data.layers[self.layer].group
 
         query = pyrat.data.queryLayer(self.layer)
         self.force = force  # force recalculation
@@ -786,16 +784,18 @@ class GenPyramid():
             ishp = [dim // 2 * 2 for dim in self.dshape]
             oshp = [dim // 2 for dim in self.dshape]
 
-        idat = self.hdfgroup[ilay]
-        if olay in self.hdfgroup and self.force is False:
-            self.dset.append(self.hdfgroup[olay])
+        layer = pyrat.data.layers[self.layer]
+        if olay in layer.group and self.force is False:
+            self.dset.append(olay)
             self.scale += 1
             self.dshape = oshp
             self.progress.update(self.scale * 100)
             self.run()
         else:
-            odat = self.hdfgroup.require_dataset(olay, self.lshape + tuple(oshp), 'float32')
-            self.dset.append(odat)
+            self.dset.append(olay)
+            layer.reopen('a')
+            layer.group.require_dataset(olay, self.lshape + tuple(oshp), 'float32')
+            layer.reopen('r')
             if min(oshp) > 1:
                 idx, ivalid, ibs = self.calc_blocks(ishp[-2], pack=True, blocksize=128)
                 odx, ovalid, obs = self.calc_blocks(oshp[-2], pack=False, blocksize=ibs // (ishp[-2] // oshp[-2]))
@@ -803,20 +803,30 @@ class GenPyramid():
                 for bidx in idx:
                     inputs = []
 
-                    for ix in bidx:
-                        data = idat[..., ix[0]:ix[1], 0:ishp[-1]]
-                        inputs.append((subsample, (data, self.lshape + (obs, oshp[1]), self.mode)))
-                    result = multimap(inputs, mode='method')
-                    # result = map(absrebin, inputs)
+                    if pyrat._sc is None:
+                        idat = layer.group[ilay]
+                        for ix in bidx:
+                            data = idat[..., ix[0]:ix[1], 0:ishp[-1]]
+                            inputs.append((subsample, (data, self.lshape + (obs, oshp[1]), self.mode)))
+                        result = multimap(inputs, mode='method')
+                    else:
+                        spark_idx = pyrat._sc.parallelize(bidx)
+                        spark_input = spark_idx.map(lambda ix: layer.group[ilay][..., ix[0]:ix[1], 0:ishp[-1]])
+                        spark_output = spark_input.map(lambda d: subsample((d, self.lshape + (obs, oshp[1]), self.mode)))
+                        result = parallel_rdd_iter(spark_output)
+
+                    layer.reopen('a')
+                    odat = layer.group[olay]
                     for res in result:
                         odat[..., odx[nb][0] + ovalid[nb][0]:odx[nb][1], :] = res[..., ovalid[nb][0]:ovalid[nb][1], :]
                         nb += 1
                         self.nblock += 1
                         self.progress.update(self.nblock)
+                    layer.reopen('r')
                 self.scale += 1
                 self.dshape = oshp
                 self.run()
-        return self.dset
+        return [layer.group[d] for d in self.dset]
 
     def calc_blocks(self, size, blocksize=128, pack=False):
 
@@ -843,7 +853,10 @@ class GenPyramid():
 
         if pack is True:
             if len(blocks) > 1 and nthreads > 1:
-                blocks = [blocks[i:i + nthreads] for i in range(0, len(blocks), nthreads)]
+                if pyrat._sc is None:
+                    blocks = [blocks[i:i + nthreads] for i in range(0, len(blocks), nthreads)]
+                else:
+                    blocks = [blocks]
             else:
                 blocks = [[block] for block in blocks]
         return blocks, valid, blocksize

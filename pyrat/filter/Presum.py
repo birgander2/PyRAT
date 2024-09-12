@@ -15,7 +15,8 @@ class Presum(pyrat.Worker):
     para = [
         {'var': 'subx', 'value': 4, 'type': 'int', 'range': [0, 999], 'text': 'Presumming range'},
         {'var': 'suby', 'value': 4, 'type': 'int', 'range': [0, 999], 'text': 'Presumming azimuth'},
-        {'var': 'decimate', 'value': False, 'type': 'bool', 'text': 'Skip averaging'}
+        {'var': 'decimate', 'value': False, 'type': 'bool', 'text': 'Skip averaging'},
+        {'var': 'phase', 'value': False, 'type': 'bool', 'text': 'Phase presumming'}
     ]
 
     def __init__(self, *args, **kwargs):
@@ -44,7 +45,7 @@ class Presum(pyrat.Worker):
             if self.decimate is True:
                 arr = arr[..., ::self.suby, ::self.subx]
             else:
-                arr = rebin(arr, tuple(blockdim))
+                arr = rebin(arr, tuple(blockdim), phase=self.phase)
             pyrat.data.setData(arr, block=(k, k+1, 0, 0), layer=outlayer)
         P.update(k + 1)
         del P

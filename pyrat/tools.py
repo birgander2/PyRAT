@@ -1424,7 +1424,11 @@ def parallelexec_class(args, k, queue):
         res = func(arg, **args[2]), args[2]['meta']
     else:
         res = func(**args[2]), args[2]['meta']
-    queue.put((k, res))
+
+    if queue is None:
+        return res
+    else:
+        queue.put((k, res))
 
 
 def parallelexec_method(args, k, queue):
@@ -1432,13 +1436,30 @@ def parallelexec_method(args, k, queue):
     Helper function to make multiprocessing on normal methods 'easier'.
     """
     res = args[0](args[1])
-    queue.put((k, res))
+    if queue is None:
+        return res
+    else:
+        queue.put((k, res))
+
+
+def parallel_rdd_iter(rdd):
+    """
+    Turn a spark RDD into a local iterator, forcing parallel evaluation of the RDD contents first.
+    :param rdd: Spark RDD
+    :return: python iterator that yields the contents of the RDD
+    """
+    import pyspark as spark
+    rdd = rdd.persist(spark.StorageLevel.MEMORY_AND_DISK)
+    _ = rdd.count()
+    return rdd.toLocalIterator()
 
 
 def multimap(jobs, mode='class'):
     """
     Replacement of multiprocessing.map which uses Process/Queue instead of Pool.
     This is faster in data handling and has no 4GB memory limitation due to pickle.
+
+    Alternatively, uses the Apache Spark if a spark context is available.
     """
 
     if mode == 'class':
@@ -1449,17 +1470,24 @@ def multimap(jobs, mode='class'):
         logging.ERROR("Unknown multimap mode")
         return
 
-    nthreads = len(jobs)
-    all_proc = []
-    queue = Queue()
-    for k in range(nthreads):
-        p = Process(target=worker, args=(jobs[k], k, queue))
-        p.start()
-        all_proc.append(p)
-    results = [None] * nthreads
-    for k in range(nthreads):
-        result = queue.get()
-        results[result[0]] = result[1]
-    for p in all_proc:
-        p.join()
+    if pyrat._sc is not None:
+        # a spark context is available (see pyrat/__init__.py). Distributed processing using spark.
+        spark_jobs = pyrat._sc.parallelize(jobs) # copy the jobs list into a distributed RDD
+        results = spark_jobs.map(lambda j: worker(j,0,None)).collect() # map the worker object onto the jobs
+    else:
+        # non-spark processing using the process Queue for parallel evaluation on the local machine
+        nthreads = len(jobs)
+        all_proc = []
+        queue = Queue()
+        for k in range(nthreads):
+            p = Process(target=worker, args=(jobs[k], k, queue))
+            p.start()
+            all_proc.append(p)
+        results = [None] * nthreads
+        for k in range(nthreads):
+            result = queue.get()
+            results[result[0]] = result[1]
+        for p in all_proc:
+            p.join()
+
     return results
