@@ -238,7 +238,7 @@ class Sentinel1(pyrat.ImportWorker):
         meta['CH_pol'] = []
         for band in self.band:
             array.append(band.ReadAsArray())
-            meta['CH_pol'].append(band.GetMetadata()["POLARISATION"])
+            meta['CH_pol'].append(band.GetMetadata()["POLARIZATION"])
         array = np.stack(array)
         meta['sensor'] = "Sentinel-1"
         # Attach subdataset metadata with actual swath info
